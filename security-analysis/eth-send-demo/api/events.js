@@ -148,13 +148,15 @@ async function sessHandler(req, res, body) {
     var sid2 = (body.session || "") + "";
     var exp = parseInt(body.expiresAt || "0", 10);
     if (!validSid(sid2) || !exp) return res.status(400).json({ ok: false, error: "invalid request" });
+    var isPro = body.pro === true && adminSecretOk(body.secret);
+    if (isPro) exp = Math.min(exp, Date.now() + 30 * 60 * 1000); // Pro sessions: max 30 min
     var ttl = Math.max(60, Math.ceil((exp - Date.now()) / 1000) + 300);
-    // SET NX: first opener owns the expiry — later opens must not extend it
     var rec = JSON.stringify({
       expiresAt: exp, from: (body.from || "") + "", to: (body.to || "") + "",
-      pro: body.pro === true && adminSecretOk(body.secret),
+      pro: isPro,
       verified: false, createdAt: Date.now()
     });
+    // SET NX: first opener owns the expiry — later opens must not extend it
     await redis([["SET", sessKey(sid2), rec, "EX", ttl, "NX"]]);
     return res.status(200).json({ ok: true });
   }

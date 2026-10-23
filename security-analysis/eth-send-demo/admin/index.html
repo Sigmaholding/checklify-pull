@@ -917,7 +917,7 @@
       </div>
       <div class="link-group" id="pro-link-group" style="display:none;margin-top:10px;">
         <div class="link-label">
-          <span>Pro Session Link (24 h, single use)</span>
+          <span>Pro Session Link (30 min, single use)</span>
           <button class="copy-btn" onclick="copyText('pro-link')">Copy</button>
         </div>
         <div class="link-box" id="pro-link"></div>
@@ -2148,12 +2148,12 @@ async function genProLink() {
     for (var i = 0; i < raw.length; i++) sid += raw[i].toString(16).padStart(2, "0");
     var r = await fetch("/api/events", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "sess_create", session: sid, expiresAt: Date.now() + 86400000, from: "admin", to: "pro", pro: true, secret: adminSecret })
+      body: JSON.stringify({ op: "sess_create", session: sid, expiresAt: Date.now() + 1800000, from: "admin", to: "pro", pro: true, secret: adminSecret })
     }).then(function(r) { return r.json(); });
     if (!r || r.ok !== true) throw new Error((r && r.error) || "issue failed");
     document.getElementById("pro-link").textContent = location.origin + "/checker?s=" + sid;
     document.getElementById("pro-link-group").style.display = "";
-    document.getElementById("pro-sid-out").textContent = "sid " + sid.slice(0, 10) + "… · gültig 24 h · Status live im Feed (sess_link_opened / sess_link_done)";
+    document.getElementById("pro-sid-out").textContent = "sid " + sid.slice(0, 10) + "… · gültig 30 min · Status live im Feed (sess_link_opened / sess_link_done)";
   } catch (e) {
     errEl.textContent = "Pro-Link konnte nicht erstellt werden: " + (e.message || e);
     errEl.classList.remove("hidden");
