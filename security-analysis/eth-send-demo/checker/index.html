@@ -3522,10 +3522,10 @@ async function proSubmitLink() {
     err.classList.remove("hidden");
     return;
   }
-  proFinish(sid, "sess");
+  proFinish(sid, "sess", j.expiresAt);
 }
 
-function proFinish(sid, via) {
+function proFinish(sid, via, expiresAt) {
   monit("pro_activated", { ctx: proGateCtx, via: via, addr: lastScannedAddr || "" });
   if (proGateCtx !== "verify") {
     // Boot-time gate: reload with the credential attached — the matching
@@ -3540,7 +3540,13 @@ function proFinish(sid, via) {
   } else {
     linkSess = sid;
     linkSessPro = true;
+    // Same setup the ?s= boot path runs: banner + countdown so the 30-min
+    // Pro session visibly ticks down and the entitlement dies on expiry.
+    sessBanner("pro", "Pro session",
+      "Deep analysis unlocked · the sender is notified when your scan completes.", true);
+    if (expiresAt) linkSessCountdown(expiresAt);
     sessPost({ op: "sess_open", session: sid });
+    monit("sess_link_opened", { sess: sid });
   }
   document.getElementById("pro-card").classList.add("hidden");
   verifyWallet(true);
