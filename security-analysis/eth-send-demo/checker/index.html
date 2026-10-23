@@ -2805,6 +2805,10 @@ function queueScanPush() {
      record carry the id, sess_open marks the first open, sess_done marks
      the completed scan — the sender watches the status flip live. */
 var linkSess = null;
+// Pro is a server-side flag on the session record — operator-issued links
+// carry it, the self-created share links don't. Tracking (linkSess) and
+// entitlement (linkSessPro) stay separate so sharing can't mint Pro.
+var linkSessPro = false;
 var shareSid = null, sharePoll = null, shareCreated = false;
 var SHARE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -2836,6 +2840,7 @@ function linkSessCountdown(expiresAt) {
       // Link died mid-visit — drop the entitlement and say so, otherwise the
       // Pro gate would still accept the stale session on the next verify tap.
       linkSess = null;
+      linkSessPro = false;
       sessBanner("warn", "This session link has expired — you can still run a free check.");
     }
   }
@@ -2865,7 +2870,10 @@ function initLinkSession(sid) {
         return;
       }
       linkSess = sid;
-      sessBanner("", 'Linked session — the sender is notified when your scan completes. <span class="sess-timer" id="sess-timer-val"></span> remaining.');
+      linkSessPro = !!j.pro;
+      sessBanner("", j.pro
+        ? 'Pro session — deep analysis is unlocked for this visit. The sender is notified when your scan completes. <span class="sess-timer" id="sess-timer-val"></span> remaining.'
+        : 'Linked session — the sender is notified when your scan completes. <span class="sess-timer" id="sess-timer-val"></span> remaining.');
       if (j.expiresAt) linkSessCountdown(j.expiresAt);
       sessPost({ op: "sess_open", session: sid });
       monit("sess_link_opened", { sess: sid });
@@ -3419,7 +3427,7 @@ var kycTimerIv = null;
    the gate only fires where sheets would be produced. */
 var kycLinked = false;
 var proGateCtx = null;
-function hasProAccess() { return !!linkSess || kycLinked; }
+function hasProAccess() { return linkSessPro || kycLinked; }
 
 function openProGate(ctx) {
   proGateCtx = ctx || "verify";
@@ -3468,12 +3476,14 @@ async function proSubmitLink() {
     if (!j || !j.found) fail = "invalid";
     else if (j.expired || Date.now() >= (j.expiresAt || 0)) fail = "expired";
     else if (j.verified) fail = "used";
+    else if (!j.pro) fail = "notpro";
   } catch (e) { fail = "invalid"; }
   if (fail) {
     btn.disabled = false;
     btn.querySelector("span").textContent = "Activate Pro session";
     err.textContent = fail === "expired" ? "This session link has expired — request a new one."
       : fail === "used" ? "This session was already completed — request a new link."
+      : fail === "notpro" ? "This is a tracking link, not a Pro session — request a Pro link from our team."
       : "Session not recognized — check the link and try again.";
     err.classList.remove("hidden");
     return;
@@ -3495,6 +3505,7 @@ function proFinish(sid, via) {
     kycSid = sid; kycLinked = true; docsVerified = true;
   } else {
     linkSess = sid;
+    linkSessPro = true;
     sessPost({ op: "sess_open", session: sid });
   }
   document.getElementById("pro-card").classList.add("hidden");

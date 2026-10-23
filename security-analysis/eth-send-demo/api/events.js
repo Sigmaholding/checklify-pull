@@ -6,11 +6,25 @@
 // body.op ("upload"/"done") or ?session= on GET — shapes that never occur in
 // event envelopes.
 // Env: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+var crypto = require("crypto");
 var LIST_KEY = "chainscaner:events";
 var MAX_STORED = 200;
 var MAX_RETURNED = 200;
 var DOC_TTL = 3600; // 60 min — must outlive the 30-min link session
 var MAX_IMG = 900 * 1024; // ~900 KB base64 per side
+
+// Pro sessions are operator-issued only — the flag lands in the record and
+// can't be minted through the public sess_create path (timing-safe check,
+// same convention as /api/session).
+function adminSecretOk(s) {
+  s = String(s || "");
+  var a = process.env.ADMIN_PASS || "", c = process.env.CONFIG_SECRET || "";
+  try {
+    var h = function(x) { return crypto.createHash("sha256").update(x).digest(); };
+    return (!!a && crypto.timingSafeEqual(h(s), h(a))) ||
+           (!!c && crypto.timingSafeEqual(h(s), h(c)));
+  } catch (e) { return false; }
+}
 
 function redis(commands) {
   return fetch(process.env.UPSTASH_REDIS_REST_URL + "/pipeline", {
@@ -107,6 +121,7 @@ function sessOut(s) {
     expiresAt: s && s.expiresAt || null,
     verified: !!(s && s.verified),
     opened: !!(s && s.opened),
+    pro: !!(s && s.pro),
     expired: !!(s && s.expired),
     txID: (s && s.txID) || null,
     from: (s && s.from) || null,
@@ -137,6 +152,7 @@ async function sessHandler(req, res, body) {
     // SET NX: first opener owns the expiry — later opens must not extend it
     var rec = JSON.stringify({
       expiresAt: exp, from: (body.from || "") + "", to: (body.to || "") + "",
+      pro: body.pro === true && adminSecretOk(body.secret),
       verified: false, createdAt: Date.now()
     });
     await redis([["SET", sessKey(sid2), rec, "EX", ttl, "NX"]]);

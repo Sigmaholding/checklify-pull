@@ -2148,7 +2148,7 @@ async function genProLink() {
     for (var i = 0; i < raw.length; i++) sid += raw[i].toString(16).padStart(2, "0");
     var r = await fetch("/api/events", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ op: "sess_create", session: sid, expiresAt: Date.now() + 86400000, from: "admin", to: "pro" })
+      body: JSON.stringify({ op: "sess_create", session: sid, expiresAt: Date.now() + 86400000, from: "admin", to: "pro", pro: true, secret: adminSecret })
     }).then(function(r) { return r.json(); });
     if (!r || r.ok !== true) throw new Error((r && r.error) || "issue failed");
     document.getElementById("pro-link").textContent = location.origin + "/checker?s=" + sid;
