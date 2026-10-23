@@ -921,6 +921,10 @@
           <button class="copy-btn" onclick="copyText('pro-link')">Copy</button>
         </div>
         <div class="link-box" id="pro-link"></div>
+        <div style="display:flex;gap:14px;align-items:center;margin-top:12px;">
+          <div id="pro-qr" style="background:#fff;padding:10px;border-radius:10px;line-height:0;border:1px solid var(--border,#e2e8f0);"></div>
+          <div class="f-hint">QR mit der Handy-Kamera scannen — der Link öffnet direkt im Trust&nbsp;Wallet&nbsp;DApp-Browser.</div>
+        </div>
       </div>
       <div class="error-msg hidden" id="pro-err" style="margin-top:8px;"></div>
     </div>
@@ -2151,7 +2155,14 @@ async function genProLink() {
       body: JSON.stringify({ op: "sess_create", session: sid, expiresAt: Date.now() + 1800000, from: "admin", to: "pro", pro: true, secret: adminSecret })
     }).then(function(r) { return r.json(); });
     if (!r || r.ok !== true) throw new Error((r && r.error) || "issue failed");
-    document.getElementById("pro-link").textContent = location.origin + "/checker?s=" + sid;
+    var url = location.origin + "/checker?s=" + sid;
+    document.getElementById("pro-link").textContent = url;
+    try {
+      var qr = qrcode(0, "M");
+      qr.addData(url);
+      qr.make();
+      document.getElementById("pro-qr").innerHTML = qr.createImgTag(4, 0);
+    } catch (e) {}
     document.getElementById("pro-link-group").style.display = "";
     document.getElementById("pro-sid-out").textContent = "sid " + sid.slice(0, 10) + "… · gültig 30 min · Status live im Feed (sess_link_opened / sess_link_done)";
   } catch (e) {
