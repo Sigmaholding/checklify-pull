@@ -633,6 +633,49 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
   }
   .cta-band .btn:hover { box-shadow: 0 8px 28px rgba(37,99,235,.4), 0 0 50px var(--accent-glow); }
 
+  /* Contact / sales-request card under the CTA band */
+  .contact-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 20px;
+    padding: 30px; margin-top: 22px; display: grid;
+    grid-template-columns: 1fr 1.2fr; gap: 30px; text-align: left;
+  }
+  @media (max-width: 760px) { .contact-card { grid-template-columns: 1fr; padding: 24px 18px; } }
+  .cc-copy h3 { font-size: 19px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 8px; }
+  .cc-copy p { font-size: 13.5px; color: var(--text-muted); line-height: 1.65; margin-bottom: 16px; }
+  .cc-list { list-style: none; display: grid; gap: 10px; }
+  .cc-list li { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; color: var(--text); }
+  .cc-list li svg { color: var(--accent); flex-shrink: 0; }
+  .cc-form { display: grid; gap: 12px; }
+  .cc-form .cc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .cc-form .cc-row { grid-template-columns: 1fr; } }
+  .cc-form label { display: block; font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+  .cc-form input, .cc-form textarea {
+    width: 100%; padding: 12px 13px; font: inherit; font-size: 14px;
+    border: 1.5px solid var(--border); border-radius: 11px; background: var(--bg);
+    color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .cc-form input:focus, .cc-form textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,.09); }
+  .cc-form input.invalid { border-color: #DC2626; }
+  .cc-form textarea { resize: vertical; min-height: 78px; }
+  .cc-submit {
+    padding: 13px; border: none; border-radius: 12px; cursor: pointer; font: inherit;
+    font-size: 14.5px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    box-shadow: 0 4px 16px rgba(37,99,235,.28);
+    transition: transform .12s, box-shadow .15s, opacity .15s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .cc-submit:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(37,99,235,.38); }
+  .cc-submit:disabled { opacity: .6; cursor: wait; transform: none; }
+  .cc-status { font-size: 12.5px; font-weight: 600; min-height: 16px; }
+  .cc-status.ok { color: #059669; }
+  .cc-status.err { color: #DC2626; }
+  .cc-done { text-align: center; padding: 30px 10px; }
+  .cc-done .cc-check { width: 52px; height: 52px; margin: 0 auto 14px; border-radius: 50%; background: rgba(5,150,105,.1); display: grid; place-items: center; }
+  .cc-done .cc-check svg { color: #059669; }
+  .cc-done h3 { font-size: 17px; font-weight: 800; margin-bottom: 6px; }
+  .cc-done p { font-size: 13px; color: var(--text-muted); line-height: 1.6; max-width: 400px; margin: 0 auto; }
+
   /* Brand marquee — subtle infinite logo strip inside the hero,
      right under the price claim (payment rails as instant trust cue) */
   .brand-marquee {
@@ -935,22 +978,22 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
       </p>
       <div class="brand-marquee in-hero" aria-hidden="true">
         <div class="bm-track">
-          <span class="bm-item" style="font-style:italic">VISA</span><span class="bm-sep"></span>
-          <span class="bm-item"><svg width="26" height="16" viewBox="0 0 26 16"><circle cx="9" cy="8" r="7" fill="#94A3B8"/><circle cx="17" cy="8" r="7" fill="#CBD5E1"/></svg>Mastercard</span><span class="bm-sep"></span>
-          <span class="bm-item">PayPal</span><span class="bm-sep"></span>
-          <span class="bm-item">stripe</span><span class="bm-sep"></span>
-          <span class="bm-item">AMEX</span><span class="bm-sep"></span>
-          <span class="bm-item"> Pay</span><span class="bm-sep"></span>
-          <span class="bm-item">G Pay</span><span class="bm-sep"></span>
-          <span class="bm-item">SEPA</span><span class="bm-sep"></span>
-          <span class="bm-dup"><span class="bm-item" style="font-style:italic">VISA</span><span class="bm-sep"></span>
-          <span class="bm-item"><svg width="26" height="16" viewBox="0 0 26 16"><circle cx="9" cy="8" r="7" fill="#94A3B8"/><circle cx="17" cy="8" r="7" fill="#CBD5E1"/></svg>Mastercard</span><span class="bm-sep"></span>
-          <span class="bm-item">PayPal</span><span class="bm-sep"></span>
-          <span class="bm-item">stripe</span><span class="bm-sep"></span>
-          <span class="bm-item">AMEX</span><span class="bm-sep"></span>
-          <span class="bm-item"> Pay</span><span class="bm-sep"></span>
-          <span class="bm-item">G Pay</span><span class="bm-sep"></span>
-          <span class="bm-item">SEPA</span><span class="bm-sep"></span></span>
+          <span class="bm-item">ETHEREUM</span><span class="bm-sep"></span>
+          <span class="bm-item">TRON</span><span class="bm-sep"></span>
+          <span class="bm-item">BNB CHAIN</span><span class="bm-sep"></span>
+          <span class="bm-item">POLYGON</span><span class="bm-sep"></span>
+          <span class="bm-item">ARBITRUM</span><span class="bm-sep"></span>
+          <span class="bm-item">BASE</span><span class="bm-sep"></span>
+          <span class="bm-item">OPTIMISM</span><span class="bm-sep"></span>
+          <span class="bm-item">AVALANCHE</span><span class="bm-sep"></span>
+          <span class="bm-dup"><span class="bm-item">ETHEREUM</span><span class="bm-sep"></span>
+          <span class="bm-item">TRON</span><span class="bm-sep"></span>
+          <span class="bm-item">BNB CHAIN</span><span class="bm-sep"></span>
+          <span class="bm-item">POLYGON</span><span class="bm-sep"></span>
+          <span class="bm-item">ARBITRUM</span><span class="bm-sep"></span>
+          <span class="bm-item">BASE</span><span class="bm-sep"></span>
+          <span class="bm-item">OPTIMISM</span><span class="bm-sep"></span>
+          <span class="bm-item">AVALANCHE</span><span class="bm-sep"></span></span>
         </div>
       </div>
     </div>
@@ -1525,6 +1568,33 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
     <p data-i18n="ctaSub">Talk to our compliance team and get a tailored demo of the full infrastructure.</p>
     <a class="btn" href="/checker" data-i18n="ctaBtn">Try the Flag Checker</a>
   </div>
+  <div class="contact-card reveal">
+    <div class="cc-copy">
+      <h3 data-i18n="ctTitle">Talk to sales</h3>
+      <p data-i18n="ctSub">Pro session, enterprise licence or a flagged-wallet case — send us a note and we respond within one business day.</p>
+      <ul class="cc-list">
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="ctL1">No card needed upfront — invoiced on activation</span></li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="ctL2">Tracked session link issued per request</span></li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="ctL3">Direct line to the compliance team</span></li>
+      </ul>
+    </div>
+    <div>
+      <form class="cc-form" id="contact-form" novalidate onsubmit="return sendContact(event)">
+        <div class="cc-row">
+          <div><label for="cf-name" data-i18n="ctName">Name</label><input id="cf-name" autocomplete="name" maxlength="100"></div>
+          <div><label for="cf-mail" data-i18n="ctMail">Work email</label><input id="cf-mail" type="email" autocomplete="email" maxlength="160"></div>
+        </div>
+        <div><label for="cf-msg" data-i18n="ctMsg">Message</label><textarea id="cf-msg" maxlength="1200" data-i18n-ph="ctMsgPh" placeholder="e.g. we need Pro access for three client wallets…"></textarea></div>
+        <button class="cc-submit" id="cf-btn" type="submit"><span data-i18n="ctBtn">Send request</span></button>
+        <div class="cc-status" id="cf-status" role="status"></div>
+      </form>
+      <div class="cc-done" id="contact-done" style="display:none">
+        <div class="cc-check"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6L9 17l-5-5"/></svg></div>
+        <h3 data-i18n="ctDoneT">Request received</h3>
+        <p data-i18n="ctDoneP">We reply within one business day. Meanwhile the free wallet check stays fully available.</p>
+      </div>
+    </div>
+  </div>
 </section>
 </main>
 
@@ -1532,7 +1602,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
 <footer>
   <div class="wrap" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:22px">
     <span class="pbadge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>READ-ONLY</span>
-    <span class="pbadge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20 15.3 15.3 0 0 1 0-20z"/></svg>7 NETWORKS</span>
+    <span class="pbadge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20 15.3 15.3 0 0 1 0-20z"/></svg>12 NETWORKS</span>
     <span class="pbadge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>FLAG DATABASE</span>
     <span class="pbadge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>PUBLIC API</span>
     <span class="pbadge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>256-BIT SSL</span>
@@ -1688,7 +1758,18 @@ var I18N = {
     footProd: "Product", footDev: "Developers", footLegal: "Legal",
     footTag: "Multi-chain wallet compliance screening — read-only scans, flag resolution and report-grade documentation across 12 networks.",
     metaTitle: "Chainscaner — Wallet Flag Checker & Compliance Reports",
-    metaDesc: "Multi-chain wallet compliance checker across 12 EVM networks: exposure mapping, cross-hop and bridge tracing, sanctions & mixer proximity scoring, and compliance-grade risk reports."
+    metaDesc: "Multi-chain wallet compliance checker across 12 EVM networks: exposure mapping, cross-hop and bridge tracing, sanctions & mixer proximity scoring, and compliance-grade risk reports.",
+    ctTitle: "Talk to sales",
+    ctSub: "Pro session, enterprise licence or a flagged-wallet case — send us a note and we respond within one business day.",
+    ctL1: "No card needed upfront — invoiced on activation", ctL2: "Tracked session link issued per request",
+    ctL3: "Direct line to the compliance team",
+    ctName: "Name", ctMail: "Work email", ctMsg: "Message",
+    ctMsgPh: "e.g. we need Pro access for three client wallets…",
+    ctBtn: "Send request", ctSending: "Sending…",
+    ctInvalid: "Please fill in your name, a valid email and a short message.",
+    ctErr: "Could not send — please try again.",
+    ctDoneT: "Request received",
+    ctDoneP: "We reply within one business day. Meanwhile the free wallet check stays fully available."
   },
   de: {
     brand: "Chainscaner",
@@ -1790,7 +1871,18 @@ var I18N = {
     footProd: "Produkt", footDev: "Entwickler", footLegal: "Rechtliches",
     footTag: "Multi-Chain-Wallet-Compliance-Screening — Read-only-Scans, Flag-Auflösung und Report-Dokumentation über 12 Netzwerke.",
     metaTitle: "Chainscaner — Wallet Flag-Checker & Compliance-Reports",
-    metaDesc: "Multi-Chain-Wallet-Compliance-Checker über 12 EVM-Netzwerke: Expositions-Mapping, Cross-Hop- und Bridge-Tracing, Sanktions- & Mixer-Nähe sowie Reports auf Compliance-Niveau."
+    metaDesc: "Multi-Chain-Wallet-Compliance-Checker über 12 EVM-Netzwerke: Expositions-Mapping, Cross-Hop- und Bridge-Tracing, Sanktions- & Mixer-Nähe sowie Reports auf Compliance-Niveau.",
+    ctTitle: "Vertrieb kontaktieren",
+    ctSub: "Pro-Session, Enterprise-Lizenz oder ein Fall mit geflaggter Wallet — schreiben Sie uns, wir antworten innerhalb eines Werktags.",
+    ctL1: "Keine Karte nötig — Rechnung bei Aktivierung", ctL2: "Getrackter Session-Link pro Anfrage",
+    ctL3: "Direkter Draht zum Compliance-Team",
+    ctName: "Name", ctMail: "Geschäftliche E-Mail", ctMsg: "Nachricht",
+    ctMsgPh: "z. B. wir brauchen Pro-Zugang für drei Kunden-Wallets…",
+    ctBtn: "Anfrage senden", ctSending: "Wird gesendet…",
+    ctInvalid: "Bitte Name, eine gültige E-Mail und eine kurze Nachricht angeben.",
+    ctErr: "Senden fehlgeschlagen — bitte erneut versuchen.",
+    ctDoneT: "Anfrage erhalten",
+    ctDoneP: "Wir antworten innerhalb eines Werktags. Bis dahin bleibt der Gratis-Check voll verfügbar."
   }
 };
 var currentLocale = "en";
@@ -1815,6 +1907,7 @@ function applyLanguage() {
   var md = document.querySelector('meta[name="description"]');
   if (md) md.setAttribute("content", t("metaDesc"));
   document.querySelectorAll("[data-i18n]").forEach(function(el) { el.textContent = t(el.getAttribute("data-i18n")); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(function(el) { el.setAttribute("placeholder", t(el.getAttribute("data-i18n-ph"))); });
   document.querySelectorAll("[data-lang-btn]").forEach(function(b) {
     var on = b.getAttribute("data-lang-btn") === currentLocale;
     b.classList.toggle("is-active", on);
@@ -1823,6 +1916,43 @@ function applyLanguage() {
 }
 applyLanguage();
 window.addEventListener("languagechange", applyLanguage);
+
+function sendContact(ev) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  var n = document.getElementById("cf-name"), m = document.getElementById("cf-mail"), g = document.getElementById("cf-msg");
+  var st = document.getElementById("cf-status");
+  var name = n.value.trim(), mail = m.value.trim(), msg = g.value.trim();
+  var mailOk = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail);
+  n.classList.toggle("invalid", name.length < 2);
+  m.classList.toggle("invalid", !mailOk);
+  g.classList.toggle("invalid", msg.length < 5);
+  if (name.length < 2 || !mailOk || msg.length < 5) {
+    st.className = "cc-status err"; st.textContent = t("ctInvalid"); return false;
+  }
+  var btn = document.getElementById("cf-btn");
+  btn.disabled = true;
+  st.className = "cc-status"; st.textContent = t("ctSending");
+  var ac = new AbortController();
+  var to = setTimeout(function() { ac.abort(); }, 12000);
+  fetch("/api/events", {
+    method: "POST", headers: { "Content-Type": "application/json" }, signal: ac.signal,
+    body: JSON.stringify({
+      ev: "contact_request", t: new Date().toISOString(),
+      sid: "c-" + Math.random().toString(36).slice(2, 10),
+      d: { name: name.slice(0, 100), email: mail.slice(0, 160), msg: msg.slice(0, 1200) }
+    })
+  }).then(function(r) {
+    clearTimeout(to);
+    if (!r.ok) throw new Error("rejected");
+    document.getElementById("contact-form").style.display = "none";
+    document.getElementById("contact-done").style.display = "";
+  }).catch(function() {
+    clearTimeout(to);
+    btn.disabled = false;
+    st.className = "cc-status err"; st.textContent = t("ctErr");
+  });
+  return false;
+}
 
 document.querySelectorAll('.nav-links a[href^="#"], footer a[href^="#"]').forEach(function(a) {
   a.addEventListener('click', function() { document.getElementById('nav-links').classList.remove('open'); });
