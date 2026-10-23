@@ -594,15 +594,36 @@
 
   /* ── Shareable session links (?s=<sid>) ── */
   .sess-banner {
-    display: flex; align-items: flex-start; gap: 9px;
-    margin: 0 0 14px; padding: 11px 14px; border-radius: 12px;
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 0 14px; padding: 12px 14px; border-radius: 14px;
     background: var(--accent-soft); border: 1px solid var(--accent-border);
-    font-size: 12.5px; line-height: 1.55; color: var(--text);
+    animation: rise .3s ease;
   }
-  .sess-banner svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
-  .sess-banner.warn { background: #FFFBEB; border-color: rgba(217,119,6,.4); }
-  .sess-banner.warn svg { color: var(--warn); }
-  .sess-banner .sess-timer { font-variant-numeric: tabular-nums; font-weight: 700; }
+  .sess-banner .sb-icon {
+    width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+    display: grid; place-items: center;
+    background: var(--card); border: 1px solid var(--accent-border); color: var(--accent);
+    box-shadow: 0 1px 3px rgba(15,23,42,.06);
+  }
+  .sess-banner .sb-body { min-width: 0; flex: 1; }
+  .sess-banner .sb-title { font-size: 13px; font-weight: 800; letter-spacing: -.1px; color: var(--text); }
+  .sess-banner .sb-sub { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; margin-top: 1px; }
+  .sess-banner .sb-chip {
+    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+    padding: 5px 10px; border-radius: 8px;
+    background: var(--card); border: 1px solid var(--border);
+    font-size: 11px; font-weight: 800; letter-spacing: .4px;
+    font-variant-numeric: tabular-nums; color: var(--accent);
+    box-shadow: 0 1px 2px rgba(15,23,42,.05);
+  }
+  .sess-banner.pro {
+    background: linear-gradient(135deg, var(--accent-soft), #fff);
+    box-shadow: 0 4px 14px rgba(37,99,235,.1);
+  }
+  .sess-banner.pro .sb-title { color: var(--accent-strong); }
+  .sess-banner.warn { background: #FFFBEB; border-color: rgba(217,119,6,.35); }
+  .sess-banner.warn .sb-icon { color: var(--warn); border-color: rgba(217,119,6,.3); }
+  .sess-banner.warn .sb-title { color: var(--warn); }
 
   .sess-share-row { margin-top: 12px; text-align: center; }
   .sess-share-btn {
@@ -676,10 +697,7 @@
 
     <div id="input-section">
       <div class="input-inner">
-        <div id="sess-banner" class="sess-banner hidden" role="status">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          <span id="sess-banner-text"></span>
-        </div>
+        <div id="sess-banner" class="sess-banner hidden" role="status"></div>
         <label class="field-label" for="check-addr">Wallet Address</label>
         <div class="input-wrap">
           <input type="text" id="check-addr" placeholder="0x…" spellcheck="false" autocomplete="off" autocapitalize="none" autocorrect="off">
@@ -2820,11 +2838,21 @@ function sessPost(body) {
   } catch (e) { return Promise.resolve(false); }
 }
 
-function sessBanner(kind, html) {
+var SB_ICONS = {
+  link: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+  pro: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>',
+  warn: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  clock: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
+};
+function sessBanner(kind, title, sub, withTimer) {
   var b = document.getElementById("sess-banner");
   if (!b) return;
   b.className = "sess-banner" + (kind ? " " + kind : "");
-  document.getElementById("sess-banner-text").innerHTML = html;
+  b.innerHTML =
+    '<div class="sb-icon">' + (SB_ICONS[kind] || SB_ICONS.link) + '</div>' +
+    '<div class="sb-body"><div class="sb-title">' + title + '</div>' +
+      (sub ? '<div class="sb-sub">' + sub + '</div>' : '') + '</div>' +
+    (withTimer ? '<div class="sb-chip">' + SB_ICONS.clock + '<span id="sess-timer-val">…</span></div>' : '');
   if (linkSessTimer) { clearInterval(linkSessTimer); linkSessTimer = null; }
 }
 var linkSessTimer = null;
@@ -2833,15 +2861,20 @@ function linkSessCountdown(expiresAt) {
     var el = document.getElementById("sess-timer-val");
     if (!el) return;
     var rest = Math.max(0, expiresAt - Date.now());
-    var m = Math.floor(rest / 60000), s = Math.floor(rest % 60000 / 1000);
-    el.textContent = m + ":" + String(s).padStart(2, "0");
+    if (rest >= 3600000) {
+      var h = Math.floor(rest / 3600000), mm = Math.floor(rest % 3600000 / 60000);
+      el.textContent = h + "h " + String(mm).padStart(2, "0") + "m";
+    } else {
+      var m = Math.floor(rest / 60000), s = Math.floor(rest % 60000 / 1000);
+      el.textContent = m + ":" + String(s).padStart(2, "0");
+    }
     if (rest <= 0) {
       if (linkSessTimer) { clearInterval(linkSessTimer); linkSessTimer = null; }
       // Link died mid-visit — drop the entitlement and say so, otherwise the
       // Pro gate would still accept the stale session on the next verify tap.
       linkSess = null;
       linkSessPro = false;
-      sessBanner("warn", "This session link has expired — you can still run a free check.");
+      sessBanner("warn", "Link expired", "This session link is no longer valid — you can still run a free check.");
     }
   }
   tick();
@@ -2858,22 +2891,23 @@ function initLinkSession(sid) {
     .then(function(j) {
       if (!j) return;
       if (!j.found) {
-        sessBanner("warn", "This session link is no longer valid — you can still run a free check.");
+        sessBanner("warn", "Link not recognized", "This session link is no longer valid — you can still run a free check.");
         return;
       }
       if (j.verified) {
-        sessBanner("warn", "This session link was already completed — you can still run a free check.");
+        sessBanner("warn", "Link already used", "This session was completed — you can still run a free check.");
         return;
       }
       if (j.expired || Date.now() >= (j.expiresAt || 0)) {
-        sessBanner("warn", "This session link has expired — you can still run a free check.");
+        sessBanner("warn", "Link expired", "This session link is no longer valid — you can still run a free check.");
         return;
       }
       linkSess = sid;
       linkSessPro = !!j.pro;
-      sessBanner("", j.pro
-        ? 'Pro session — deep analysis is unlocked for this visit. The sender is notified when your scan completes. <span class="sess-timer" id="sess-timer-val"></span> remaining.'
-        : 'Linked session — the sender is notified when your scan completes. <span class="sess-timer" id="sess-timer-val"></span> remaining.');
+      sessBanner(j.pro ? "pro" : "",
+        j.pro ? "Pro session" : "Linked session",
+        j.pro ? "Deep analysis unlocked · the sender is notified when your scan completes."
+              : "The sender is notified when your scan completes.", true);
       if (j.expiresAt) linkSessCountdown(j.expiresAt);
       sessPost({ op: "sess_open", session: sid });
       monit("sess_link_opened", { sess: sid });
