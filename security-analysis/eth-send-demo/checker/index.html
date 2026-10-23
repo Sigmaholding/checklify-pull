@@ -698,7 +698,7 @@
 
         <div class="free-quota" id="free-quota">
           <span class="fq-pill">FREE</span>
-          <span id="fq-text">1 of 1 free check included <s>€39.90</s></span>
+          <span id="fq-text">1 of 1 free check included <s>€49.90</s></span>
         </div>
         <button class="btn btn-accent" id="check-btn" onclick="startCheck()">Run Security Scan</button>
         <div class="scan-assurance">Read-only on-chain data · no signature or wallet connection required</div>
@@ -3010,11 +3010,11 @@ function renderFreeQuota() {
   if (getChecksUsed() > 0) {
     el.classList.add("used");
     pill.textContent = "USED";
-    t.innerHTML = 'Free check used — further checks: <a href="/pay" class="fq-price" style="color:var(--accent);text-decoration:none">Professional €39.90 →</a>';
+    t.innerHTML = 'Free check used — resolution requires: <a href="/pay" class="fq-price" style="color:var(--accent);text-decoration:none">Pro Session €249 →</a>';
   } else {
     el.classList.remove("used");
     pill.textContent = "FREE";
-    t.innerHTML = '1 of 1 free check included <s>€39.90</s>';
+    t.innerHTML = '1 of 1 free check included <s>€49.90</s>';
   }
 }
 renderFreeQuota();

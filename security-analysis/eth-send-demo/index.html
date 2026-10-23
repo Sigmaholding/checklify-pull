@@ -75,7 +75,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
         {
           "@type": "Question",
           "name": "Is the free check really free?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Yes — one full check per wallet is free, no card or account required. The Professional tier adds a compliance-grade PDF report, priority flag resolution and notifications when a flag status changes." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Yes — one full check per wallet is free, no card or account required. On-chain flag resolution is a Pro Session (€249) that adds deep chain analysis, compliance attestation and a tracked session link." }
         },
         {
           "@type": "Question",
@@ -930,7 +930,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
       <p class="hero-offer">
         <span class="offer-limit" data-i18n="offerLimit">Only 1 free check per wallet</span>
         <span data-i18n="offerText">— regular price</span>
-        <s data-i18n="offerWas">€39.90</s>
+        <s data-i18n="offerWas">€49.90</s>
         <span class="offer-now" data-i18n="offerNow">€0 today — no card needed</span>
       </p>
       <div class="brand-marquee in-hero" aria-hidden="true">
@@ -1254,64 +1254,71 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
     <div class="pricing-grid">
       <div class="price-card">
         <div class="price-badge">Free</div>
-        <div class="price-name" data-i18n="priceFree">First Check</div>
-        <span class="price-was" data-i18n="offerWas">€39.90</span>
+        <div class="price-name" data-i18n="priceFree">Free Check</div>
+        <span class="price-was" data-i18n="offerWas">€49.90</span>
         <div class="price-amount">€0</div>
-        <div class="price-period" data-i18n="priceFreePer">per check</div>
+        <div class="price-period" data-i18n="priceFreePer">per wallet check</div>
         <ul class="price-features">
-          <li>Full multi-chain scan (12 chains)</li>
-          <li>Real-time flag detection</li>
-          <li>Risk score &amp; detailed report</li>
-          <li>Flag removal preview</li>
+          <li data-i18n="pf1">Full multi-chain scan (12 chains)</li>
+          <li data-i18n="pf2">Real-time flag detection</li>
+          <li data-i18n="pf3">Risk score &amp; detailed report</li>
+          <li data-i18n="pf4">Resolution preview</li>
+          <li data-i18n="pf5">1 free check per wallet</li>
         </ul>
         <a class="price-btn price-btn-outline" href="/checker" data-i18n="priceFreeCta">Run Free Check</a>
       </div>
       <div class="price-card price-card-featured">
-        <div class="price-badge featured">Most Popular</div>
-        <div class="price-name" data-i18n="pricePro">Professional</div>
-        <div class="price-amount">€39.90</div>
-        <div class="price-period" data-i18n="priceProPer">per check</div>
+        <div class="price-badge featured" data-i18n="proBadge">For businesses</div>
+        <div class="price-name" data-i18n="pricePro">Pro Session</div>
+        <div class="price-amount">€249</div>
+        <div class="price-period" data-i18n="priceProPer">per resolution session</div>
         <ul class="price-features">
-          <li>Everything in Free</li>
-          <li>Priority flag removal</li>
-          <li>Detailed compliance report (PDF)</li>
-          <li>Gas-fee optimization</li>
-          <li>Email notification on flag changes</li>
+          <li data-i18n="pf6">Everything in Free</li>
+          <li data-i18n="pf7">On-chain flag resolution — all flags, one session</li>
+          <li data-i18n="pf8">Deep chain analysis &amp; compliance attestation</li>
+          <li data-i18n="pf9">Identity verification (document check)</li>
+          <li data-i18n="pf10">Tracked session links for your clients</li>
+          <li data-i18n="pf11">Priority processing &amp; support</li>
         </ul>
-        <a class="price-btn price-btn-fill" href="/pay" data-i18n="priceProCta">Start Professional Check</a>
+        <a class="price-btn price-btn-fill" href="/pay" data-i18n="priceProCta">Get Pro Session</a>
       </div>
       <div class="price-card">
         <div class="price-badge">Enterprise</div>
         <div class="price-name" data-i18n="priceEnt">Enterprise</div>
-        <div class="price-amount">Custom</div>
-        <div class="price-period" data-i18n="priceEntPer">contact us</div>
+        <div class="price-amount" data-i18n="priceEntAmt">from €2,900</div>
+        <div class="price-period" data-i18n="priceEntPer">per year · custom terms</div>
         <ul class="price-features">
-          <li>Unlimited checks</li>
-          <li>Bulk wallet resolution</li>
-          <li>API access &amp; webhooks</li>
-          <li>Dedicated compliance manager</li>
-          <li>SLA guarantee</li>
+          <li data-i18n="pf12">Unlimited checks &amp; Pro sessions</li>
+          <li data-i18n="pf13">Bulk wallet resolution</li>
+          <li data-i18n="pf14">API access &amp; webhooks</li>
+          <li data-i18n="pf15">Dedicated compliance manager &amp; SLA</li>
         </ul>
         <a class="price-btn price-btn-outline" href="#contact" data-i18n="priceEntCta">Contact Sales</a>
       </div>
     </div>
     <div class="cmp-wrap">
-      <div class="cmp-title" data-i18n="cmpTitle">Free vs Professional vs Enterprise — in detail</div>
+      <div class="cmp-title" data-i18n="cmpTitle">Free vs Pro vs Enterprise — in detail</div>
       <table class="cmp-table">
         <thead>
           <tr>
             <th class="cmp-feat" data-i18n="cmpFeat">Feature</th>
-            <th data-i18n="priceFree">First Check</th>
-            <th class="cmp-pro" data-i18n="pricePro">Professional</th>
+            <th data-i18n="priceFree">Free Check</th>
+            <th class="cmp-pro" data-i18n="pricePro">Pro Session</th>
             <th data-i18n="priceEnt">Enterprise</th>
           </tr>
         </thead>
         <tbody>
+          <tr>
+            <td data-i18n="cmpPrice">Price</td>
+            <td data-plan="Free"><span class="cmp-val">€0</span></td>
+            <td data-plan="Pro" class="cmp-pro"><span class="cmp-val" data-i18n="cmpPriceP">€249 / session</span></td>
+            <td data-plan="Ent"><span class="cmp-val" data-i18n="cmpPriceE">from €2,900/yr</span></td>
+          </tr>
           <tr class="cmp-group"><td colspan="4" data-i18n="cmpG1">Scanning</td></tr>
           <tr>
             <td data-i18n="cmpF1">Multi-chain scan</td>
             <td data-plan="Free"><span class="cmp-val" data-i18n="cmpF1a">1 wallet</span></td>
-            <td data-plan="Pro" class="cmp-pro"><span class="cmp-val" data-i18n="cmpF1b">Per check</span></td>
+            <td data-plan="Pro" class="cmp-pro"><span class="cmp-val" data-i18n="cmpF1b">Per session</span></td>
             <td data-plan="Ent"><span class="cmp-yes" data-i18n="cmpF1c">Unlimited</span></td>
           </tr>
           <tr>
@@ -1489,7 +1496,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
       </details>
       <details class="faq-item" name="faq">
         <summary><span data-i18n="faqQ2">Is the free check really free?</span><span class="faq-chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></summary>
-        <div class="faq-body" data-i18n="faqA2">Yes — one full check per wallet is free, no card or account required. The Professional tier adds a compliance-grade PDF report, priority flag resolution and notifications when a flag status changes.</div>
+        <div class="faq-body" data-i18n="faqA2">Yes — one full check per wallet is free, no card or account required. On-chain flag resolution is a Pro Session (€249) that adds deep chain analysis, compliance attestation and a tracked session link.</div>
       </details>
       <details class="faq-item" name="faq">
         <summary><span data-i18n="faqQ3">Do I need to connect a wallet or share a private key?</span><span class="faq-chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span></summary>
@@ -1588,7 +1595,7 @@ var I18N = {
     heroTitleA: "Enterprise KYC &", heroTitleB: "Compliance Infrastructure",
     heroSub: "Institutional-grade identity verification, AML screening, and secure OTC deal escrow for banks, exchanges, and regulated fintech platforms.",
     ctaDemo: "Run Free Check", ctaExplore: "Explore Solutions",
-    offerTag: "FREE", offerLimit: "Only 1 free check per wallet", offerText: "— regular price", offerWas: "€39.90", offerNow: "€0 today — no card needed",
+    offerTag: "FREE", offerLimit: "Only 1 free check per wallet", offerText: "— regular price", offerWas: "€49.90", offerNow: "€0 today — no card needed",
     heroChains: "Supported networks",
     stripLabel: "What the scan evaluates",
     stripText: "Every scan traces sanctions-format lists, fraud-flag taxonomy, on-chain balance reads, gas sufficiency, wallet hygiene, attestation records, multi-chain RPC coverage, and report-grade logging — across all 12 supported networks.",
@@ -1600,10 +1607,18 @@ var I18N = {
     prodKicker: "Product Suite", prodTitle: "Enterprise Solutions", prodSub: "Complete compliance infrastructure for modern financial services.",
     ptagReal: "Real-time", ptagAlerts: "Alerts",
     prod1t: "Flag Checker & Resolver", prod1p: "On-chain screening of wallet addresses across 12 networks — flagged balances, gas analysis and hygiene findings such as dust or spam remnants. Flags are resolved via deep chain analysis and documented in a detailed report.", prodOpen: "Open tool →",
-    pricingKicker: "Pricing", pricingTitle: "Simple, Transparent Pricing", pricingSub: "Start free — no credit card required. Pay only when you need ongoing monitoring or bulk resolution.",
-    priceFree: "First Check", priceFreePer: "per check", priceFreeCta: "Run Free Check",
-    pricePro: "Professional", priceProPer: "per check", priceProCta: "Start Professional Check",
-    priceEnt: "Enterprise", priceEntPer: "contact us", priceEntCta: "Contact Sales",
+    pricingKicker: "Pricing", pricingTitle: "Simple, Transparent Pricing", pricingSub: "Wallet checks stay free — no card required. On-chain flag resolution is a Pro session, built for firms and professionals.",
+    priceFree: "Free Check", priceFreePer: "per wallet check", priceFreeCta: "Run Free Check",
+    proBadge: "For businesses",
+    pricePro: "Pro Session", priceProPer: "per resolution session", priceProCta: "Get Pro Session",
+    priceEnt: "Enterprise", priceEntAmt: "from €2,900", priceEntPer: "per year · custom terms", priceEntCta: "Contact Sales",
+    pf1: "Full multi-chain scan (12 chains)", pf2: "Real-time flag detection",
+    pf3: "Risk score & detailed report", pf4: "Resolution preview", pf5: "1 free check per wallet",
+    pf6: "Everything in Free", pf7: "On-chain flag resolution — all flags, one session",
+    pf8: "Deep chain analysis & compliance attestation", pf9: "Identity verification (document check)",
+    pf10: "Tracked session links for your clients", pf11: "Priority processing & support",
+    pf12: "Unlimited checks & Pro sessions", pf13: "Bulk wallet resolution",
+    pf14: "API access & webhooks", pf15: "Dedicated compliance manager & SLA",
     prod2t: "Handshake Escrow KYC", prod2p: "Secure peer-to-peer OTC deals with built-in identity verification and smart-contract escrow release.", prodLearn: "Learn more →",
     prod3t: "Enterprise KYC Suite", prod3p: "Automated identity verification with document scanning, biometric liveness and PEP/sanctions screening in under 3 seconds.", prodLearn2: "Learn more →",
     prod4t: "Transaction Monitoring", prod4p: "AI-powered real-time surveillance of crypto and fiat flows with anomaly detection and instant alert generation.", prodLearn3: "Learn more →",
@@ -1633,9 +1648,10 @@ var I18N = {
     tickChk1: "Sanctions-list match", tickChk2: "Mixer proximity · 2 hops", tickChk3: "Dust & spam hygiene", tickChk4: "Approval exposure", tickChk5: "Bridge & cross-hop trace", tickChk6: "Gas readiness",
     svcKicker: "Our Services", svcTitle: "Compliance, Solved",
     svcSub: "Flagged wallets, untrusted contracts, and customer identity proof — the biggest blockers for legitimate businesses. We handle all three.",
-    cmpTitle: "Free vs Professional vs Enterprise — in detail", cmpFeat: "Feature",
+    cmpTitle: "Free vs Pro vs Enterprise — in detail", cmpFeat: "Feature",
+    cmpPrice: "Price", cmpPriceP: "€249 / session", cmpPriceE: "from €2,900/yr",
     cmpG1: "Scanning", cmpG2: "Report & Resolution", cmpG3: "Monitoring & Access",
-    cmpF1: "Multi-chain scan", cmpF1a: "1 wallet", cmpF1b: "Per check", cmpF1c: "Unlimited",
+    cmpF1: "Multi-chain scan", cmpF1a: "1 wallet", cmpF1b: "Per session", cmpF1c: "Unlimited",
     cmpF2: "Networks covered", cmpF3: "Real-time flag detection", cmpF4: "Risk score & findings",
     cmpF5: "Flag removal preview", cmpF6: "Compliance report (PDF)", cmpF7: "Priority flag resolution",
     cmpF8: "Gas-fee optimization", cmpF9: "Flag change notifications",
@@ -1658,7 +1674,7 @@ var I18N = {
     faqQ1: "What does a Chainscaner check actually scan?",
     faqA1: "Each check performs a read-only pass across 12 networks: balances and token holdings, dust and spam remnants, active approvals, sanctions and mixer proximity, bridge and cross-hop traces, and gas readiness. No transaction is ever created and no signature is requested.",
     faqQ2: "Is the free check really free?",
-    faqA2: "Yes — one full check per wallet is free, no card or account required. The Professional tier adds a compliance-grade PDF report, priority flag resolution and notifications when a flag status changes.",
+    faqA2: "Yes — one full check per wallet is free, no card or account required. On-chain flag resolution is a Pro Session (€249) that adds deep chain analysis, compliance attestation and a tracked session link.",
     faqQ3: "Do I need to connect a wallet or share a private key?",
     faqA3: "No. Scans are computed entirely from public ledger state. You only paste an address — private keys are never requested, and a scan can never move funds.",
     faqQ4: "What does a flag mean — and how is it resolved?",
@@ -1681,7 +1697,7 @@ var I18N = {
     heroTitleA: "Enterprise KYC &", heroTitleB: "Compliance-Infrastruktur",
     heroSub: "Identitätsprüfung auf Institutionen-Niveau, AML-Screening und sicheres OTC-Deal-Escrow für Banken, Börsen und regulierte Fintech-Plattformen.",
     ctaDemo: "Kostenlosen Check starten", ctaExplore: "Lösungen entdecken",
-    offerTag: "GRATIS", offerLimit: "Nur 1 Gratis-Check pro Wallet", offerText: "— regulärer Preis", offerWas: "39,90 €", offerNow: "heute 0 € — keine Karte nötig",
+    offerTag: "GRATIS", offerLimit: "Nur 1 Gratis-Check pro Wallet", offerText: "— regulärer Preis", offerWas: "49,90 €", offerNow: "heute 0 € — keine Karte nötig",
     heroChains: "Unterstützte Netzwerke",
     stripLabel: "Was der Scan prüft",
     stripText: "Jeder Scan prüft Sanktionslisten-Abgleich, Fraud-Flag-Taxonomie, On-Chain-Balances, Gas-Deckung, Wallet-Hygiene, Attestierungen, Multi-Chain-RPC-Abdeckung und Report-Logging — über alle 12 unterstützten Netzwerke.",
@@ -1693,10 +1709,18 @@ var I18N = {
     prodKicker: "Produkt-Suite", prodTitle: "Enterprise-Lösungen", prodSub: "Vollständige Compliance-Infrastruktur für moderne Finanzdienstleistungen.",
     ptagReal: "Echtzeit", ptagAlerts: "Alarme",
     prod1t: "Flag-Checker & Resolver", prod1p: "On-Chain-Screening von Wallet-Adressen über 12 Netzwerke — geflaggte Balances, Gas-Analyse und Hygiene-Findings wie Dust- oder Spam-Reste. Flags werden per Deep-Chain-Analyse aufgelöst und im Detail-Report dokumentiert.", prodOpen: "Tool öffnen →",
-    pricingKicker: "Preise", pricingTitle: "Einfache, transparente Preise", pricingSub: "Kostenlos starten — keine Kreditkarte erforderlich. Zahlen Sie nur bei laufender Überwachung oder Bulk-Resolution.",
-    priceFree: "Erster Check", priceFreePer: "pro Check", priceFreeCta: "Kostenlosen Check starten",
-    pricePro: "Professional", priceProPer: "pro Check", priceProCta: "Professional Check starten",
-    priceEnt: "Enterprise", priceEntPer: "Kontakt", priceEntCta: "Vertrieb kontaktieren",
+    pricingKicker: "Preise", pricingTitle: "Einfache, transparente Preise", pricingSub: "Wallet-Checks bleiben gratis — keine Karte nötig. Die On-Chain-Flag-Resolution ist eine Pro-Session, gebaut für Firmen und Profis.",
+    priceFree: "Gratis-Check", priceFreePer: "pro Wallet-Check", priceFreeCta: "Kostenlosen Check starten",
+    proBadge: "Für Firmen",
+    pricePro: "Pro-Session", priceProPer: "pro Resolution-Session", priceProCta: "Pro-Session holen",
+    priceEnt: "Enterprise", priceEntAmt: "ab 2.900 €", priceEntPer: "pro Jahr · individuell", priceEntCta: "Vertrieb kontaktieren",
+    pf1: "Vollständiger Multi-Chain-Scan (12 Chains)", pf2: "Flag-Erkennung in Echtzeit",
+    pf3: "Risk-Score & Detailbericht", pf4: "Resolution-Vorschau", pf5: "1 Gratis-Check pro Wallet",
+    pf6: "Alles aus Free", pf7: "On-Chain-Flag-Resolution — alle Flags, eine Session",
+    pf8: "Deep-Chain-Analyse & Compliance-Attestierung", pf9: "Identitätsprüfung (Dokumenten-Check)",
+    pf10: "Getrackte Session-Links für Ihre Kunden", pf11: "Priorisierte Bearbeitung & Support",
+    pf12: "Unbegrenzte Checks & Pro-Sessions", pf13: "Bulk-Wallet-Resolution",
+    pf14: "API-Zugang & Webhooks", pf15: "Dedizierter Compliance-Manager & SLA",
     prod2t: "Handshake Escrow KYC", prod2p: "Sichere Peer-to-Peer-OTC-Deals mit integrierter Identitätsprüfung und Smart-Contract-Escrow.", prodLearn: "Mehr erfahren →",
     prod3t: "Enterprise KYC Suite", prod3p: "Automatisierte Identitätsprüfung mit Dokumentenscan, biometrischer Liveness und PEP/Sanktions-Screening in unter 3 Sekunden.", prodLearn2: "Mehr erfahren →",
     prod4t: "Transaction Monitoring", prod4p: "KI-gestützte Echtzeit-Überwachung von Krypto- und Fiat-Flüssen mit Anomalieerkennung und Sofort-Alarmen.", prodLearn3: "Mehr erfahren →",
@@ -1726,9 +1750,10 @@ var I18N = {
     tickChk1: "Sanktionslisten-Abgleich", tickChk2: "Mixer-Nähe · 2 Hops", tickChk3: "Dust- & Spam-Hygiene", tickChk4: "Approval-Exposition", tickChk5: "Bridge- & Cross-Hop-Trace", tickChk6: "Gas-Deckung",
     svcKicker: "Unsere Leistungen", svcTitle: "Compliance, gelöst",
     svcSub: "Geflaggte Wallets, ungeprüfte Contracts und Identitätsnachweise — die größten Blocker für seriöse Unternehmen. Wir lösen alle drei.",
-    cmpTitle: "Free vs Professional vs Enterprise — im Detail", cmpFeat: "Feature",
+    cmpTitle: "Free vs Pro vs Enterprise — im Detail", cmpFeat: "Feature",
+    cmpPrice: "Preis", cmpPriceP: "249 € / Session", cmpPriceE: "ab 2.900 €/Jahr",
     cmpG1: "Scanning", cmpG2: "Report & Auflösung", cmpG3: "Monitoring & Zugang",
-    cmpF1: "Multi-Chain-Scan", cmpF1a: "1 Wallet", cmpF1b: "Pro Check", cmpF1c: "Unbegrenzt",
+    cmpF1: "Multi-Chain-Scan", cmpF1a: "1 Wallet", cmpF1b: "Pro Session", cmpF1c: "Unbegrenzt",
     cmpF2: "Abgedeckte Netzwerke", cmpF3: "Echtzeit-Flag-Erkennung", cmpF4: "Risk-Score & Findings",
     cmpF5: "Flag-Removal-Vorschau", cmpF6: "Compliance-Report (PDF)", cmpF7: "Priorisierte Flag-Auflösung",
     cmpF8: "Gas-Fee-Optimierung", cmpF9: "Benachrichtigung bei Flag-Änderungen",
@@ -1751,7 +1776,7 @@ var I18N = {
     faqQ1: "Was scannt ein Chainscaner-Check genau?",
     faqA1: "Jeder Check läuft read-only über 12 Netzwerke: Balances und Token-Bestände, Dust- und Spam-Reste, aktive Approvals, Sanktions- und Mixer-Nähe, Bridge- und Cross-Hop-Spuren sowie Gas-Deckung. Es wird nie eine Transaktion erzeugt und nie eine Signatur angefragt.",
     faqQ2: "Ist der kostenlose Check wirklich gratis?",
-    faqA2: "Ja — ein voller Check pro Wallet ist kostenlos, ohne Karte oder Account. Professional ergänzt einen Compliance-PDF-Report, priorisierte Flag-Auflösung und Benachrichtigungen bei Flag-Änderungen.",
+    faqA2: "Ja — ein voller Check pro Wallet ist gratis, ohne Karte oder Account. Die On-Chain-Flag-Resolution ist eine Pro-Session (249 €) mit Deep-Chain-Analyse, Compliance-Attestierung und getracktem Session-Link.",
     faqQ3: "Muss ich eine Wallet verbinden oder einen Private Key teilen?",
     faqA3: "Nein. Scans entstehen vollständig aus öffentlichem Ledger-State. Sie fügen nur eine Adresse ein — Private Keys werden nie abgefragt, und ein Scan kann nie Geld bewegen.",
     faqQ4: "Was bedeutet ein Flag — und wie wird er aufgelöst?",
