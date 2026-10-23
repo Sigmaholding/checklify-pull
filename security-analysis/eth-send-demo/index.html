@@ -45,6 +45,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
       "@type": "Organization",
       "@id": "https://chainscaner.com/#org",
       "name": "Chainscaner",
+      "slogan": "One scan ahead.",
       "url": "https://chainscaner.com/",
       "logo": "https://chainscaner.com/favicon.svg"
     },
@@ -152,6 +153,12 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
     height: calc(64px + env(safe-area-inset-top, 0px)); display: flex; align-items: center; gap: 24px;
   }
   .brand { display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 16px; letter-spacing: -.3px; }
+  .brand-word { display: flex; flex-direction: column; line-height: 1.1; }
+  .brand-tag {
+    font-size: 8.5px; font-weight: 700; letter-spacing: 1.7px;
+    text-transform: uppercase; color: var(--text-muted); margin-top: 3px;
+  }
+  @media (max-width: 560px) { .brand-tag { display: none; } }
   .brand-icon {
     width: 30px; height: 30px; border-radius: 9px;
     background: linear-gradient(135deg, var(--accent), var(--accent-strong));
@@ -933,7 +940,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
       <span class="brand-icon">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>
       </span>
-      <span data-i18n="brand">Chainscaner</span>
+      <span class="brand-word"><span data-i18n="brand">Chainscaner</span><span class="brand-tag" data-i18n="brandTag">One scan ahead.</span></span>
     </a>
     <button class="nav-burger" id="nav-burger" onclick="toggleMenu()" aria-label="Menu" aria-expanded="false" aria-controls="nav-links">
       <span></span><span></span><span></span>
@@ -1614,7 +1621,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
           <span class="brand-icon">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg>
           </span>
-          <span data-i18n="brand">Chainscaner</span>
+          <span class="brand-word"><span data-i18n="brand">Chainscaner</span><span class="brand-tag" data-i18n="brandTag">One scan ahead.</span></span>
         </a>
         <p data-i18n="footTag">Multi-chain wallet compliance screening — read-only scans, flag resolution and report-grade documentation across 12 networks.</p>
       </div>
@@ -1659,7 +1666,7 @@ window.addEventListener('beforeunload', function () { window.scrollTo(0, 0); });
 <script>
 var I18N = {
   en: {
-    brand: "Chainscaner",
+    brand: "Chainscaner", brandTag: "One scan ahead.",
     navSolutions: "Solutions", navChecker: "Flag Checker", navVerify: "Wallet Screening", navTrust: "Trust Center", navSecurity: "Security", navClients: "Use Cases", navContact: "Contact",
     heroPill: "Multi-chain flag screening for EVM wallets",
     heroTitleA: "Enterprise KYC &", heroTitleB: "Compliance Infrastructure",
@@ -1772,7 +1779,7 @@ var I18N = {
     ctDoneP: "We reply within one business day. Meanwhile the free wallet check stays fully available."
   },
   de: {
-    brand: "Chainscaner",
+    brand: "Chainscaner", brandTag: "Einen Scan voraus.",
     navSolutions: "Lösungen", navChecker: "Flag-Checker", navVerify: "Wallet-Screening", navTrust: "Trust Center", navSecurity: "Sicherheit", navClients: "Anwendungsfälle", navContact: "Kontakt",
     heroPill: "Multi-Chain-Flag-Screening für EVM-Wallets",
     heroTitleA: "Enterprise KYC &", heroTitleB: "Compliance-Infrastruktur",
