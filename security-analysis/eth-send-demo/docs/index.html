@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Reference — ChainScanner</title>
+<meta name="description" content="ChainScanner public API: read-only multi-chain address scans, token holdings, approval exposure and reputation flags.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://chainscaner.com/docs">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: Inter, -apple-system, sans-serif; background: #f4f6fb; color: #0f172a;
+         margin: 0; padding: 32px 16px 64px; }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+  h2 { font-size: 15px; font-weight: 800; margin-top: 30px; }
+  p, li { font-size: 13.5px; color: #475569; line-height: 1.65; }
+  a { color: #4f46e5; text-decoration: none; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+          padding: 18px 20px; margin-top: 14px; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  pre { background: #0f172a; color: #e2e8f0; border-radius: 10px; padding: 14px 16px;
+        overflow-x: auto; line-height: 1.6; margin: 10px 0 0; }
+  pre .c { color: #64748b; }
+  .ep { font-weight: 700; font-size: 13px; }
+  .ep .m { color: #059669; font-weight: 800; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+  td, th { text-align: left; padding: 7px 8px; border-bottom: 1px solid #e2e8f0; }
+  th { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  td code { background: #f1f5f9; padding: 1px 5px; border-radius: 5px; }
+  .back { font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="/">← ChainScanner</a></p>
+  <h1>API Reference</h1>
+  <p>All endpoints are read-only JSON over HTTPS. No authentication is required for read access. Responses are served from <code>chainscaner.com/api/tronread</code>. Scan results are cached server-side for 5 minutes.</p>
+
+  <h2>Multi-chain address scan</h2>
+  <div class="card">
+    <div class="ep"><span class="m">POST</span> /api/tronread</div>
+    <p>Returns native balances, detected token holdings (with USD valuation, dust and spam marking), active token approvals toward known spender contracts, and reputation flags across 6 EVM networks.</p>
+    <pre><span class="c"># request</span>
+{ "scan": "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045" }
+
+<span class="c"># response (truncated)</span>
+{
+  "ok": true, "addr": "0xd8dA…", "took_ms": 1280,
+  "chains": [
+    { "id": "ethereum", "name": "Ethereum", "native": "ETH",
+      "nativeRaw": 6717900000000000000, "nativeUsd": 18068.2,
+      "tokens": [{ "sym": "USDT", "ca": "0xdAC1…", "bal": 291.36, "usd": 291.3, "spam": false }],
+      "tokenTotal": 292, "spamCount": 4,
+      "approvals": [{ "sym": "DAI", "label": "Permit2", "spender": "0x0000…8BA3", "unlimited": true }],
+      "explorer": "https://etherscan.io" }
+  ],
+  "flags": {} }
+    </pre>
+  </div>
+
+  <h2>TRON endpoints</h2>
+  <div class="card">
+    <table>
+      <tr><th>Request body</th><th>Returns</th></tr>
+      <tr><td><code>{"account":"T…"}</code></td><td>Account state, TRX balance, available energy</td></tr>
+      <tr><td><code>{"trx":"T…"}</code></td><td>TRX balance (SUN)</td></tr>
+      <tr><td><code>{"owner":"T…","token":"usdt"}</code></td><td>TRC-20 balance</td></tr>
+      <tr><td><code>{"owner":"T…","spender":"T…","token":"usdt"}</code></td><td>Token balance + current allowance</td></tr>
+    </table>
+  </div>
+
+  <h2>Reputation flags</h2>
+  <div class="card">
+    <table>
+      <tr><th>Request body</th><th>Returns</th></tr>
+      <tr><td><code>{"flags":1}</code></td><td>Full public flag list</td></tr>
+      <tr><td><code>{"flag":"0x…"|"T…"}</code></td><td>Single-address lookup</td></tr>
+      <tr><td><code>{"flagsIn":["0x…","T…"]}</code></td><td>Batch lookup (max 60)</td></tr>
+    </table>
+    <p>Flag entries contain <code>reason</code>, <code>sev</code> (low / high / critical) and a timestamp.</p>
+  </div>
+
+  <h2>Fair use</h2>
+  <p>The service is free during beta. Please keep request rates reasonable; abusive clients may be throttled. All queries are read-only — the API never creates or broadcasts transactions.</p>
+
+  <p style="margin-top:28px;font-size:12px;"><a href="/">Scanner</a> · <a href="/verify">Wallet Screening</a> · <a href="/about">About</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
+</div>
+</body>
+</html>

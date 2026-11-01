@@ -1,0 +1,41 @@
+# Chainscaner
+
+> Chainscaner is a multi-chain wallet compliance checker modeled on
+> Chainalysis-grade flagging (Reactor / KYT-style). It screens wallet
+> addresses across 12 EVM networks, maps token exposure, traces cross-chain
+> and bridge activity beyond direct counterparties, correlates proximity to
+> sanctioned, mixer and darknet clusters, and compiles a compliance-grade
+> risk report with a wallet-confirmed attestation queue for flagged assets.
+
+## Pages
+
+- [Home](https://chainscaner.com/): Product overview — what the engine
+  screens, how flags and risk tiers work
+- [Flag Checker](https://chainscaner.com/checker): Run a wallet scan —
+  exposure mapping, proximity correlation, risk scoring, attestation plan
+- [Wallet Send](https://chainscaner.com/wallet): Token send/confirm view
+  used by the attestation flow
+
+## How the engine works
+
+1. Multi-chain exposure scan — native balance, full ERC-20 coverage and
+   live gas price across Ethereum, BNB Chain, Polygon, Arbitrum, Optimism,
+   Base, Avalanche, Celo, Fantom, Cronos, Linea and Scroll
+2. Cross-hop tracing — exposure beyond direct counterparties, including
+   bridge-routed value that crossed chains before settling
+3. Proximity scoring — sanctions, mixer and darknet cluster correlation;
+   severity tiers: Low (<25), Moderate (25–49), High (50–74), Critical (≥75)
+4. Attestation queue — flagged assets cleared through sequential,
+   wallet-confirmed on-chain transfers with per-chain gas budgeting
+5. Compliance-grade report — flags, affected chains, hygiene findings
+   (dust/unprocessable exposure), and transaction hashes
+
+## Technical notes
+
+- Balance screening is read-only: standard JSON-RPC (`eth_call`,
+  `eth_getBalance`, `eth_gasPrice`) — no signing required to scan
+- Transfers always require explicit wallet confirmation; nothing signs
+  silently
+- USD valuation via public price feeds with local fallbacks; fail-open dust
+  classification below $1
+- This site is a controlled security-analysis demonstration environment

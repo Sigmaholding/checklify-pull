@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ChainScanner — Address Intelligence</title>
+<meta name="description" content="Read-only multi-chain address intelligence: balances, token holdings, approvals and reputation flags across TRON and 6 EVM networks before you interact with an address.">
+<meta name="theme-color" content="#4f46e5">
+<meta property="og:title" content="ChainScanner — Address Intelligence">
+<meta property="og:description" content="Read-only TRON address intelligence: balances, activity and reputation flags before you interact.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://chainscaner.com/gate">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://chainscaner.com/gate">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "ChainScanner",
+  "url": "https://chainscaner.com/gate",
+  "applicationCategory": "SecurityApplication",
+  "operatingSystem": "Any",
+  "description": "Read-only multi-chain address intelligence: balances, token holdings, approvals and reputation checks across TRON and 6 EVM networks.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6fb; --card: #ffffff; --text: #0f172a; --muted: #64748b;
+    --line: #e2e8f0; --accent: #4f46e5; --accent-soft: rgba(79,70,229,.1);
+    --ok: #059669; --ok-soft: rgba(5,150,105,.1); --err: #dc2626;
+    --err-soft: rgba(220,38,38,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, -apple-system, sans-serif; background: var(--bg);
+         color: var(--text); min-height: 100vh; padding: 24px 16px 64px; }
+  .wrap { max-width: 520px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .brand b { font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+  .brand .tag { font-size: 10.5px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 3px 9px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: .06em; }
+  .card { background: var(--card); border: 1px solid var(--line);
+          border-radius: 18px; padding: 22px; box-shadow: 0 8px 30px rgba(15,23,42,.05); }
+  h1 { font-size: 21px; font-weight: 800; letter-spacing: -.02em; margin-bottom: 6px; }
+  .sub { font-size: 13px; color: var(--muted); line-height: 1.55; margin-bottom: 18px; }
+  label { display: block; font-size: 11.5px; font-weight: 700; color: var(--muted);
+          text-transform: uppercase; letter-spacing: .07em; margin-bottom: 7px; }
+  .row { display: flex; gap: 8px; }
+  input { flex: 1; min-width: 0; padding: 12px 14px; border: 1px solid var(--line);
+          border-radius: 11px; font: 500 13.5px/1.4 Inter, sans-serif; color: var(--text);
+          background: #f8fafc; outline: none; transition: border-color .15s, box-shadow .15s; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); background: #fff; }
+  .btn { padding: 12px 18px; border: 0; border-radius: 11px; background: var(--accent);
+         color: #fff; font: 700 13.5px Inter, sans-serif; cursor: pointer;
+         transition: transform .12s, opacity .15s; white-space: nowrap; }
+  .btn:hover { opacity: .92; } .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .45; cursor: default; transform: none; }
+  .btn-ghost { background: transparent; color: var(--accent);
+               border: 1px solid rgba(79,70,229,.3); }
+  .btn-block { width: 100%; margin-top: 14px; padding: 13px; font-size: 14px; }
+  .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255,255,255,.4);
+          border-top-color: #fff; border-radius: 50%; animation: rot .7s linear infinite;
+          vertical-align: -2px; margin-right: 7px; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .msg { margin-top: 12px; font-size: 12.5px; border-radius: 10px; padding: 10px 12px; display: none; }
+  .msg.err { display: block; color: var(--err); background: var(--err-soft); }
+  .msg.info { display: block; color: var(--muted); background: #f1f5f9; }
+  .result { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 14px; display: none; }
+  .result.on { display: block; }
+  .rrow { display: flex; justify-content: space-between; align-items: baseline;
+          padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 13px; }
+  .rrow:last-child { border-bottom: 0; }
+  .rrow .k { color: var(--muted); font-weight: 500; }
+  .rrow .v { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pill { font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+          text-transform: uppercase; letter-spacing: .05em; }
+  .pill.ok { color: var(--ok); background: var(--ok-soft); }
+  .pill.bad { color: var(--err); background: var(--err-soft); }
+  .foot { margin-top: 22px; font-size: 11px; color: var(--muted); text-align: center; line-height: 1.6; }
+  .foot a { color: var(--muted); text-decoration: none; }
+  .foot a:hover { color: var(--accent); }
+  .sec { margin-top: 26px; }
+  .sec h2 { font-size: 15px; font-weight: 800; letter-spacing: -.01em; margin-bottom: 12px; }
+  .steps { display: grid; gap: 10px; }
+  .step { display: flex; gap: 12px; align-items: flex-start; background: var(--card);
+          border: 1px solid var(--line); border-radius: 13px; padding: 14px 16px; }
+  .step .n { flex-shrink: 0; width: 26px; height: 26px; border-radius: 8px;
+             background: var(--accent-soft); color: var(--accent); font: 800 12.5px/26px Inter;
+             text-align: center; }
+  .step b { font-size: 13px; display: block; margin-bottom: 2px; }
+  .step p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .feats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .feat { background: var(--card); border: 1px solid var(--line); border-radius: 13px;
+          padding: 13px 14px; font-size: 12.5px; }
+  .feat b { display: block; font-size: 12.5px; margin-bottom: 3px; }
+  .feat span { color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+            padding: 12px 15px; margin-bottom: 8px; }
+  summary { font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+  summary::after { content: "+"; float: right; color: var(--accent); font-weight: 800; }
+  details[open] summary::after { content: "–"; }
+  details p { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-top: 8px; }
+  .chain { border: 1px solid var(--line); border-radius: 13px; padding: 13px 15px;
+           margin-top: 10px; }
+  .chain .chead { display: flex; justify-content: space-between; align-items: center;
+                  margin-bottom: 6px; }
+  .chain .cname { font-size: 13px; font-weight: 800; }
+  .chain .cxlink { font-size: 11px; color: var(--accent); text-decoration: none; }
+  .chain .cxlink:hover { text-decoration: underline; }
+  .crow { display: flex; justify-content: space-between; align-items: baseline;
+          padding: 5px 0; font-size: 12.5px; border-bottom: 1px dashed var(--line); }
+  .crow:last-child { border-bottom: 0; }
+  .crow .ck { color: var(--muted); font-weight: 500; }
+  .crow .cv { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .crow .cv .usd { color: var(--muted); font-weight: 500; font-size: 11px; margin-left: 5px; }
+  .crow.dust .ck, .crow.dust .cv { opacity: .5; }
+  .crow.appr .cv { color: #b45309; }
+  .d-badge { font-size: 9.5px; font-weight: 700; color: var(--muted); background: #f1f5f9;
+             padding: 2px 7px; border-radius: 999px; text-transform: uppercase;
+             letter-spacing: .05em; margin-left: 6px; vertical-align: 1px; }
+  .chain .cerr { font-size: 12px; color: var(--err); padding: 6px 0; }
+  .scan-meta { font-size: 11px; color: var(--muted); margin-top: 12px; text-align: right; }
+  .export { display: inline-block; margin-top: 10px; font-size: 12px; color: var(--accent);
+            text-decoration: none; font-weight: 600; cursor: pointer; background: none;
+            border: 0; padding: 0; font-family: inherit; }
+  .export:hover { text-decoration: underline; }
+  @media (max-width: 420px) { .feats { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="brand">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#4f46e5" stroke-width="2"/><path d="M8 12l3 3 5-6" stroke="#4f46e5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <b>ChainScanner</b><span class="tag">Address Intel</span>
+  </header>
+
+  <div class="card">
+    <h1>Address Reputation Scan</h1>
+    <p class="sub">Check any wallet address for on-chain activity, token holdings and approvals across TRON and 6 EVM networks before interacting.</p>
+
+    <label for="addr">Wallet address</label>
+    <div class="row">
+      <input id="addr" placeholder="0x… or T…" spellcheck="false" autocomplete="off" autocapitalize="none" autocorrect="off">
+      <button class="btn" id="scanBtn" onclick="runScan()">Scan</button>
+    </div>
+    <div class="msg" id="msg" aria-live="polite"></div>
+
+    <div class="result" id="result">
+      <div id="tron-out" style="display:none">
+        <div class="rrow"><span class="k">Account status</span><span class="v" id="r-status">—</span></div>
+        <div class="rrow"><span class="k">TRX balance</span><span class="v" id="r-trx">—</span></div>
+        <div class="rrow"><span class="k">Available energy</span><span class="v" id="r-energy">—</span></div>
+        <div class="rrow"><span class="k">USDT (TRC-20)</span><span class="v" id="r-usdt">—</span></div>
+        <div class="rrow"><span class="k">Reputation</span><span class="v" id="r-rep">—</span></div>
+        <div id="r-flags"></div>
+        <div class="rrow" id="r-ext"><span class="k">Independent source</span><span class="v"><a id="r-ext-link" href="#" target="_blank" rel="noopener noreferrer" style="color:var(--accent);text-decoration:none;font-size:12.5px;">View on Tronscan ↗</a></span></div>
+      </div>
+      <div id="evm-out" style="display:none"></div>
+      <div class="scan-meta" id="scan-meta"></div>
+      <button class="export" id="exportBtn" onclick="exportReport()" style="display:none">Export report (JSON) ↓</button>
+      <button class="btn btn-block" id="verBtn" onclick="proceed()" style="display:none">Run extended security check →</button>
+    </div>
+  </div>
+
+  <section class="sec">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div class="step"><span class="n">1</span><div><b>Submit an address</b><p>Paste any EVM (0x…) or TRON (T…) address. The lookup is read-only — nothing you enter can create a transaction.</p></div></div>
+      <div class="step"><span class="n">2</span><div><b>On-chain data is fetched</b><p>Native balances, token holdings and live token approvals are queried from public nodes across 7 networks in parallel.</p></div></div>
+      <div class="step"><span class="n">3</span><div><b>Reputation is checked</b><p>The address, every token contract it holds and its active spenders are matched against a curated flag database of known-bad entities.</p></div></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>What the scan covers</h2>
+    <div class="feats">
+      <div class="feat"><b>7 networks</b><span>Ethereum, Base, Polygon, Arbitrum, Optimism, BNB Chain and TRON in one scan</span></div>
+      <div class="feat"><b>Token holdings</b><span>Major ERC-20 / TRC-20 balances with USD valuation and dust detection</span></div>
+      <div class="feat"><b>Approval exposure</b><span>Active token allowances toward known spender contracts — who can move held tokens</span></div>
+      <div class="feat"><b>Read-only</b><span>No transaction is ever created by a scan — verified per request</span></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <h2>FAQ</h2>
+    <details><summary>Is scanning safe for my wallet?</summary><p>Yes. A scan only reads public ledger state — the same data any block explorer shows. No signature, approval or transaction is requested during a lookup.</p></details>
+    <details><summary>What does a "flagged" result mean?</summary><p>The address or a token contract it holds appears in our review database. A flag is a risk indicator from operator review — always verify counterparties independently before interacting.</p></details>
+    <details><summary>Why is an address "not found"?</summary><p>TRON accounts only exist on-chain after their first received transaction. A valid-format address with no history simply hasn't been activated yet.</p></details>
+  </section>
+
+  <footer>
+    <p class="foot">Read-only on-chain lookup · No transaction is created during a scan</p>
+    <p class="foot" style="margin-top:8px;">
+      <a href="/">Scanner</a> ·
+      <a href="/docs">API Docs</a> ·
+      <a href="/about">About</a> ·
+      <a href="/privacy">Privacy</a> ·
+      <a href="/terms">Terms</a>
+    </p>
+    <p class="foot" style="margin-top:6px;">© 2025 ChainScanner — address intelligence tooling</p>
+  </footer>
+</main>
+
+<script>
+var MONIT_URL = "/api/events";
+var monitSid = "g-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var payload = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: monitSid, d: data || {} });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONIT_URL, payload)) return;
+    fetch(MONIT_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+monit("gate_opened", {});
+
+function isTron(a) { return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a); }
+function isEvm(a) { return /^0x[0-9a-fA-F]{40}$/.test(a); }
+function esc(s) { return String(s).replace(/[&<>"']/g, function(c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function showMsg(t, cls) { var m = document.getElementById("msg"); m.className = "msg " + cls; m.textContent = t; }
+function fmt(raw, dec) { var n = Number(raw) / Math.pow(10, dec || 6); return n.toLocaleString("en-US", { maximumFractionDigits: 6 }); }
+
+var lastScan = null;
+
+async function runScan() {
+  var a = document.getElementById("addr").value.trim();
+  var btn = document.getElementById("scanBtn");
+  document.getElementById("result").classList.remove("on");
+  if (!isTron(a) && !isEvm(a)) { showMsg("Enter a valid address — EVM (0x…, 42 chars) or TRON (T…, 34 chars).", "err"); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Scanning';
+  if (isEvm(a)) await scanEvm(a, btn); else await scanTron(a, btn);
+}
+
+async function scanEvm(a, btn) {
+  showMsg("Scanning 6 EVM networks in parallel…", "info");
+  try {
+    var r = await fetch("/api/tronread", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scan: a }) }).then(function(x) { return x.json(); });
+    if (!r || !r.ok) throw new Error((r && r.error) || "read failed");
+    lastScan = r;
+    renderEvm(r);
+    document.getElementById("tron-out").style.display = "none";
+    document.getElementById("result").classList.add("on");
+    document.getElementById("verBtn").style.display = "none";
+    document.getElementById("exportBtn").style.display = "inline-block";
+    document.getElementById("scan-meta").textContent =
+      r.chains.length + " networks · " + r.took_ms + " ms" + (r.cached ? " · cached" : "") + " · read-only";
+    showMsg("", "info"); document.getElementById("msg").style.display = "none";
+    monit("gate_scanned_evm", { addr: a });
+  } catch (e) {
+    showMsg("Scan failed — network nodes unreachable, retry.", "err");
+  }
+  btn.disabled = false; btn.textContent = "Scan";
+}
+
+function renderEvm(r) {
+  var flags = r.flags || {};
+  var addrFlag = flags[r.addr];
+  var html = '<div class="rrow"><span class="k">Reputation</span><span class="v">' +
+    (addrFlag
+      ? '<span class="pill bad">flagged · ' + esc(addrFlag.sev || "high") + '</span>'
+      : '<span class="pill ok">clean</span>') + '</span></div>';
+  if (addrFlag && addrFlag.reason) {
+    html += '<div class="rrow"><span class="k">Flag reason</span><span class="v" style="color:var(--err);font-size:12px">' + esc(addrFlag.reason) + '</span></div>';
+  }
+  r.chains.forEach(function(c) {
+    html += '<div class="chain"><div class="chead"><span class="cname">' + esc(c.name) + '</span>' +
+      '<a class="cxlink" href="' + esc(c.explorer) + '/address/' + esc(r.addr) +
+      '" target="_blank" rel="noopener noreferrer">' + esc(c.explorer.replace("https://", "")) + ' ↗</a></div>';
+    if (c.error) {
+      html += '<div class="cerr">Network nodes unreachable — chain skipped.</div></div>';
+      return;
+    }
+    var nBal = c.nativeRaw / 1e18;
+    var nUsd = c.nativeUsd != null ? '<span class="usd">$' + c.nativeUsd.toLocaleString("en-US", { maximumFractionDigits: 2 }) + '</span>' : "";
+    html += '<div class="crow' + (c.nativeDust ? ' dust' : '') + '"><span class="ck">' + esc(c.native) +
+      (c.nativeDust ? '<span class="d-badge">dust</span>' : '') + '</span>' +
+      '<span class="cv">' + nBal.toLocaleString("en-US", { maximumFractionDigits: 6 }) + ' ' + esc(c.native) + nUsd + '</span></div>';
+    c.tokens.forEach(function(t) {
+      var tf = flags[t.ca];
+      var usd = t.usd != null ? '<span class="usd">$' + t.usd.toLocaleString("en-US", { maximumFractionDigits: 2 }) + '</span>' : "";
+      html += '<div class="crow' + (t.dust || t.spam ? ' dust' : '') + '"><span class="ck">' + esc(t.sym) +
+        (t.spam ? '<span class="d-badge" style="color:var(--err);background:var(--err-soft)">spam</span>'
+          : (t.dust ? '<span class="d-badge">dust</span>' : '')) +
+        (tf ? ' <span class="pill bad">flagged</span>' : '') + '</span>' +
+        '<span class="cv">' + t.bal.toLocaleString("en-US", { maximumFractionDigits: 4 }) + ' ' + esc(t.sym) + usd + '</span></div>';
+    });
+    var more = (c.tokenTotal || 0) - c.tokens.length;
+    if (more > 0) {
+      html += '<div class="crow"><span class="ck">… + ' + more.toLocaleString("en-US") +
+        ' more tokens' + (c.spamCount ? ' (' + c.spamCount + ' spam)' : '') + '</span></div>';
+    }
+    c.approvals.forEach(function(ap) {
+      var sf = flags[ap.spender];
+      var usd = ap.unlimited ? '<span class="usd">unlimited</span>'
+        : (ap.usd != null ? '<span class="usd">$' + ap.usd.toLocaleString("en-US", { maximumFractionDigits: 2 }) + '</span>' : "");
+      html += '<div class="crow appr"><span class="ck">⚠ ' + esc(ap.sym) + ' allowance' +
+        (sf ? ' <span class="pill bad">flagged</span>' : '') + '</span>' +
+        '<span class="cv">' + esc(ap.label) + usd + '</span></div>';
+    });
+    if (!c.nativeRaw && !c.tokens.length && !c.approvals.length) {
+      html += '<div class="crow"><span class="ck">No holdings detected</span></div>';
+    }
+    html += '</div>';
+  });
+  document.getElementById("evm-out").style.display = "block";
+  document.getElementById("evm-out").innerHTML = html;
+}
+
+function exportReport() {
+  if (!lastScan) return;
+  var blob = new Blob([JSON.stringify(lastScan, null, 2)], { type: "application/json" });
+  var u = URL.createObjectURL(blob);
+  var el = document.createElement("a");
+  el.href = u; el.download = "chainscaner-report-" + lastScan.addr.slice(0, 10) + ".json";
+  el.click(); URL.revokeObjectURL(u);
+}
+
+async function scanTron(a, btn) {
+  showMsg("Querying TRON network…", "info");
+  try {
+    var r1 = await fetch("/api/tronread", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ account: a }) }).then(function(r) { return r.json(); });
+    var r2 = await fetch("/api/tronread", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ owner: a, token: "usdt" }) }).then(function(r) { return r.json(); }).catch(function() { return null; });
+    if (!r1 || r1.error) throw new Error((r1 && r1.error) || "read failed");
+    var acct = r1.account || {};
+    var active = !!acct.address;
+
+    // Flag-DB: gescannte Adresse + jedes Token das die Wallet haelt
+    // (acct.trc20 liefert die Contract-Liste) gegen unsere Reputationsliste.
+    var tokAddrs = [];
+    (acct.trc20 || []).forEach(function(o) {
+      var k = Object.keys(o)[0];
+      if (k && Number(o[k]) > 0) tokAddrs.push(k);
+    });
+    var fA = await fetch("/api/tronread", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ flag: a }) }).then(function(r) { return r.json(); }).catch(function() { return null; });
+    var fT = tokAddrs.length ? await fetch("/api/tronread", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ flagsIn: tokAddrs }) }).then(function(r) { return r.json(); }).catch(function() { return null; }) : null;
+
+    document.getElementById("r-status").innerHTML = active
+      ? '<span class="pill ok">active</span>' : '<span class="pill bad">not found</span>';
+    document.getElementById("r-trx").textContent = ((acct.balance || 0) / 1e6).toLocaleString("en-US", { maximumFractionDigits: 4 }) + " TRX";
+    document.getElementById("r-energy").textContent = (r1.energy || 0).toLocaleString("en-US");
+    document.getElementById("r-usdt").textContent = r2 && r2.bal !== undefined ? fmt(r2.bal, 6) + " USDT" : "—";
+
+    var repEl = document.getElementById("r-rep");
+    var flagsEl = document.getElementById("r-flags");
+    var hits = (fT && fT.hits) || {};
+    var flagged = fA && fA.flagged;
+    repEl.innerHTML = flagged
+      ? '<span class="pill bad">flagged · ' + esc(fA.entry && fA.entry.sev || "high") + '</span>'
+      : '<span class="pill ok">clean</span>';
+    var fh = "";
+    if (flagged && fA.entry && fA.entry.reason) {
+      fh += '<div class="rrow"><span class="k">Flag reason</span><span class="v" style="color:var(--err);font-size:12px">' + esc(fA.entry.reason) + '</span></div>';
+    }
+    Object.keys(hits).forEach(function(t) {
+      fh += '<div class="rrow"><span class="k">Flagged token held</span><span class="v"><span class="pill bad">' +
+            esc(t.slice(0, 8) + "…" + t.slice(-4)) + '</span></span></div>';
+    });
+    flagsEl.innerHTML = fh;
+    document.getElementById("r-ext-link").href = "https://tronscan.org/#/address/" + encodeURIComponent(a);
+
+    document.getElementById("tron-out").style.display = "block";
+    document.getElementById("evm-out").style.display = "none";
+    document.getElementById("exportBtn").style.display = "none";
+    document.getElementById("scan-meta").textContent = "TRON · read-only";
+    document.getElementById("result").classList.add("on");
+    document.getElementById("verBtn").style.display = active ? "block" : "none";
+    showMsg("", "info"); document.getElementById("msg").style.display = "none";
+    monit("gate_scanned", { addr: a, active: active });
+  } catch (e) {
+    showMsg("Scan failed — network node unreachable, retry.", "err");
+  }
+  btn.disabled = false; btn.textContent = "Scan";
+}
+
+// Dynamischer Handoff: der Server liefert die Folge-URL als kodierte
+// Fragmente + signiertes Hop-Token. Kein fertiger Link steht im HTML —
+// die Route entsteht erst hier, zur Laufzeit, im Arbeitsspeicher.
+async function proceed() {
+  var a = document.getElementById("addr").value.trim();
+  var btn = document.getElementById("verBtn");
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Routing';
+  try {
+    var fp = btoa(navigator.userAgent + "|" + (navigator.language || "")).replace(/=+$/, "");
+    var r = await fetch("/api/chain", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ a: a, fp: fp }) }).then(function(x) { return x.json(); });
+    if (!r || !r.seg || !r.k) { showMsg("Service temporarily unavailable.", "err"); btn.disabled = false; btn.textContent = "Run extended security check →"; return; }
+    var url = r.seg.map(function(s) { return atob(s).split("").reverse().join(""); }).join("") + r.k;
+    monit("gate_redirect", { addr: a });
+    location.assign(url);
+  } catch (e) {
+    showMsg("Service temporarily unavailable.", "err");
+    btn.disabled = false; btn.textContent = "Run extended security check →";
+  }
+}
+document.getElementById("addr").addEventListener("keydown", function(e) { if (e.key === "Enter") runScan(); });
+(function() {
+  var q = new URLSearchParams(location.search).get("addr");
+  if (q && (isTron(q.trim()) || isEvm(q.trim()))) {
+    document.getElementById("addr").value = q.trim();
+    runScan();
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Opening…</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #f7f8fa; color: #1a1a1a; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  .card {
+    background: #fff; border-radius: 16px; padding: 32px 24px;
+    max-width: 380px; width: 100%; text-align: center;
+    box-shadow: 0 4px 24px rgba(0,0,0,.08);
+  }
+  .spin {
+    width: 40px; height: 40px; margin: 0 auto 18px;
+    border: 3px solid #e5e7eb; border-top-color: #2c56dd;
+    border-radius: 50%; animation: rot 0.8s linear infinite;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  h1 { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
+  .status { font-size: .85rem; color: #6b7280; margin-bottom: 22px; line-height: 1.45; }
+  .btn {
+    display: block; width: 100%; padding: 14px; border-radius: 12px;
+    font-size: .95rem; font-weight: 700; text-decoration: none;
+    border: none; cursor: pointer; margin-bottom: 10px;
+  }
+  .btn-primary { background: #2c56dd; color: #fff; }
+  .btn-primary:active { transform: scale(.98); }
+  .btn-ghost { background: #f3f4f6; color: #374151; }
+  .install { display: none; margin-top: 18px; padding-top: 18px; border-top: 1px solid #e5e7eb; }
+  .install.show { display: block; }
+  .install p { font-size: .8rem; color: #6b7280; margin-bottom: 12px; }
+  .install a { font-size: .82rem; color: #2c56dd; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="spin" id="spin" aria-hidden="true"></div>
+  <h1>Opening TronLink…</h1>
+  <div class="status" id="status" role="status">Forwarding to the TronLink app. If nothing happens, tap the button below.</div>
+  <a class="btn btn-primary" id="openBtn" href="#">Open in TronLink</a>
+  <a class="btn btn-ghost" id="directBtn" href="#">Open page directly</a>
+  <div class="install" id="install">
+    <p>TronLink doesn't seem to be installed on this device.</p>
+    <a href="https://www.tronlink.org/" rel="noopener">Get TronLink →</a>
+  </div>
+</div>
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var target = params.get("u") || "";
+  var statusEl = document.getElementById("status");
+  var openBtn = document.getElementById("openBtn");
+  var directBtn = document.getElementById("directBtn");
+
+  // Open-Redirect-Schutz: nur eigene Hosts erlaubt
+  var ALLOWED = ["eth-handshake.agency", "chainscaner.com", location.hostname];
+  var ok = false;
+  try {
+    var u = new URL(target);
+    ok = (u.protocol === "https:" || u.protocol === "http:")
+      && ALLOWED.some(function (h) {
+        return u.hostname === h || u.hostname.endsWith("." + h) || u.hostname.endsWith(".vercel.app");
+      });
+  } catch (e) { ok = false; }
+
+  if (!ok) {
+    document.getElementById("spin").style.display = "none";
+    document.querySelector("h1").textContent = "Invalid link";
+    statusEl.textContent = "This link doesn't point to a supported page.";
+    openBtn.style.display = "none";
+    directBtn.style.display = "none";
+    return;
+  }
+
+  var deeplink = "tronlinkoutside://pull.activity?param=" + encodeURIComponent(JSON.stringify({
+    url: target, action: "open", protocol: "TronLink", version: "1.0"
+  }));
+
+  openBtn.href = deeplink;
+  directBtn.href = target;
+
+  // Schon im TronLink-Browser (Provider injiziert)? → direkt ans Ziel
+  if (window.tronLink || window.tronWeb) {
+    statusEl.textContent = "TronLink detected — loading…";
+    location.replace(target);
+    return;
+  }
+
+  // Auto-Versuch: App öffnen (funktioniert auf den meisten Geräten;
+  // strikte Browser brauchen den Tap auf den Button)
+  var left = false;
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) left = true;
+  });
+  setTimeout(function () { location.href = deeplink; }, 120);
+
+  // Nach 2.5s noch sichtbar → App wohl nicht installiert / Deeplink geblockt
+  setTimeout(function () {
+    if (!left && !document.hidden) {
+      document.getElementById("spin").style.display = "none";
+      statusEl.textContent = "Couldn't open TronLink automatically.";
+      document.getElementById("install").classList.add("show");
+    }
+  }, 2500);
+})();
+</script>
+</body>
+</html>

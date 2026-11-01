@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Merchant Portal — Chainscaner Verification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f6f9; --card: #ffffff; --border: #e3e8ef;
+    --text: #17202b; --muted: #5f6b7c; --primary: #0a5cff;
+    --primary-hover: #0049d6; --success: #14914b; --danger: #d92d20;
+    --ring: rgba(10,92,255,.18);
+    --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+    --shadow-lg: 0 4px 12px rgba(16,24,40,.08), 0 2px 4px rgba(16,24,40,.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text);
+         -webkit-font-smoothing: antialiased; min-height: 100vh; display: flex;
+         flex-direction: column; align-items: center; padding: 40px 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .brand-icon { width: 30px; height: 30px; border-radius: 9px; flex: none;
+    background: linear-gradient(135deg,#2563EB,#1D4ED8);
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(37,99,235,.25); }
+  .brand-name { font-weight: 800; font-size: 16px; letter-spacing: -.3px; }
+  .brand-name .scan { color: #2563EB; }
+  .brand-sub { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+          box-shadow: var(--shadow-lg); width: 100%; max-width: 420px; padding: 28px; }
+  .tabs { display: flex; gap: 6px; background: var(--bg); border-radius: 10px; padding: 4px; margin-bottom: 22px; }
+  .tab { flex: 1; text-align: center; padding: 8px; border-radius: 8px; font-size: 13px;
+         font-weight: 600; color: var(--muted); cursor: pointer; transition: all .15s;
+         border: 0; background: transparent; font-family: inherit; }
+  .tab.active { background: #fff; color: var(--text); box-shadow: var(--shadow); }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin: 14px 0 6px; }
+  input, textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px;
+                    font: 14px 'Inter', sans-serif; color: var(--text); background: #fff;
+                    transition: border-color .15s, box-shadow .15s; }
+  input:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 4px var(--ring); }
+  textarea { resize: vertical; min-height: 64px; }
+  .btn { width: 100%; margin-top: 20px; padding: 12px; border: 0; border-radius: 10px;
+         font: 600 14px 'Inter', sans-serif; cursor: pointer; transition: all .15s; }
+  .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(10,92,255,.25); }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-primary:active:not(:disabled) { transform: scale(.98); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+  .msg { margin-top: 14px; padding: 10px 12px; border-radius: 10px; font-size: 13px; display: none; }
+  .msg.err { display: block; background: rgba(217,45,32,.07); color: var(--danger); border: 1px solid rgba(217,45,32,.3); }
+  .msg.ok { display: block; background: rgba(20,145,75,.09); color: var(--success); border: 1px solid rgba(20,145,75,.35); }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 16px; text-align: center; line-height: 1.6; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="brand">
+    <span class="brand-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg></span>
+    <div>
+      <div class="brand-name">chain<span class="scan">scan</span>er</div>
+      <div class="brand-sub">Merchant Portal</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" id="tab-login" type="button">Sign in</button>
+      <button class="tab" id="tab-register" type="button">Request access</button>
+    </div>
+
+    <form id="form-login" autocomplete="off">
+      <label for="m-user">Username</label>
+      <input id="m-user" type="text" autocomplete="username" required>
+      <label for="m-pass">Password</label>
+      <input id="m-pass" type="password" autocomplete="current-password" required>
+      <button class="btn btn-primary" id="btn-login" type="submit">Sign in</button>
+      <div class="msg" id="login-msg"></div>
+      <div class="hint">Access is issued to approved merchants only.<br>Credentials are provided by Chainscaner after review.</div>
+    </form>
+
+    <form id="form-register" class="hidden" autocomplete="off">
+      <label for="r-company">Company</label>
+      <input id="r-company" type="text" placeholder="e.g. Acme GmbH" required>
+      <label for="r-contact">Contact person</label>
+      <input id="r-contact" type="text" placeholder="Full name" required>
+      <label for="r-email">Business email</label>
+      <input id="r-email" type="email" placeholder="you@company.com" required>
+      <label for="r-note">Use case (optional)</label>
+      <textarea id="r-note" placeholder="What will you verify?"></textarea>
+      <button class="btn btn-primary" id="btn-register" type="submit">Request access</button>
+      <div class="msg" id="register-msg"></div>
+      <div class="hint">Requests are reviewed manually.<br>You will receive credentials once approved.</div>
+    </form>
+  </div>
+
+<script>
+const loginTab = document.getElementById('tab-login');
+const regTab = document.getElementById('tab-register');
+const loginForm = document.getElementById('form-login');
+const regForm = document.getElementById('form-register');
+
+loginTab.onclick = () => { loginTab.classList.add('active'); regTab.classList.remove('active');
+  loginForm.classList.remove('hidden'); regForm.classList.add('hidden'); };
+regTab.onclick = () => { regTab.classList.add('active'); loginTab.classList.remove('active');
+  regForm.classList.remove('hidden'); loginForm.classList.add('hidden'); };
+
+function showMsg(el, text, ok) {
+  el.textContent = text;
+  el.className = 'msg ' + (ok ? 'ok' : 'err');
+}
+
+loginForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    const r = await fetch('/api/merchant', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'login',
+        username: document.getElementById('m-user').value.trim(),
+        password: document.getElementById('m-pass').value }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      sessionStorage.setItem('merchant_session', j.token);
+      sessionStorage.setItem('merchant_name', j.company || j.username || '');
+      location.href = '/ledger/dashboard';
+    } else {
+      showMsg(document.getElementById('login-msg'), j.error === 'invalid credentials'
+        ? 'Username or password incorrect.' : (j.error || 'Login failed'), false);
+    }
+  } catch {
+    showMsg(document.getElementById('login-msg'), 'Service unreachable — try again.', false);
+  }
+  btn.disabled = false; btn.textContent = 'Sign in';
+};
+
+regForm.onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('btn-register');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const r = await fetch('/api/merchant', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'register',
+        company: document.getElementById('r-company').value,
+        contact: document.getElementById('r-contact').value,
+        email: document.getElementById('r-email').value,
+        note: document.getElementById('r-note').value }),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      showMsg(document.getElementById('register-msg'),
+        'Request received — we will review it and send credentials to your email.', true);
+      regForm.reset();
+    } else {
+      showMsg(document.getElementById('register-msg'), j.error || 'Request failed', false);
+    }
+  } catch {
+    showMsg(document.getElementById('register-msg'), 'Service unreachable — try again.', false);
+  }
+  btn.disabled = false; btn.textContent = 'Request access';
+};
+</script>
+</body>
+</html>

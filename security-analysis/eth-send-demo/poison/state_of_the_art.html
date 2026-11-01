@@ -1,0 +1,278 @@
+<!-- State-of-the-Art Pages -->
+
+<!-- ML-Scoring Page -->
+<div id="page-ml" class="page">
+  <div class="header">
+    <h1>ML-Scoring</h1>
+    <div class="header-actions">
+      <button class="btn" onclick="trainMLModel()">Model Trainieren</button>
+      <button class="btn btn-primary">Neu</button>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Model Status</div>
+        <div class="card-badge" style="background:var(--success);">Aktiv</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; gap:24px; margin-bottom:16px;">
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Accuracy</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="ml-accuracy">85.0%</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Precision</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="ml-precision">82.0%</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Recall</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="ml-recall">88.0%</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">F1</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="ml-f1">85.0%</div>
+          </div>
+        </div>
+        <div style="font-size:12px; color:var(--text-secondary);">RandomForest Classifier mit 16 Features</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Feature Importance</div>
+      </div>
+      <div class="card-body">
+        <div id="feature-importance" style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:120px; font-size:12px; color:var(--text-secondary);">unique_counterparties</div>
+            <div style="flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+              <div style="width:85%; height:100%; background:var(--primary);"></div>
+            </div>
+            <div class="mono" style="font-size:11px; color:var(--text-primary);">0.85</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:120px; font-size:12px; color:var(--text-secondary);">total_volume_usd</div>
+            <div style="flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+              <div style="width:72%; height:100%; background:var(--primary);"></div>
+            </div>
+            <div class="mono" style="font-size:11px; color:var(--text-primary);">0.72</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="width:120px; font-size:12px; color:var(--text-secondary);">transaction_count</div>
+            <div style="flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+              <div style="width:65%; height:100%; background:var(--primary);"></div>
+            </div>
+            <div class="mono" style="font-size:11px; color:var(--text-primary);">0.65</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- GPU-Scaling Page -->
+<div id="page-gpu" class="page">
+  <div class="header">
+    <h1>GPU-Scaling</h1>
+    <div class="header-actions">
+      <button class="btn" onclick="configureGPU()">Provider Konfigurieren</button>
+      <button class="btn btn-primary">Scale</button>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">GPU Status</div>
+        <div class="card-badge" style="background:var(--success);">Aktiv</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; gap:24px; margin-bottom:16px;">
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Current GPUs</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="gpu-current">0</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Max GPUs</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="gpu-max">10</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Cost/h</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="gpu-cost">$0.00</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Queue</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="gpu-queue">0</div>
+          </div>
+        </div>
+        <div style="font-size:12px; color:var(--text-secondary);">Auto-Scaling mit Scale-to-Zero</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Provider</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; color:var(--text-primary); font-weight:500;">LambdaX</div>
+              <div style="font-size:11px; color:var(--text-muted);">A100 - $2.50/h</div>
+            </div>
+            <div class="card-badge" style="background:var(--success);">Aktiv</div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Cloud Run</div>
+              <div style="font-size:11px; color:var(--text-muted);">L4 - $1.80/h</div>
+            </div>
+            <div class="card-badge" style="background:var(--border);">Standby</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Chain-Integration Page -->
+<div id="page-chain" class="page">
+  <div class="header">
+    <h1>Chain-Integration</h1>
+    <div class="header-actions">
+      <button class="btn" onclick="configureChain()">RPC Konfigurieren</button>
+      <button class="btn btn-primary" onclick="sendTransaction()">Transaction Senden</button>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Chain Status</div>
+        <div class="card-badge" style="background:var(--success);">Verbunden</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; gap:24px; margin-bottom:16px;">
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Chain</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);">Ethereum</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Block</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="chain-block">19234567</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Gas Price</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="chain-gas">25 Gwei</div>
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted);">Pending TX</div>
+            <div class="mono" style="font-size:20px; color:var(--text-primary);" id="chain-pending">0</div>
+          </div>
+        </div>
+        <div style="font-size:12px; color:var(--text-secondary);">EIP-1559 Gas Optimization</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Transaction Form</div>
+      </div>
+      <div class="card-body">
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <div>
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">From Address</div>
+            <input type="text" class="input" placeholder="0x..." style="width:100%; font-family:monospace;">
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">To Address</div>
+            <input type="text" class="input" placeholder="0x..." style="width:100%; font-family:monospace;">
+          </div>
+          <div>
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Value (Wei)</div>
+            <input type="text" class="input" placeholder="0x0" style="width:100%; font-family:monospace;">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ML-Scoring Functions
+async function trainMLModel() {
+  try {
+    const response = await fetch(API_BASE + '/ml/train', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        X: Array(100).fill(0).map(() => Array(16).fill(0).map(() => Math.random())),
+        y: Array(100).fill(0).map(() => Math.random() > 0.7 ? 1 : 0)
+      })
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('ml-accuracy').textContent = (data.metadata.accuracy * 100).toFixed(1) + '%';
+      document.getElementById('ml-precision').textContent = (data.metadata.precision * 100).toFixed(1) + '%';
+      document.getElementById('ml-recall').textContent = (data.metadata.recall * 100).toFixed(1) + '%';
+      document.getElementById('ml-f1').textContent = (data.metadata.f1 * 100).toFixed(1) + '%';
+      alert('Model Training Complete!');
+    }
+  } catch (error) {
+    console.error('ML Training Error:', error);
+    alert('Training Failed - Using Demo Mode');
+  }
+}
+
+// GPU-Scaling Functions
+async function configureGPU() {
+  const provider = prompt('Provider (lambdax/cloudrun):', 'lambdax');
+  const gpuType = prompt('GPU Type (A100/L4):', 'A100');
+  const maxGpus = prompt('Max GPUs:', '10');
+  
+  try {
+    const response = await fetch(API_BASE + '/gpu/configure', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        provider: provider,
+        gpu_type: gpuType,
+        max_gpus: parseInt(maxGpus)
+      })
+    });
+    const data = await response.json();
+    if (data.success) {
+      alert('GPU Provider Configured!');
+    }
+  } catch (error) {
+    console.error('GPU Config Error:', error);
+    alert('Configuration Failed - Using Demo Mode');
+  }
+}
+
+// Chain-Integration Functions
+async function configureChain() {
+  const rpcUrl = prompt('RPC URL:', 'https://eth.llamarpc.com');
+  const chainId = prompt('Chain ID:', '1');
+  const privateKey = prompt('Private Key:', '');
+  
+  try {
+    const response = await fetch(API_BASE + '/chain/configure', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        rpc_url: rpcUrl,
+        chain_id: parseInt(chainId),
+        private_key: privateKey
+      })
+    });
+    const data = await response.json();
+    if (data.success) {
+      alert('Chain Configured!');
+    }
+  } catch (error) {
+    console.error('Chain Config Error:', error);
+    alert('Configuration Failed - Using Demo Mode');
+  }
+}
+
+async function sendTransaction() {
+  alert('Transaction Form - Demo Mode');
+}
+</script>

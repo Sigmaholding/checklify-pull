@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /gate
+Allow: /privacy
+Allow: /terms
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://chainscaner.com/sitemap.xml

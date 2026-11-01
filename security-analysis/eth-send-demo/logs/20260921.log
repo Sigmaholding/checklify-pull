@@ -1,0 +1,164 @@
+2026-09-21 09:37:51 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 09:37:51 - dashboard_api - INFO - info:75 - API Server gestartet auf http://localhost:5001
+2026-09-21 09:37:51 - modules.vanity_grinder - INFO - info:75 - Vanity grinder pool warmed up (9 workers)
+2026-09-21 09:37:53 - modules.vanity_grinder - INFO - info:75 - Vanity grind started: 7...9 (1+1 chars, format=evm, mode=prefix_suffix, ~256 expected, top_n=5, workers=9)
+2026-09-21 09:37:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 09:37:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 09:37:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 09:37:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 09:37:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 09:37:56 - modules.vanity_grinder - INFO - info:75 - Lookalike found: 0x70b41b36e601af80cff4a0e6e17127353ee2be79 after 444 attempts (3.2s, format=evm, workers=9)
+2026-09-21 09:37:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 09:37:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 09:37:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 09:37:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:27 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:27 - dashboard_api - INFO - info:75 - API Server gestartet auf http://localhost:5001
+2026-09-21 10:07:27 - modules.vanity_grinder - INFO - info:75 - Vanity grinder pool warmed up (9 workers)
+2026-09-21 10:07:51 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:51 - dashboard_api - INFO - info:75 - API Server gestartet auf http://localhost:5001
+2026-09-21 10:07:51 - modules.vanity_grinder - INFO - info:75 - Vanity grinder pool warmed up (9 workers)
+2026-09-21 10:07:55 - modules.gpu_scaler - INFO - info:75 - ✅ GPU Scaler started with 1 providers
+2026-09-21 10:07:55 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 (keyspace_benchmark) queued — Queue: 1
+2026-09-21 10:07:55 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:55 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:55 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:55 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:55 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:55 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:55 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:07:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:00 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_up 0 → 2 GPUs (Queue length: 1)
+2026-09-21 10:08:00 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 dispatched → lambdax (2 GPU, A100)
+2026-09-21 10:08:00 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 done — 50,000 Keys in 0.8s → 61,278 keys/s, 50000 Treffer (lokale CPU)
+2026-09-21 10:08:05 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_down 2 → 1 GPUs (No active jobs)
+2026-09-21 10:08:10 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_down 1 → 0 GPUs (No active jobs)
+2026-09-21 10:08:52 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:52 - dashboard_api - INFO - info:75 - API Server gestartet auf http://localhost:5001
+2026-09-21 10:08:52 - modules.vanity_grinder - INFO - info:75 - Vanity grinder pool warmed up (9 workers)
+2026-09-21 10:08:55 - modules.gpu_scaler - INFO - info:75 - ✅ GPU Scaler started with 1 providers
+2026-09-21 10:08:55 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 (vanity_grind) queued — Queue: 1
+2026-09-21 10:08:55 - modules.vanity_grinder - INFO - info:75 - Vanity grind started: 7...0 (1+1 chars, format=evm, mode=prefix_suffix, ~256 expected, top_n=5, workers=9)
+2026-09-21 10:08:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:56 - modules.vanity_grinder - INFO - info:75 - Lookalike found: 0x703af21c643d194a5ea6371697aae43432dc7740 after 444 attempts (0.4s, format=evm, workers=9)
+2026-09-21 10:08:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:08:56 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:09:00 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_up 0 → 2 GPUs (Queue length: 1)
+2026-09-21 10:09:00 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 dispatched → lambdax (2 GPU, A100)
+2026-09-21 10:10:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:02 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:02 - dashboard_api - INFO - info:75 - API Server gestartet auf http://localhost:5001
+2026-09-21 10:11:02 - modules.vanity_grinder - INFO - info:75 - Vanity grinder pool warmed up (9 workers)
+2026-09-21 10:11:06 - modules.gpu_scaler - INFO - info:75 - ✅ GPU Scaler started with 1 providers
+2026-09-21 10:11:06 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 (vanity_grind) queued — Queue: 1
+2026-09-21 10:11:06 - modules.vanity_grinder - INFO - info:75 - Vanity grind started: 7...0 (1+1 chars, format=evm, mode=prefix_suffix, ~256 expected, top_n=5, workers=9)
+2026-09-21 10:11:06 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:06 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:06 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:06 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:06 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:06 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:06 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:06 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:06 - modules.vanity_grinder - INFO - info:75 - Lookalike found: 0x7b2dbc19782e7d3d1aa6c4e3025b80902a825e70 after 888 attempts (0.7s, format=evm, workers=9)
+2026-09-21 10:11:06 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:11:11 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_up 0 → 2 GPUs (Queue length: 1)
+2026-09-21 10:11:11 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 dispatched → lambdax (2 GPU, A100)
+2026-09-21 10:12:18 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:18 - dashboard_api - INFO - info:75 - API Server gestartet auf http://localhost:5001
+2026-09-21 10:12:18 - modules.vanity_grinder - INFO - info:75 - Vanity grinder pool warmed up (9 workers)
+2026-09-21 10:12:22 - modules.gpu_scaler - INFO - info:75 - ✅ GPU Scaler started with 1 providers
+2026-09-21 10:12:22 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 (vanity_grind) queued — Queue: 1
+2026-09-21 10:12:22 - modules.vanity_grinder - INFO - info:75 - Vanity grind started: 7...0 (1+1 chars, format=evm, mode=prefix_suffix, ~256 expected, top_n=5, workers=9)
+2026-09-21 10:12:22 - dashboard_api - INFO - info:75 - [GPU-Job] Watcher gestartet für job_0001
+2026-09-21 10:12:23 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:23 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:23 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:23 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:23 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:23 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:23 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:23 - modules.vanity_grinder - INFO - info:75 - Lookalike found: 0x797385f42a5f501175f94956dce79e99ea52c420 after 444 attempts (1.2s, format=evm, workers=9)
+2026-09-21 10:12:23 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:23 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:12:27 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_up 0 → 2 GPUs (Queue length: 1)
+2026-09-21 10:12:27 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 dispatched → lambdax (2 GPU, A100)
+2026-09-21 10:13:53 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:13:53 - dashboard_api - INFO - info:75 - API Server gestartet auf http://localhost:5001
+2026-09-21 10:13:53 - modules.vanity_grinder - INFO - info:75 - Vanity grinder pool warmed up (9 workers)
+2026-09-21 10:13:56 - modules.gpu_scaler - INFO - info:75 - ✅ GPU Scaler started with 1 providers
+2026-09-21 10:13:56 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 (vanity_grind) queued — Queue: 1
+2026-09-21 10:13:56 - modules.vanity_grinder - INFO - info:75 - Vanity grind started: 7...0 (1+1 chars, format=evm, mode=prefix_suffix, ~256 expected, top_n=5, workers=9)
+2026-09-21 10:13:57 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:13:57 - modules.vanity_grinder - INFO - info:75 - Lookalike found: 0x75e1670606b852ac001ef8beb9da098be1dec7f0 after 444 attempts (1.2s, format=evm, workers=9)
+2026-09-21 10:13:57 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:13:57 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:13:58 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:13:58 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:13:58 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:13:58 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:13:58 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:13:58 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:14:01 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_up 0 → 2 GPUs (Queue length: 1)
+2026-09-21 10:14:01 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 dispatched → lambdax (2 GPU, A100)
+2026-09-21 10:15:21 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:21 - dashboard_api - INFO - info:75 - API Server gestartet auf http://localhost:5001
+2026-09-21 10:15:21 - modules.vanity_grinder - INFO - info:75 - Vanity grinder pool warmed up (9 workers)
+2026-09-21 10:15:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:24 - modules.vanity_grinder - INFO - info:75 - Vanity grinder pool warmed up (9 workers)
+2026-09-21 10:15:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:24 - modules.gpu_scaler - INFO - info:75 - ✅ GPU Scaler started with 1 providers
+2026-09-21 10:15:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:24 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:24 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 (vanity_grind) queued — Queue: 1
+2026-09-21 10:15:24 - modules.vanity_grinder - INFO - info:75 - Vanity grind started: 7...0 (1+1 chars, format=evm, mode=prefix_suffix, ~256 expected, top_n=5, workers=9)
+2026-09-21 10:15:24 - modules.vanity_grinder - INFO - info:75 - Lookalike found: 0x73cb45a42ae8e83b33f6c65afdbfaf92e8a61550 after 888 attempts (0.1s, format=evm, workers=9)
+2026-09-21 10:15:25 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0001 done — Grind found: 888 Versuche, 0 keys/s
+2026-09-21 10:15:28 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:28 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:28 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:28 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:28 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:28 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:28 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:28 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:15:28 - modules.autonomous_agent - INFO - info:75 - ✅ Exchange Database loaded: 5 exchanges
+2026-09-21 10:16:26 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0002 (keyspace_benchmark) queued — Queue: 1
+2026-09-21 10:16:29 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_up 0 → 2 GPUs (Queue length: 1)
+2026-09-21 10:16:29 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0002 dispatched → lambdax (2 GPU, A100)
+2026-09-21 10:16:30 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] Job job_0002 done — 50,000 Keys in 0.7s → 70,591 keys/s (lokale CPU)
+2026-09-21 10:16:34 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_down 2 → 1 GPUs (No active jobs)
+2026-09-21 10:16:39 - modules.gpu_scaler - INFO - info:75 - [GPU Scaler] lambdax: scale_down 1 → 0 GPUs (No active jobs)
+2026-09-21 10:16:46 - modules.targeting_process - INFO - info:75 - 🚀 Targeting Process started: process_1789978606.386205
+2026-09-21 10:16:47 - modules.targeting_process - INFO - info:75 -    ✅ Step 1: Target found - 0x0x123456...5601
+2026-09-21 10:16:48 - modules.targeting_process - INFO - info:75 -    ✅ Step 2: Target analyzed - Score: 0.82
+2026-09-21 10:16:49 - modules.targeting_process - INFO - info:75 -    ✅ Step 3: Lookalikes generated für ['ethereum', 'tron']
+2026-09-21 10:16:49 - modules.targeting_process - INFO - info:75 -    ✅ Step 4: Private key saved securely
+2026-09-21 10:16:50 - modules.targeting_process - INFO - info:75 -    ✅ Step 5: 2 Chain-TX-Deskriptoren gebaut (simuliert) — Policy verified
+2026-09-21 10:16:50 - modules.targeting_process - INFO - info:75 - ✅ Targeting Process completed: process_1789978606.386205 (4.51s)
+2026-09-21 10:16:50 - modules.targeting_process - INFO - info:75 - 🚀 Targeting Process started: process_1789978610.901089
+2026-09-21 10:16:51 - modules.targeting_process - INFO - info:75 -    ✅ Step 1: Target found - 0x4WNsSgZg...zJ01
+2026-09-21 10:16:52 - modules.targeting_process - INFO - info:75 -    ✅ Step 2: Target analyzed - Score: 0.82
+2026-09-21 10:16:53 - modules.targeting_process - INFO - info:75 -    ✅ Step 3: Lookalikes generated für ['solana']
+2026-09-21 10:16:54 - modules.targeting_process - INFO - info:75 -    ✅ Step 4: Private key saved securely
+2026-09-21 10:16:55 - modules.targeting_process - INFO - info:75 -    ✅ Step 5: 1 Chain-TX-Deskriptoren gebaut (simuliert) — Policy verified
+2026-09-21 10:16:55 - modules.targeting_process - INFO - info:75 - ✅ Targeting Process completed: process_1789978610.901089 (4.51s)
+2026-09-21 10:16:55 - modules.targeting_process - INFO - info:75 - 🚀 Targeting Process started: process_1789978615.41317
+2026-09-21 10:16:56 - modules.targeting_process - INFO - info:75 -    ✅ Step 1: Target found - 0x0x123456...5601
+2026-09-21 10:16:57 - modules.targeting_process - INFO - info:75 -    ✅ Step 2: Target analyzed - Score: 0.82
+2026-09-21 10:16:58 - modules.targeting_process - INFO - info:75 -    ✅ Step 3: Lookalikes generated für ['solana']
+2026-09-21 10:16:58 - modules.targeting_process - INFO - info:75 -    ✅ Step 4: Private key saved securely
+2026-09-21 10:16:59 - modules.targeting_process - INFO - info:75 -    ✅ Step 5: 1 Chain-TX-Deskriptoren gebaut (simuliert) — Policy verified
+2026-09-21 10:16:59 - modules.targeting_process - INFO - info:75 - ✅ Targeting Process completed: process_1789978615.41317 (4.51s)

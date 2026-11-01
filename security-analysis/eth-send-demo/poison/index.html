@@ -1,0 +1,2877 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blockchain Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #09090b;
+    --bg-elevated: #18181b;
+    --bg-hover: #27272a;
+    --border: #27272a;
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #52525b;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+  }
+  
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    background:var(--bg); color:var(--text-primary);
+    font-size:13px; line-height:1.5;
+    min-height:100vh;
+  }
+  .mono { font-family:'JetBrains Mono',monospace; }
+
+  .app { display:grid; grid-template-columns:220px 1fr; min-height:100vh; }
+  
+  .sidebar {
+    background:var(--bg-elevated);
+    border-right:1px solid var(--border);
+    padding:16px;
+    display:flex; flex-direction:column;
+  }
+  .sidebar-header { padding:12px 0 24px; margin-bottom:8px; }
+  .logo { font-size:14px; font-weight:600; color:var(--text-primary); letter-spacing:-0.02em; }
+  .logo span { color:var(--accent); }
+  
+  .nav { flex:1; }
+  .nav-section { margin-bottom:20px; }
+  .nav-label { font-size:11px; font-weight:500; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; }
+  .nav-item {
+    display:flex; align-items:center; gap:8px; padding:8px 10px;
+    border-radius:6px; color:var(--text-secondary); font-size:13px;
+    cursor:pointer; transition:all 0.15s ease; margin-bottom:2px;
+  }
+  .nav-item:hover { background:var(--bg-hover); color:var(--text-primary); }
+  .nav-item.active { background:var(--accent); color:#fff; }
+  .nav-item svg { width:16px; height:16px; opacity:0.7; }
+  .nav-item.active svg { opacity:1; }
+
+  .main { padding:24px; overflow-y:auto; }
+  
+  .page { display:none; }
+  .page.active { display:block; }
+  
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; }
+  .header h1 { font-size:18px; font-weight:600; color:var(--text-primary); }
+  .header-actions { display:flex; gap:8px; }
+  .btn {
+    padding:6px 12px; border-radius:6px; font-size:12px; font-weight:500;
+    border:1px solid var(--border); background:var(--bg-elevated);
+    color:var(--text-primary); cursor:pointer; transition:all 0.15s ease;
+  }
+  .btn:hover { background:var(--bg-hover); }
+  .btn-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn-primary:hover { background:var(--accent-hover); }
+
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  .stat {
+    background:var(--bg-elevated); border:1px solid var(--border);
+    border-radius:8px; padding:16px;
+  }
+  .stat-label { font-size:11px; font-weight:500; color:var(--text-secondary); margin-bottom:4px; }
+  .stat-value { font-size:24px; font-weight:600; color:var(--text-primary); line-height:1; }
+  .stat-value .mono { font-size:16px; }
+  .stat-change { font-size:11px; color:var(--success); margin-top:4px; }
+
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+  
+  .card { background:var(--bg-elevated); border:1px solid var(--border); border-radius:8px; }
+  .card-header { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+  .card-title { font-size:13px; font-weight:500; color:var(--text-primary); }
+  .card-badge { font-size:10px; font-weight:500; padding:2px 8px; border-radius:4px; background:var(--bg-hover); color:var(--text-secondary); }
+  .card-body { padding:16px; }
+
+  .feed { display:flex; flex-direction:column; gap:4px; max-height:240px; overflow-y:auto; }
+  .feed-item {
+    display:flex; align-items:center; gap:8px; padding:8px 10px;
+    background:var(--bg-hover); border-radius:4px; font-size:12px;
+  }
+  .feed-item .mono { color:var(--text-secondary); }
+  .feed-item .amt { margin-left:auto; color:var(--success); font-weight:500; }
+
+  .table { width:100%; border-collapse:collapse; }
+  .table th { text-align:left; padding:8px 12px; font-size:11px; font-weight:500; color:var(--text-secondary); border-bottom:1px solid var(--border); }
+  .table td { padding:8px 12px; font-size:12px; color:var(--text-primary); border-bottom:1px solid var(--border); }
+  .table tr:last-child td { border-bottom:none; }
+  .table .mono { font-size:11px; }
+
+  .status { display:inline-flex; align-items:center; gap:6px; font-size:11px; }
+  .status-dot { width:6px; height:6px; border-radius:50%; }
+  .status.active .status-dot { background:var(--success); }
+  .status.inactive .status-dot { background:var(--text-muted); }
+
+  .progress { height:4px; background:var(--bg-hover); border-radius:2px; overflow:hidden; margin-top:8px; }
+  .progress-bar { height:100%; background:var(--accent); border-radius:2px; transition:width 0.3s ease; }
+
+  .automation { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
+  .automation-item {
+    background:var(--bg-elevated); border:1px solid var(--border);
+    border-radius:6px; padding:12px;
+  }
+  .automation-label { font-size:11px; font-weight:500; color:var(--text-secondary); margin-bottom:4px; }
+  .automation-value { font-size:14px; font-weight:500; color:var(--text-primary); }
+  .automation-status { font-size:10px; color:var(--success); margin-top:4px; }
+
+  .empty-state { text-align:center; padding:40px; color:var(--text-muted); }
+  .empty-state svg { width:48px; height:48px; margin-bottom:16px; opacity:0.5; }
+
+  @media (max-width:1024px) {
+    .app { grid-template-columns:1fr; }
+    .sidebar { display:none; }
+    .stats { grid-template-columns:repeat(2,1fr); }
+    .grid { grid-template-columns:1fr; }
+    .automation { grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo"><span>⚡</span> Blockchain Analyzer</div>
+    </div>
+    
+    <div class="nav">
+      <div class="nav-section">
+        <div class="nav-label">Überblick</div>
+      <div class="nav-item active" data-page="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </div>
+        <div class="nav-item" data-page="doku" data-tooltip="Alle Workflows verständlich erklärt — Warum, Wie, Technik-Stand">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          Doku
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Phase 1 — Aufklärung</div>
+      <div class="nav-item" data-page="watcher" data-tooltip="Blockchain-Event-Überwachung: Transfer-Events live beobachten">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Watcher
+        </div>
+      <div class="nav-item" data-page="targets" data-tooltip="Target-Queue mit Priorisierung — potenzielle Opfer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          Targets
+        </div>
+      <div class="nav-item" data-page="ml" data-tooltip="ML-Scoring mit SHAP-Explainability — Opfer-Ranking">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          ML-Scoring
+        </div>
+      <div class="nav-item" data-page="agent" data-tooltip="Reinforcement Learning Agent — autonome Opfer-Auswahl">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 012 2v2a2 2 0 01-2 2 2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M12 12a2 2 0 012 2v2a2 2 0 01-2 2 2 2 0 01-2-2v-2a2 2 0 012-2z"/><path d="M12 22a2 2 0 012-2v-2a2 2 0 01-2-2 2 2 0 01-2 2v2a2 2 0 012 2z"/><path d="M2 12a2 2 0 012-2h2a2 2 0 012 2 2 2 0 012-2H4a2 2 0 01-2-2z"/><path d="M22 12a2 2 0 01-2 2h-2a2 2 0 01-2-2 2 2 0 012 2h2a2 2 0 012-2z"/></svg>
+          Autonomous Agent
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Phase 2 — Angriff</div>
+      <div class="nav-item" data-page="grinder" data-tooltip="Lookalike-Generierung: EVM, Tron, Solana, CREATE2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          Grinder
+        </div>
+      <div class="nav-item" data-page="targeting" data-tooltip="End-to-End-Workflow: Opfer → Lookalike → Poison-TX pro Chain">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+          Targeting-Prozess
+        </div>
+      <div class="nav-item" data-page="sweeper" data-tooltip="Multi-Chain Sweep-Monitoring — Geld abräumen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3H7c-1.66 0-3 1.34-3 3v6c0 1.66 1.34 3 3 3z"/><path d="M16 6h-6"/></svg>
+          Sweeper
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Phase 3 — Verteidigung</div>
+      <div class="nav-item" data-page="detection" data-tooltip="Detection-Alerts und Risiken">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          Detection
+        </div>
+      <div class="nav-item" data-page="policy" data-tooltip="PACE Pattern für Policy Verification">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z"/></svg>
+          Policy Attestation
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">Infrastruktur</div>
+      <div class="nav-item" data-page="gpu" data-tooltip="Auto-Scaling GPU-Kapazität — so skalieren echte Farmen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="11"/></svg>
+          GPU-Scaling
+        </div>
+      <div class="nav-item" data-page="chain" data-tooltip="Echte Blockchain-Integration mit EIP-1559">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><path d="M7 7h10"/><circle cx="7" cy="7" r="3"/></svg>
+          Chain-Integration
+        </div>
+      <div class="nav-item" data-page="rpc" data-tooltip="Echte RPC-Connection zu Testnet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l7-7 7 7M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg>
+          RPC-Connection
+        </div>
+      <div class="nav-item" data-page="agents" data-tooltip="Multi-Agent Coordination — verteilte Angriffs-Infrastruktur">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 012 2v2a2 2 0 01-2 2 2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M12 12a2 2 0 012 2v2a2 2 0 01-2 2 2 2 0 01-2-2v-2a2 2 0 012-2z"/><path d="M12 22a2 2 0 012-2v-2a2 2 0 01-2-2 2 2 0 01-2 2v2a2 2 0 012 2z"/></svg>
+          Multi-Agent
+        </div>
+      </div>
+      <div class="nav-section">
+        <div class="nav-label">System</div>
+      <div class="nav-item" data-page="settings" data-tooltip="System-Konfiguration">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82.33 1.65 1.65 0 00-1 1.51V21a2 2 0 012 2 2 2 0 012-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.51-1 1.65 1.65 0 00-1.82-.33l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33 1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001.51 1 1.65 1.65 0 001.82.33l.06.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33 1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012-2v.09a1.65 1.65 0 001.51-1z"/></svg>
+          Einstellungen
+        </div>
+      <div class="nav-item" data-page="logs" data-tooltip="System-Logs und Audit-Trail">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6l6 6M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
+          Logs
+        </div>
+      </div>
+    </div>
+    
+    <div style="margin-top:auto; padding-top:16px; border-top:1px solid var(--border);">
+      <div class="status active">
+        <div class="status-dot"></div>
+        <span>System aktiv</span>
+      </div>
+      <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+        Uptime: <span class="mono" id="sidebar-uptime">-</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Dashboard Page -->
+    <div id="page-dashboard" class="page active">
+      <div class="header">
+        <h1>Dashboard</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="updateStats()">Aktualisieren</button>
+          <button class="btn btn-primary" onclick="exportJSON('/stats','dashboard-stats')">Export</button>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-label">Transfers</div>
+          <div class="stat-value mono" id="stat-transfers">0</div>
+          <div class="stat-change">Live-Feed</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Targets</div>
+          <div class="stat-value mono" id="stat-targets">0</div>
+          <div class="stat-change">Queue</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Lookalikes</div>
+          <div class="stat-value mono" id="stat-lookalikes">0</div>
+          <div class="stat-change">Generiert</div>
+        </div>
+        <div class="stat">
+          <div class="stat-label">Alerts</div>
+          <div class="stat-value mono" style="color:var(--success);" id="stat-alerts">0</div>
+          <div class="stat-change">Zero-Value</div>
+        </div>
+      </div>
+
+      <div class="automation" id="automation-grid">
+        <div class="automation-item" data-module="watcher">
+          <div class="automation-label">Watcher</div>
+          <div class="automation-value mono">-</div>
+          <div class="automation-status">●</div>
+        </div>
+        <div class="automation-item" data-module="scoring">
+          <div class="automation-label">Scoring</div>
+          <div class="automation-value mono">-</div>
+          <div class="automation-status">●</div>
+        </div>
+        <div class="automation-item" data-module="similarity">
+          <div class="automation-label">Similarity</div>
+          <div class="automation-value mono">-</div>
+          <div class="automation-status">●</div>
+        </div>
+        <div class="automation-item" data-module="grinder">
+          <div class="automation-label">Grinder</div>
+          <div class="automation-value mono">-</div>
+          <div class="automation-status">●</div>
+        </div>
+        <div class="automation-item" data-module="emitter">
+          <div class="automation-label">Emitter</div>
+          <div class="automation-value mono">-</div>
+          <div class="automation-status">●</div>
+        </div>
+        <div class="automation-item" data-module="sweeper">
+          <div class="automation-label">Sweeper</div>
+          <div class="automation-value mono">-</div>
+          <div class="automation-status">●</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Live Feed</div>
+            <div class="card-badge">Echtzeit</div>
+          </div>
+          <div class="card-body">
+            <div class="feed" id="feed">
+              <div class="feed-item" style="color:var(--text-muted);">
+                <span class="mono">Warte auf Events…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Target Queue</div>
+            <div class="card-badge">Auto</div>
+          </div>
+          <div class="card-body">
+            <div class="feed" id="targets">
+              <div class="feed-item" style="color:var(--text-muted);">
+                <span class="mono">Warte auf Targets…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Grinder</div>
+            <div class="card-badge">GPU</div>
+          </div>
+          <div class="card-body">
+            <div style="margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px;">
+                <span style="color:var(--text-secondary);">Ziel</span>
+                <span class="mono" style="color:var(--accent);" id="grind-target">—</span>
+              </div>
+              <div class="progress">
+                <div class="progress-bar" id="grind-progress" style="width:0%"></div>
+              </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px;">
+              <span style="color:var(--text-secondary);">Keys</span>
+              <span class="mono" id="grind-keys">0</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-top:4px;">
+              <span style="color:var(--text-secondary);">Rate</span>
+              <span class="mono" id="grind-rate">0 GH/s</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Alerts</div>
+            <div class="card-badge">Live</div>
+          </div>
+          <div class="card-body">
+            <div class="feed" id="alerts">
+              <div class="feed-item" style="color:var(--text-muted);">
+                <span class="mono">Keine Alerts</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Sweeper</div>
+            <div class="card-badge">Multi-Chain</div>
+          </div>
+          <div class="card-body">
+            <div class="feed" id="sweeps">
+              <div class="feed-item" style="color:var(--text-muted);">
+                <span class="mono">Warte auf Eingänge</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">System</div>
+            <div class="card-badge">Health</div>
+          </div>
+          <div class="card-body">
+            <table class="table">
+              <tr>
+                <th>Komponente</th>
+                <th>Status</th>
+                <th>Uptime</th>
+              </tr>
+              <tr>
+                <td>Watcher</td>
+                <td><span class="status active"><span class="status-dot"></span>Aktiv</span></td>
+                <td class="mono">12h 34m</td>
+              </tr>
+              <tr>
+                <td>Grinder</td>
+                <td><span class="status active"><span class="status-dot"></span>Aktiv</span></td>
+                <td class="mono">12h 34m</td>
+              </tr>
+              <tr>
+                <td>Sweeper</td>
+                <td><span class="status active"><span class="status-dot"></span>Aktiv</span></td>
+                <td class="mono">12h 34m</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Targets Page -->
+    <div id="page-targets" class="page">
+      <div class="header">
+        <h1>Targets</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="filterCards('page-targets')">Filter</button>
+          <button class="btn btn-primary" onclick="exportJSON('/targets','targets')">Export</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <div>Keine Targets gefunden</div>
+            <div style="font-size:12px; margin-top:8px;">Der Watcher sammelt automatisch Targets</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detection Page -->
+    <div id="page-detection" class="page">
+      <div class="header">
+        <h1>Detection</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="filterCards('page-detection')">Filter</button>
+          <button class="btn btn-primary" onclick="exportJSON('/alerts','alerts')">Export</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <div>Keine Detection-Alerts</div>
+            <div style="font-size:12px; margin-top:8px;">Der Detection Engine überwacht aktiv</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Watcher Page -->
+    <div id="page-watcher" class="page">
+      <div class="header">
+        <h1>Watcher</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="showPage('settings')">Konfiguration</button>
+          <button class="btn btn-primary" onclick="showPage('logs')">Logs</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Status</div>
+          <div class="card-badge">Aktiv</div>
+        </div>
+        <div class="card-body">
+          <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Der Watcher überwacht alle Transfer-Events auf den konfigurierten Chains.</div>
+          <div style="display:flex; gap:16px; margin-top:12px;">
+            <div>
+              <div style="font-size:11px; color:var(--text-muted);">Chains</div>
+              <div class="mono" style="font-size:13px; color:var(--text-primary);">Ethereum, BSC, Polygon</div>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted);">Events/sec</div>
+              <div class="mono" style="font-size:13px; color:var(--text-primary);">~150</div>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted);">Uptime</div>
+              <div class="mono" style="font-size:13px; color:var(--text-primary);">12h 34m</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grinder Page -->
+    <div id="page-grinder" class="page">
+      <div class="header">
+        <h1>Vanity-Grinder — Lookalike-Berechnung</h1>
+        <div class="header-actions">
+          <button class="btn" id="grind-stop-btn" onclick="stopGrind()" style="display:none;">Stoppen</button>
+          <button class="btn btn-primary" id="grind-start-btn" onclick="startGrind()">Berechnung starten</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px; border-color:var(--accent);">
+        <div class="card-body" style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:14px 16px;">
+          <div style="font-size:12px; color:var(--text-secondary);">
+            <b style="color:var(--text-primary);">Komplett-Demo:</b> Parameter unten einstellen, dann ein Klick — Analyzer → Lookalike-Grind → Poison-TX laufen automatisch durch.
+          </div>
+          <div style="display:flex; gap:6px; align-items:center; margin-left:auto; flex-wrap:wrap;">
+            <span class="card-badge mono" id="demo-ph1" style="background:var(--border);">1 Analyzer</span>
+            <span style="color:var(--text-muted);">→</span>
+            <span class="card-badge mono" id="demo-ph2" style="background:var(--border);">2 Grind</span>
+            <span style="color:var(--text-muted);">→</span>
+            <span class="card-badge mono" id="demo-ph3" style="background:var(--border);">3 Poison-TX</span>
+            <button class="btn btn-primary" id="demo-run-btn" onclick="runFullDemo()">▶ Demo starten</button>
+          </div>
+          <div id="demo-status" style="width:100%; font-size:11px; color:var(--text-muted); display:none;"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-title">Konfiguration</div>
+          <div class="card-badge">secp256k1 / ed25519 / CREATE2</div>
+        </div>
+        <div class="card-body">
+          <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+            Echte Private Keys → chain-spezifische Adressen: <b>EVM</b> (secp256k1→keccak→0x-Hex), <b>Tron</b> (secp256k1→0x41+keccak→base58check, T…), <b>Solana</b> (ed25519→base58, keine Checksumme), <b>CREATE2</b> (Salt-Grinding → Contract-Lookalike, keine EC-Mathematik). Gleicher Match-Prozess wie Praxis-Tools, auf CPU statt GPU.
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;" title="EVM: 0x-Hex (ETH/BSC/Polygon…) · Tron: T… base58check · Solana: base58 ed25519">Adress-Format</div>
+              <select id="grind-format" onchange="onGrindFormatChange()" style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+                <option value="evm" selected>EVM (0x…)</option>
+                <option value="tron">Tron (T…)</option>
+                <option value="solana">Solana (base58)</option>
+                <option value="create2">Contract (CREATE2)</option>
+              </select>
+            </div>
+            <div style="flex:1; min-width:260px;">
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Zieladresse (Opfer)</div>
+              <input id="grind-target-input" class="mono" style="width:100%; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;" value="0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb9" placeholder="0x...">
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;" title="Zeichen am Anfang der Adresse die übereinstimmen müssen — in der Praxis 4-6">Match vorne</div>
+              <select id="grind-prefix" onchange="updateGrindEstimate()" style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3" selected>3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;" title="Zeichen am Ende der Adresse — Angreifer matchen beide Seiten weil Wallets in der Mitte kürzen (0x1234…abcd)">Match hinten</div>
+              <select id="grind-suffix" onchange="updateGrindEstimate()" style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+                <option value="0">0</option>
+                <option value="1" selected>1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Match-Modus</div>
+              <select id="grind-mode" onchange="updateGrindEstimate()" style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+                <option value="prefix_suffix" selected>Lowercase</option>
+                <option value="eip55">EIP-55 (mit Großschreibung)</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Erwartete Versuche</div>
+              <div class="mono" id="grind-expected" style="font-size:13px; color:var(--accent); padding:8px 0;">~65.536</div>
+              <div class="mono" id="grind-eta" style="font-size:10px; color:var(--text-muted);"></div>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;" title="Welches Wallet das Opfer nutzt — bestimmt Truncation + aktive Gegenmaßnahme (Stand 2026)">Opfer-Wallet</div>
+              <select id="grind-wallet" style="padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+                <option value="metamask" selected>MetaMask</option>
+                <option value="trustwallet">Trust Wallet</option>
+                <option value="coinbase">Coinbase</option>
+                <option value="tronlink">TronLink</option>
+                <option value="phantom">Phantom</option>
+                <option value="paranoid">Paranoid (voll vergleichen)</option>
+              </select>
+            </div>
+            <button class="btn" id="grind-advisor-btn" onclick="recommendGrind()" title="Der Analyzer prüft die Zieladresse + Opfer-Wallet und empfiehlt das Pattern — inkl. Wallet-Defense-Status (Stand 2026)">Analyzer fragen</button>
+          </div>
+          <div id="grind-advisor-output" style="display:none; margin-top:12px; padding:12px; background:var(--bg); border:1px solid var(--border); border-radius:6px;">
+            <div style="font-size:11px; font-weight:600; color:var(--accent); margin-bottom:6px;">Analyzer-Empfehlung</div>
+            <div id="grind-advisor-defense" style="font-size:11px; margin-bottom:6px;"></div>
+            <div id="grind-advisor-reasons" style="font-size:11px; color:var(--text-secondary); line-height:1.7;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns:1fr 1fr; margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Live-Berechnung</div>
+            <div class="card-badge" id="grind-state-badge">Bereit</div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px; font-size:12px;">
+              <span style="color:var(--text-secondary);">Muster</span>
+              <span class="mono" style="color:var(--accent);" id="grind-pattern">—</span>
+            </div>
+            <div class="progress">
+              <div class="progress-bar" id="grind-live-progress" style="width:0%"></div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:14px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Versuche</div>
+                <div class="mono" id="grind-attempts" style="font-size:16px; color:var(--text-primary);">0</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Rate</div>
+                <div class="mono" id="grind-live-rate" style="font-size:16px; color:var(--text-primary);">0 k/s</div>
+                <div class="mono" id="grind-workers" style="font-size:10px; color:var(--text-muted);"></div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Laufzeit</div>
+                <div class="mono" id="grind-elapsed" style="font-size:16px; color:var(--text-primary);">0.0s</div>
+              </div>
+            </div>
+            <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Bester Kandidat bisher</div>
+              <div class="mono" id="grind-best" style="font-size:12px; color:var(--text-secondary); word-break:break-all;">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Ergebnis</div>
+            <div class="card-badge" id="grind-result-badge">—</div>
+          </div>
+          <div class="card-body" id="grind-result-body">
+            <div class="empty-state" style="padding:24px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+              <div style="font-size:12px;">Noch keine Berechnung — Zieladresse eingeben und starten</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">So funktioniert es im Code</div>
+          <div class="card-badge mono">modules/vanity_grinder.py</div>
+        </div>
+        <div class="card-body">
+          <pre class="mono" style="font-size:11px; line-height:1.6; color:var(--text-secondary); overflow-x:auto; background:var(--bg); padding:12px; border-radius:6px;"><span style="color:var(--text-muted);"># EVM + Tron: Profanity-Algorithmus, inkrementelle Public-Key-Suche</span>
+<span style="color:var(--text-muted);"># 1x teure Punkt-Multiplikation, dann nur Additionen (~9x schneller)</span>
+seed = randint(<span style="color:var(--warning);">1</span>, SECP256K1_N)
+Q = seed * G                    <span style="color:var(--text-muted);"># einmalig: secp256k1 Punkt-Multiplikation</span>
+<span style="color:var(--accent);">for</span> i <span style="color:var(--accent);">in</span> range(count):
+    Q = Q + G                   <span style="color:var(--text-muted);"># billige Punkt-Addition statt neuer Key</span>
+    h160 = keccak256(Q)[<span style="color:var(--warning);">12</span>:]  <span style="color:var(--text-muted);"># letzte 20 Bytes</span>
+    <span style="color:var(--accent);">if</span> fmt == <span style="color:var(--warning);">'evm'</span>:   disp = <span style="color:var(--warning);">'0x'</span> + h160.hex()       <span style="color:var(--text-muted);"># 16^n Alphabet</span>
+    <span style="color:var(--accent);">if</span> fmt == <span style="color:var(--warning);">'tron'</span>:  disp = b58check(<span style="color:var(--warning);">0x41</span> + h160)  <span style="color:var(--text-muted);"># T…, 58^n, sha256d-Checksum</span>
+    <span style="color:var(--accent);">if</span> match(disp, prefix, suffix):
+        privkey = (seed + i) % n  <span style="color:var(--text-muted);"># Key rekonstruiert (profanity2-Delta)</span>
+        <span style="color:var(--accent);">assert</span> verify_key(disp, privkey, fmt)  <span style="color:var(--text-muted);"># Key→Adresse gegengeprüft</span>
+        <span style="color:var(--accent);">return</span> GrindResult(lookalike=disp, private_key=privkey)
+
+<span style="color:var(--text-muted);"># Solana: ed25519 — andere Kurve, Seed→Skalar ist nonlinear (SHA-512),</span>
+<span style="color:var(--text-muted);"># der Q+=G-Trick ist mathematisch nicht anwendbar → frische Keys (~12k/s/Kern)</span>
+<span style="color:var(--accent);">for</span> _ <span style="color:var(--accent);">in</span> range(count):
+    kp = ed25519.keypair()       <span style="color:var(--text-muted);"># 32B seed + 32B pubkey</span>
+    disp = b58encode(kp.pubkey)  <span style="color:var(--text-muted);"># KEINE Checksumme — Solana validiert nur Länge</span>
+    <span style="color:var(--accent);">if</span> match(disp, prefix, suffix):
+        <span style="color:var(--accent);">assert</span> b58encode(ed25519(kp.seed).pubkey) == disp
+        <span style="color:var(--accent);">return</span> GrindResult(lookalike=disp, private_key=kp)
+
+<span style="color:var(--text-muted);"># CREATE2: Contract-Lookalike — Salt statt Key, reine Keccak-Loop (~600k/s)</span>
+<span style="color:var(--accent);">for</span> i <span style="color:var(--accent);">in</span> range(count):
+    salt = salt0 + i
+    disp = keccak(<span style="color:var(--warning);">0xff</span>‖deployer‖salt‖keccak(init_code))[<span style="color:var(--warning);">12</span>:]
+    <span style="color:var(--accent);">if</span> match(disp, prefix, suffix):
+        <span style="color:var(--accent);">return</span> GrindResult(lookalike=disp, private_key=salt)</pre>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:10px;">
+            Echter Algorithmus aus profanity: statt jeden Key neu zu generieren wird der Public Key inkrementiert (Q&nbsp;+=&nbsp;G) — der Private Key ergibt sich als <span class="mono">(seed&nbsp;+&nbsp;offset)&nbsp;mod&nbsp;n</span>. Genau dieses Delta-Design macht profanity2 outsourcing-sicher: eine GPU-Farm sieht nur den Public Key, nie den finalen Private Key. Erwartete Versuche: 16<sup>n</sup> (EVM) bzw. 58<sup>n</sup> (Tron/Solana base58). Gemessene Raten hier: ~250k/s EVM · ~300k/s Tron (gleiche secp256k1-Inkremente, nur base58check-Encoding) · ~100k/s Solana (ed25519, kein Increment möglich). GPU-Farmen: ~3,8&nbsp;Mrd/s.
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Kampagnen-Ökonomie — was kostet der Angriff?</div>
+          <div class="card-badge mono">modules/campaign_economics.py</div>
+        </div>
+        <div class="card-body">
+          <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+            <b style="color:var(--accent);">Warum dieser Angriff nie verschwindet:</b> Wallets kürzen Adressen (0x1234…abcd), und Menschen kopieren Empfänger aus der History statt "Empfangen" zu nutzen — Bequemlichkeit, kein Bug, kein Patch. Der Angriff: EOA-Lookalike grinden → Zero-Value-<span class="mono">transferFrom</span>-Eintrag in die Opfer-History → Opfer kopiert die falsche Adresse.<br><br>
+            <b>Gemessene Realität (USENIX):</b> <span style="color:var(--accent);">BSC = Masse</span> — 252,7M Transfers (94% aller Angriffe), davon 141M zero-value, aber nur $4,5M Schaden. <span style="color:var(--warning);">Ethereum = Ertrag</span> — nur 6% der Angriffe, aber $79,3M = 95% des Gesamtschadens (Whale-Targeting). Angreifer nutzen <b>dieselbe Lookalike-Adresse cross-chain</b>. Post-Fusaka (billigeres Gas): USDT-Poisons <b>+612%</b>.
+          </div>
+          <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px;">
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Einträge (Vergiftungen)</div>
+              <input id="econ-entries" class="mono" type="number" value="1000000" min="1" style="width:130px; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;" title="0 = Spray-Statistik. &gt;0 = gezieltes Opfer mit diesem Wert — dann ändert sich die Rechnung fundamental">Opfer-Wert $ (0 = Spray)</div>
+              <input id="econ-victim" class="mono" type="number" value="0" min="0" style="width:130px; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+            </div>
+            <button class="btn" onclick="loadCampaignEconomics()">Berechnen</button>
+          </div>
+          <div style="margin-bottom:14px;">
+            <div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">Ziel-Chains (anklicken — fließt in den automatisierten Workflow):</div>
+            <div id="econ-chain-chips" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+            <div style="font-size:10px; color:var(--text-muted); margin-top:6px;">
+              Ein EOA-Lookalike gilt auf <b>allen EVM-Chains gleichzeitig</b> — dieselbe 0x-Adresse existiert überall (deshalb laufen reale Kampagnen cross-chain mit derselben Adresse). Tron braucht eigenes Grinding (T…-Format, base58).
+            </div>
+          </div>
+          <div id="econ-table" style="overflow-x:auto;"></div>
+          <div id="econ-insight" style="font-size:11px; color:var(--text-muted); margin-top:10px; line-height:1.7;"></div>
+          <div id="econ-gas-tricks" style="margin-top:12px;"></div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns:1fr 1fr; margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Wallet-Defense-Matrix — Stand 2026</div>
+            <div class="card-badge mono">MatchAdvisor.WALLET_DEFENSES</div>
+          </div>
+          <div class="card-body">
+            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;">
+              Seit 2026 hat sich die Szene gedreht: <b>MetaMask + Trust Wallet blockieren</b> Lookalike-Adressen aktiv (History-Vergleich / Intel Security API) — der klassische 4+4-Angriff ist dort praktisch tot. Angreifer sind auf <b>undefended Surfaces</b> gewichen: Tron, Solana, ältere Wallet-Versionen, Exchange-Flows.
+            </div>
+            <div id="defense-matrix" style="overflow-x:auto;"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Experten-Fragen — Q&amp;A Spickzettel</div>
+            <div class="card-badge">für die Präsentation</div>
+          </div>
+          <div class="card-body" id="qa-sheet" style="font-size:12px;">
+            <details style="margin-bottom:8px;"><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Warum funktioniert transferFrom ohne Allowance?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">ERC-20 prüft <span class="mono">require(allowance[from][sender] &gt;= amount)</span> — mit <span class="mono">amount=0</span> ist <span class="mono">0 &gt;= 0</span> immer wahr. Jeder kann Transfer-Events zwischen beliebigen Adressen erzeugen. USDT/USDC sind immutable deployed — bleibt für immer angreifbar (OpenZeppelin Issue #3931).</div></details>
+            <details style="margin-bottom:8px;"><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Warum ist der Angriff nicht patchbar?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">Usability-Problem, kein Protokoll-Bug (USENIX): Wallets kürzen Adressen, Menschen kopieren aus der History. transferFrom(0) kann aus Kompatibilitätsgründen nicht entfernt werden. Einzige Defense: Wallet-seitig (History-Warnung, Adressbuch, volle Anzeige).</div></details>
+            <details style="margin-bottom:8px;"><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Wie schnell ist der Grinder wirklich?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">Hier auf CPU: ~250k/s EVM, ~300k/s Tron, ~600k/s CREATE2 (keine EC-Mathematik), ~100k/s Solana (ed25519 — kein Increment möglich, Seed→Skalar ist nonlinear via SHA-512). GPU-Farmen (profanity2): ~3,8 Mrd/s auf einer RTX 4090.</div></details>
+            <details style="margin-bottom:8px;"><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Warum kann Solana den Increment-Trick nicht?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">ed25519 leitet den Skalar per SHA-512-Hash aus dem Seed ab — nonlinear, kein Q+=G. Jeder Kandidat braucht einen kompletten Hash+Curve25519-Scalar-Mult. EVM/Tron teilen secp256k1 → dort gilt profanitys Q+=G-Inkrement.</div></details>
+            <details style="margin-bottom:8px;"><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Kontrolliert ein Key EVM + Tron gleichzeitig?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">Ja — Tron nutzt secp256k1, nur anderes Encoding: <span class="mono">base58check(0x41 ‖ keccak(pubkey)[12:])</span>. Derselbe Private Key kontrolliert die 0x-Adresse und die T…-Adresse. Im Demo verifiziert (Targeting-Step erzeugt beide aus einem Key).</div></details>
+            <details style="margin-bottom:8px;"><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Warum ist Solana das gefährlichste Ziel?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">Keine Checksumme in der Adresse — ein einzelnes falsches Zeichen sendet still ins Nichts. EVM/Tron haben EIP-55/sha256d-Checksum, die Vertipper abfängt. Phantom hat bis heute nur partielle Detection.</div></details>
+            <details style="margin-bottom:8px;"><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Was hat sich 2026 geändert?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">MetaMask + Trust Wallet shipped History-basierte Poisoning-Detection (Blockaid / Intel Security API): eingefügte Adresse wird gegen frühere Gegenparteien verglichen — gleiche Enden, andere Mitte → blockierende Warnung. Folge: Massen-Angriffe wandern zu Tron/Solana/alten Wallets ab.</div></details>
+            <details style="margin-bottom:8px;"><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Was ist CREATE2-Grinding?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">Contract-Lookalikes: <span class="mono">keccak(0xff‖deployer‖salt‖keccak(init_code))[12:]</span> — der Salt wird gebruteforced statt des Keys, reine Keccak-Loop ohne EC-Mathematik → schnellster Pfad. Praxis-Einsatz: Vanity-Contracts (Uniswap V4 Hooks), metamorphic Contracts, Fake-Token-Adressen.</div></details>
+            <details style="margin-bottom:8px;"><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Woher kommen die Erfolgszahlen?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">USENIX Security '25: 270M Angriffe, 6.633 Opfer → p ≈ 2,47e-5, erster Erfolg ~40.700 Einträge. Bitquery 12-Monats-Messung: $19,2–25,5M Gas vs. $22–144M Erlös. CCS'24 Poison-Hunter: 2.900 Batching-Contracts, 2.300 Fake-Tokens, 4 Cluster kontrollieren 98% der Phishing-Adressen.</div></details>
+            <details><summary style="cursor:pointer; color:var(--text-primary); font-weight:500;">Warum BSC für Masse, Ethereum für Ertrag?</summary><div style="color:var(--text-secondary); padding:6px 0 0 14px; line-height:1.6;">BSC: ~1 gwei Gas → $0.009/Eintrag → 252,7M Angriffe (94%) aber nur $4,5M. Ethereum: nur 6% der Angriffe aber $79,3M = 95% des Schadens (Ø-Opfer-Balance $338.900). Dieselbe 0x-Lookalike-Adresse gilt auf allen EVM-Chains — Angreifer fahren Cross-Chain mit einer Adresse.</div></details>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sweeper Page -->
+    <div id="page-sweeper" class="page">
+      <div class="header">
+        <h1>Sweeper</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="showPage('settings')">Konfiguration</button>
+          <button class="btn btn-primary" onclick="showPage('logs')">Logs</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Status</div>
+          <div class="card-badge">Multi-Chain</div>
+        </div>
+        <div class="card-body">
+          <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Der Sweeper überwacht alle Chains auf Eingänge und sweep sofort.</div>
+          <div style="display:flex; gap:16px; margin-top:12px;">
+            <div>
+              <div style="font-size:11px; color:var(--text-muted);">Chains</div>
+              <div class="mono" style="font-size:13px; color:var(--text-primary);">Ethereum, BSC, Polygon</div>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted);">Lookalikes</div>
+              <div class="mono" style="font-size:13px; color:var(--text-primary);" id="sweeper-total">0</div>
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted);">Gesweept</div>
+              <div class="mono" style="font-size:13px; color:var(--success);">$0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Page -->
+    <div id="page-settings" class="page">
+      <div class="header">
+        <h1>Einstellungen</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="loadSettings()">Abbrechen</button>
+          <button class="btn btn-primary" onclick="saveSettings()">Speichern</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Konfiguration</div>
+        </div>
+        <div class="card-body">
+          <div style="display:flex; flex-direction:column; gap:14px; max-width:420px;">
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">API-Endpoint</div>
+              <input id="cfg-api" class="mono" style="width:100%; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Poll-Intervall Dashboard (ms)</div>
+              <input id="cfg-poll" class="mono" type="number" min="500" step="100" style="width:100%; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Grinder-Worker (CPU-Kerne)</div>
+              <input id="cfg-workers" class="mono" type="number" min="1" max="32" style="width:100%; padding:8px 10px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); font-size:12px;">
+            </div>
+            <div id="cfg-saved" style="font-size:11px; color:var(--success); display:none;">✓ Gespeichert — aktiv ab sofort</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs Page -->
+    <div id="page-logs" class="page">
+      <div class="header">
+        <h1>Logs</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="filterCards('page-logs')">Filter</button>
+          <button class="btn btn-primary" onclick="exportJSON('/logs','logs')">Export</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">System-Logs</div>
+          <div class="card-badge">Live</div>
+        </div>
+        <div class="card-body">
+          <div class="feed" id="logs-feed">
+            <div class="feed-item" style="color:var(--text-muted);">
+              <span class="mono">[12:34:56] System gestartet</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ML-Scoring Page -->
+    <div id="page-ml" class="page">
+      <div class="header">
+        <h1>ML-Scoring</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="trainMLModel()">Model Trainieren</button>
+          <button class="btn btn-primary" onclick="predictAddress()">Adresse bewerten</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Model Status</div>
+            <div class="card-badge" id="ml-badge" style="background:var(--border);">Nicht trainiert</div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; gap:24px; margin-bottom:16px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Accuracy</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="ml-accuracy">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Precision</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="ml-precision">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Recall</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="ml-recall">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">F1</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="ml-f1">-</div>
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary);">RandomForest Classifier mit 16 Features — Training über "Model Trainieren"</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Feature Importance</div>
+          </div>
+          <div class="card-body">
+            <div id="feature-importance" style="display:flex; flex-direction:column; gap:8px;">
+              <div style="font-size:12px; color:var(--text-muted);">Nach dem Training: welche On-Chain-Features die Opfer-Auswahl treiben.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GPU-Scaling Page -->
+    <div id="page-gpu" class="page">
+      <div class="header">
+        <h1>GPU-Scaling</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="configureGPU()">Provider Konfigurieren</button>
+          <button class="btn" onclick="submitGPUJob()">Job an Farm senden</button>
+          <button class="btn btn-primary" onclick="scaleGPU()">Scale</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">GPU Status</div>
+            <div class="card-badge" id="gpu-badge" style="background:var(--border);">Nicht konfiguriert</div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; gap:24px; margin-bottom:16px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Current GPUs</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="gpu-current">0</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Max GPUs</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="gpu-max">0</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Cost/h</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="gpu-cost">$0.00</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Queue</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="gpu-queue">0</div>
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary);">Auto-Scaling mit Scale-to-Zero — Orchestrierung live, Compute lokal (keine Daten verlassen das System)</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Provider</div>
+          </div>
+          <div class="card-body">
+            <div id="gpu-providers" style="display:flex; flex-direction:column; gap:12px;">
+              <div style="color:var(--text-muted); font-size:12px;">Kein Provider konfiguriert — „Provider Konfigurieren" startet den Autoscaler</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:20px;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Job-Pipeline</div>
+            <div class="card-badge" style="background:var(--accent);">queued → running → done</div>
+          </div>
+          <div class="card-body feed" id="gpu-jobs">
+            <div style="color:var(--text-muted); font-size:12px;">Keine Jobs — Grind-Start oder „Job an Farm senden" legt einen Job in die Queue</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Scale Events</div>
+          </div>
+          <div class="card-body feed" id="gpu-events">
+            <div style="color:var(--text-muted); font-size:12px;">Keine Scale-Events — der Autoscaler protokolliert hier jede Kapazitätsänderung</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chain-Integration Page -->
+    <div id="page-chain" class="page">
+      <div class="header">
+        <h1>Chain-Integration</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="configureChain()">RPC Konfigurieren</button>
+          <button class="btn btn-primary" onclick="sendTransaction()">Transaction Senden</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Chain Status</div>
+            <div class="card-badge" id="chain-status-badge" style="background:var(--border);">Nicht konfiguriert</div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; gap:24px; margin-bottom:16px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Chain</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="chain-name">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Block</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="chain-block">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Gas Price</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="chain-gas">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Adresse</div>
+                <div class="mono" style="font-size:14px; color:var(--text-primary);" id="chain-address">-</div>
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary);">EIP-1559 Gas Optimization — nach "Chain Konfigurieren" live</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Transaction Form</div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">From Address</div>
+                <input type="text" class="input" id="tx-from" placeholder="0x..." style="width:100%; font-family:monospace;">
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">To Address</div>
+                <input type="text" class="input" id="tx-to" placeholder="0x..." style="width:100%; font-family:monospace;">
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Value (Wei, hex)</div>
+                <input type="text" class="input" id="tx-value" placeholder="0x0" style="width:100%; font-family:monospace;">
+              </div>
+              <button class="btn btn-primary" onclick="sendTransaction()">Senden</button>
+              <div id="tx-result" class="mono" style="font-size:11px; color:var(--text-muted);"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Autonomous Agent Page -->
+    <div id="page-agent" class="page">
+      <div class="header">
+        <h1>Autonomous Agent</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="startAgent()">Agent Starten</button>
+          <button class="btn btn-primary" onclick="stopAgent()">Agent Stoppen</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Agent Status</div>
+            <div class="card-badge" id="agent-status-badge" style="background:var(--border);">Inaktiv</div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; gap:24px; margin-bottom:16px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Success Rate</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="agent-success-rate">0.0%</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Learning Rate</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="agent-learning-rate">0.1000</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Exploration</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="agent-exploration">0.2000</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Attempts</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="agent-attempts">0</div>
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary);">Reinforcement Learning mit Q-Learning</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Current Target</div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Target Address</div>
+                <div class="mono" style="font-size:13px; color:var(--text-primary);" id="agent-target">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Target Score</div>
+                <div class="mono" style="font-size:13px; color:var(--text-primary);" id="agent-target-score">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Timing Interval</div>
+                <div class="mono" style="font-size:13px; color:var(--text-primary);" id="agent-timing">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header">
+          <div class="card-title">Exchange Database</div>
+        </div>
+        <div class="card-body">
+          <div id="exchange-list" style="display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:12px; color:var(--text-muted);">Lade Exchange-Listen…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Targeting Process Page -->
+    <div id="page-targeting" class="page">
+      <div class="header">
+        <h1>Targeting-Prozess</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="startTargetingProcess()">Prozess Starten</button>
+          <button class="btn btn-primary" onclick="resetTargetingProcess()">Neu</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Process Steps</div>
+          <div class="card-badge" id="process-status-badge" style="background:var(--border);">Inaktiv</div>
+        </div>
+        <div class="card-body">
+          <div id="process-steps" style="display:flex; flex-direction:column; gap:12px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div class="step-indicator" style="width:24px; height:24px; border-radius:50%; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text-primary);">1</div>
+              <div style="flex:1;">
+                <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Target finden</div>
+                <div style="font-size:11px; color:var(--text-muted);">Suche nach potentiellen Targets</div>
+              </div>
+              <div class="card-badge" style="background:var(--border);">Pending</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div class="step-indicator" style="width:24px; height:24px; border-radius:50%; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text-primary);">2</div>
+              <div style="flex:1;">
+                <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Target analysieren</div>
+                <div style="font-size:11px; color:var(--text-muted);">ML-Scoring mit SHAP-Explanation</div>
+              </div>
+              <div class="card-badge" style="background:var(--border);">Pending</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div class="step-indicator" style="width:24px; height:24px; border-radius:50%; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text-primary);">3</div>
+              <div style="flex:1;">
+                <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Lookalike generieren</div>
+                <div style="font-size:11px; color:var(--text-muted);">Chain-spezifisch: secp256k1 (EVM/Tron) · ed25519 (Solana)</div>
+              </div>
+              <div class="card-badge" style="background:var(--border);">Pending</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div class="step-indicator" style="width:24px; height:24px; border-radius:50%; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text-primary);">4</div>
+              <div style="flex:1;">
+                <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Private Key speichern</div>
+                <div style="font-size:11px; color:var(--text-muted);">Sichere Speicherung mit Encryption</div>
+              </div>
+              <div class="card-badge" style="background:var(--border);">Pending</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div class="step-indicator" style="width:24px; height:24px; border-radius:50%; background:var(--border); display:flex; align-items:center; justify-content:center; font-size:11px; color:var(--text-primary);">5</div>
+              <div style="flex:1;">
+                <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Transaction senden</div>
+                <div style="font-size:11px; color:var(--text-muted);">EVM transferFrom(0) · Tron triggerSmartContract · Solana SPL transferChecked</div>
+              </div>
+              <div class="card-badge" style="background:var(--border);">Pending</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header">
+          <div class="card-title">SHAP-Explanation</div>
+        </div>
+        <div class="card-body">
+          <div id="shap-explanation" style="display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:12px; color:var(--text-secondary);">Warte auf Process...</div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header">
+          <div class="card-title">Chain-Artefakte</div>
+          <div class="card-badge mono">pro Chain: Lookalike + TX-Deskriptor</div>
+        </div>
+        <div class="card-body">
+          <div id="chain-artifacts" style="display:flex; flex-direction:column; gap:8px;">
+            <div style="font-size:12px; color:var(--text-secondary);">Warte auf Process — zeigt Lookalikes (secp256k1/ed25519) und die simulierten TX-Payloads pro Chain.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RPC-Connection Page -->
+    <div id="page-rpc" class="page">
+      <div class="header">
+        <h1>RPC-Connection</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="configureRPC()">Provider Konfigurieren</button>
+          <button class="btn btn-primary" onclick="testRPCConnection()">Test Connection</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-title">Node anschließen</div>
+          <div class="card-badge" id="rpc-live-badge" style="background:var(--border);">Live-Feed: aus</div>
+        </div>
+        <div class="card-body">
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Name</div>
+              <input id="rpc-in-name" type="text" value="Sepolia Node" style="width:130px;">
+            </div>
+            <div style="flex:1; min-width:220px;">
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">HTTP-RPC-URL</div>
+              <input id="rpc-in-url" type="text" value="https://sepolia.llamarpc.com" style="width:100%;" title="HTTPS-Endpoint für Status, Gas, Receipts und Broadcast">
+            </div>
+            <div style="flex:1; min-width:220px;">
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">WebSocket-URL (optional — aktiviert Live-Feed)</div>
+              <input id="rpc-in-ws" type="text" placeholder="wss://…" style="width:100%;" title="eth_subscribe für Transfer-Events → Feed + Alerts werden live">
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;">Chain-ID</div>
+              <input id="rpc-in-chain" type="number" value="11155111" style="width:100px;">
+            </div>
+            <div>
+              <div style="font-size:11px; color:var(--text-muted); margin-bottom:4px;" title="Token-Contracts für den Live-Feed, kommagetrennt. Leer = alle Transfer-Events">Token-Filter (optional)</div>
+              <input id="rpc-in-tokens" type="text" placeholder="0xToken1, 0xToken2" style="width:190px;">
+            </div>
+            <button class="btn btn-primary" onclick="addRpcProvider()">Verbinden</button>
+          </div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:8px;">
+            HTTP allein → Status, Gas-Preis, Receipts, <span class="mono">chain/send</span>-Broadcast. Mit WebSocket zusätzlich: echter <span class="mono">eth_subscribe</span>-Feed → Transfer-Feed, Zero-Value-Alerts und Logs werden live befüllt.
+          </div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Connection Status</div>
+            <div class="card-badge" id="rpc-status-badge" style="background:var(--border);">Nicht verbunden</div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; gap:24px; margin-bottom:16px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Provider</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="rpc-provider">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Block Number</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="rpc-block">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Gas Price</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="rpc-gas">-</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Latency</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="rpc-latency">-</div>
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary);">Web3.py mit Provider Rotation</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Provider</div>
+          </div>
+          <div class="card-body">
+            <div id="provider-list" style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <div style="font-size:13px; color:var(--text-primary); font-weight:500;">LlamaNodes</div>
+                  <div style="font-size:11px; color:var(--text-muted);">sepolia.llamarpc.com</div>
+                </div>
+                <div class="card-badge" style="background:var(--success);">Aktiv</div>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Public Node</div>
+                  <div style="font-size:11px; color:var(--text-muted);">sepolia.public.blastapi.io</div>
+                </div>
+                <div class="card-badge" style="background:var(--border);">Standby</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Multi-Agent Page -->
+    <div id="page-agents" class="page">
+      <div class="header">
+        <h1>Multi-Agent</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="configureAgents()">Node Konfigurieren</button>
+          <button class="btn btn-primary" onclick="addAgentNode()">Add Node</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Node Status</div>
+          <div class="card-badge" id="agents-status-badge" style="background:var(--border);">Nicht verbunden</div>
+        </div>
+        <div class="card-body">
+          <div id="agent-nodes" style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Node 001</div>
+                <div style="font-size:11px; color:var(--text-muted);">Leader | Performance: 0.95</div>
+              </div>
+              <div class="card-badge" style="background:var(--success);">Aktiv</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Node 002</div>
+                <div style="font-size:11px; color:var(--text-muted);">Worker | Performance: 0.78</div>
+              </div>
+              <div class="card-badge" style="background:var(--success);">Aktiv</div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Node 003</div>
+                <div style="font-size:11px; color:var(--text-muted);">Worker | Performance: 0.62</div>
+              </div>
+              <div class="card-badge" style="background:var(--border);">Inaktiv</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="card-header">
+          <div class="card-title">Consensus Decisions</div>
+        </div>
+        <div class="card-body">
+          <div id="consensus-decisions" style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div>
+                <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Target Selection</div>
+                <div style="font-size:11px; color:var(--text-muted);">Votes: 3/3 | Status: Approved</div>
+              </div>
+              <div class="card-badge" style="background:var(--success);">Approved</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Policy Attestation Page -->
+    <div id="page-policy" class="page">
+      <div class="header">
+        <h1>Policy Attestation</h1>
+        <div class="header-actions">
+          <button class="btn" onclick="configurePolicy()">Policy Konfigurieren</button>
+          <button class="btn btn-primary" onclick="definePolicy()">Neue Policy</button>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Policy Status</div>
+            <div class="card-badge" id="policy-status-badge" style="background:var(--border);">Nicht konfiguriert</div>
+          </div>
+          <div class="card-body">
+            <div style="display:flex; gap:24px; margin-bottom:16px;">
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Policies</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="policy-count">0</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Verified</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="policy-verified">0</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Violations</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);" id="policy-violations">0</div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:var(--text-muted);">Replay Protected</div>
+                <div class="mono" style="font-size:20px; color:var(--text-primary);">Yes</div>
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary);">PACE Pattern für Policy Verification</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Active Policies</div>
+          </div>
+          <div class="card-body">
+            <div id="policy-list" style="display:flex; flex-direction:column; gap:8px;">
+              <div style="font-size:12px; color:var(--text-muted);">Lade Policies…</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    <!-- Doku Page -->
+    <div id="page-doku" class="page">
+      <div class="header">
+        <h1>Doku — wie das System funktioniert</h1>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-body" style="font-size:13px; line-height:1.7; color:var(--text-secondary);">
+          <b style="color:var(--accent);">Address Poisoning in einem Satz:</b>
+          Der Angreifer erzeugt eine Adresse, die vorne und hinten gleich aussieht wie eine Adresse aus deiner
+          Wallet-History, und schleust sie per Fake-Transfer in deine Liste ein — du kopierst beim n&auml;chsten
+          Senden die falsche Adresse. <b>Warum das nie verschwindet:</b> Es ist kein Bug, sondern Bequemlichkeit —
+          Wallets k&uuml;rzen Adressen (0x1234&hellip;abcd), Menschen kopieren aus der History statt "Empfangen"
+          zu nutzen. <b>Stand September 2026:</b> MetaMask + Trust Wallet blockieren das mittlerweile aktiv
+          (History-Vergleich), deshalb sind die Kampagnen auf Tron, Solana und &auml;ltere Wallets gewichen.
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns:1fr 1fr; margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Phase 1 — Aufkl&auml;rung</div><div class="card-badge">Recon</div></div>
+          <div class="card-body" style="font-size:12px; line-height:1.7; color:var(--text-secondary);">
+            <b style="color:var(--text-primary);">Watcher</b> — liest Transfer-Events der Chain live mit.
+            <i>Warum:</i> Ohne Beobachtung wei&szlig; der Angreifer nicht, wann das Opfer zuletzt gesendet hat.
+            <span class="mono" style="font-size:10px;">modules/indexer.py · detection_watcher.py</span><br><br>
+            <b style="color:var(--text-primary);">Targets</b> — Queue der potenziellen Opfer.
+            <i>Warum:</i> Massen-Angriffe brauchen Millionen Adressen; gezielte Angriffe wenige wertvolle.<br><br>
+            <b style="color:var(--text-primary);">ML-Scoring</b> — RandomForest rankt Opfer nach 16 On-Chain-Features (Guthaben, Aktivit&auml;t, Counterparties).
+            <i>Warum ML statt fixer Regeln:</i> Das Opfer-Muster ist bekannt, aber die Schwellen wandern mit der
+            Defense-Lage — neue Labels rein, neu trainieren, fertig. Live-Loop: best&auml;tigte Poison-Treffer
+            (Opfer sendet echten Wert an Lookalike) werden automatisch zu neuen Labels.
+            <span class="mono" style="font-size:10px;">modules/ml_scorer.py · behavioral_analyzer.py · /api/ml/hits</span><br><br>
+            <b style="color:var(--text-primary);">Autonomous Agent</b> — RL-Agent der Opfer selbst priorisiert und Exchanges ausschlie&szlig;t (die w&uuml;rden einfrieren).
+            <span class="mono" style="font-size:10px;">modules/autonomous_agent.py</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Phase 2 — Angriff</div><div class="card-badge">Kern</div></div>
+          <div class="card-body" style="font-size:12px; line-height:1.7; color:var(--text-secondary);">
+            <b style="color:var(--text-primary);">Grinder</b> — berechnet Lookalike-Adressen per Brute-Force.
+            <i>Wie:</i> secp256k1-Inkrement <span class="mono">Q += G</span> (profanity-Algorithmus) statt frischer Keys —
+            ~9&times; schneller. <b>EVM</b> keccak&rarr;0x, <b>Tron</b> 0x41+base58check (gleicher Key!),
+            <b>Solana</b> ed25519 (kein Increment m&ouml;glich), <b>CREATE2</b> Salt-Grinding f&uuml;r Contracts
+            (reine Keccak-Loop, schnellster Pfad). <i>Warum:</i> Das Match auf die sichtbaren Enden ist die
+            T&auml;uschung — 16<sup>n</sup> bzw. 58<sup>n</sup> Versuche.
+            <span class="mono" style="font-size:10px;">modules/vanity_grinder.py</span><br><br>
+            <b style="color:var(--text-primary);">Targeting-Prozess</b> — End-to-End: Opfer analysieren &rarr; Lookalike erzeugen &rarr; Poison-TX pro Chain bauen.
+            Der Trick: <span class="mono">transferFrom(opfer, lookalike, 0)</span> — Allowance-Check <span class="mono">0 &gt;= 0</span>
+            ist immer wahr, jeder darf Fake-History schreiben. Tron: <span class="mono">triggerSmartContract</span> auf
+            echten USDT-TRC20, Solana: SPL <span class="mono">transferChecked</span>.
+            <span class="mono" style="font-size:10px;">modules/targeting_process.py · transaction_builder.py</span><br><br>
+            <b style="color:var(--text-primary);">Sweeper</b> — r&auml;umt eingehende Gelder sofort ab, bevor das Opfer reagiert.
+            <i>Warum:</i> Zeitfenster ist klein — die Praxis-Cluster sweepen innerhalb von Sekunden.
+            <span class="mono" style="font-size:10px;">modules/sweeper.py</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="grid-template-columns:1fr 1fr; margin-bottom:16px;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Phase 3 — Verteidigung</div><div class="card-badge">Defense</div></div>
+          <div class="card-body" style="font-size:12px; line-height:1.7; color:var(--text-secondary);">
+            <b style="color:var(--text-primary);">Detection</b> — erkennt Poison-Muster: gleiche Enden + andere Mitte,
+            0-Value-Transfers, zeitliche N&auml;he zur echten TX.
+            <span class="mono" style="font-size:10px;">modules/detection_engine.py · risk_engine.py</span><br><br>
+            <b style="color:var(--text-primary);">Policy Attestation</b> — PACE-Pattern: jede TX wird gegen Policies gepr&uuml;ft
+            (Limits, Exchange-Ausschluss, Risiko-Schwelle) und die Entscheidung signiert — nachvollziehbar, nicht manipulierbar.
+            <span class="mono" style="font-size:10px;">modules/policy_attestation.py</span><br><br>
+            <b style="color:var(--text-primary);">Wallet-Defense-Matrix</b> (Grinder-Seite): MetaMask/TrustWallet aktiv seit 2026,
+            Phantom teilweise, TronLink keine. <i>Kernpunkt:</i> Defense existiert nur wallet-seitig — das Protokoll kann
+            <span class="mono">transferFrom(0)</span> aus Kompatibilit&auml;t nicht entfernen.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Infrastruktur</div><div class="card-badge">Skalierung</div></div>
+          <div class="card-body" style="font-size:12px; line-height:1.7; color:var(--text-secondary);">
+            <b style="color:var(--text-primary);">GPU-Scaling</b> — Auto-Scale auf GPU-Farmen (RTX 4090: ~3,8 Mrd Keys/s vs. ~250k/s hier auf CPU).
+            <i>Warum:</i> Praxis-Patterns (4+4 EIP-55) sind nur mit GPU rentabel — genau deshalb zeigt der Advisor CPU vs. GPU.
+            <span class="mono" style="font-size:10px;">modules/gpu_scaler.py</span><br><br>
+            <b style="color:var(--text-primary);">Chain-Integration / RPC</b> — EIP-1559-Gas, Testnet-Anbindung, echte TX-Signierung
+            und Broadcast via <span class="mono">send_raw_transaction</span> sobald RPC+Key konfiguriert sind. Mit WebSocket-URL
+            l&auml;uft zus&auml;tzlich der Live-Watcher (echtes <span class="mono">eth_subscribe</span>).
+            <span class="mono" style="font-size:10px;">modules/chain_integration.py · rpc_connector.py</span><br><br>
+            <b style="color:var(--text-primary);">Multi-Agent</b> — verteilte Knoten mit Leader-Election; spiegelt die
+            Cluster-Infrastruktur (USENIX: 4 Cluster kontrollieren 98% der Phishing-Adressen).
+            <span class="mono" style="font-size:10px;">modules/multi_agent_coordinator.py</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><div class="card-title">Technik-Stand September 2026</div><div class="card-badge">Recherche</div></div>
+        <div class="card-body" style="font-size:12px; line-height:1.7; color:var(--text-secondary);">
+          <b>Verteidigung:</b> MetaMask (Blockaid, History-Vergleich, 65,4M Poison-TXs geflaggd Jan 2025&ndash;Feb 2026) +
+          Trust Wallet (Intel Security API, 32 EVM-Chains) blockieren den klassischen 4+4-Angriff seit 2026 &rarr;
+          <b>die Szene ist gewandert</b>: Tron (TronLink ohne Defense, gratis Bandwidth), Solana (keine Checksumme,
+          Phantom nur partiell), &auml;ltere Wallet-Versionen, Exchange-Flows.<br><br>
+          <b>Angriffs-Skalen (gemessen):</b> USENIX '25: 270M Angriffe, 6.633 Opfer, erster Erfolg statistisch nach
+          ~40.700 Eintr&auml;gen. BSC = 94% der Masse ($0.009/Eintrag), Ethereum = 95% des Schadens ($79,3M).
+          Post-Fusaka (billigeres Gas): USDT-Poisons <b>+612%</b>. ROI der Cluster: &gt;220%.<br><br>
+          <b>Offen / nicht abgedeckt in dieser Demo:</b> Counterparty-Auto-Pick (h&auml;ufigste Gegenpartei direkt
+          als Grind-Ziel), Permit/Approval-Phishing (andere Angriffsklasse), Clipboard-Hijacking (Malware, kein
+          On-Chain-Vektor), ENS-Name-Spoofing.<br><br>
+          <b>RPC-Betrieb:</b> Node auf der RPC-Seite anschlie&szlig;en — HTTP allein aktiviert Status, Gas und
+          echten <span class="mono">chain/send</span>-Broadcast; mit WebSocket-URL l&auml;uft zus&auml;tzlich ein echter
+          <span class="mono">eth_subscribe</span>-Feed (Transfer-Feed, Zero-Value-Alerts, Logs werden live befüllt).
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Glossar — die 8 Begriffe f&uuml;r Nachfragen</div></div>
+        <div class="card-body" style="font-size:12px; line-height:1.8; color:var(--text-secondary);">
+          <span class="mono" style="color:var(--accent);">EOA</span> Externally Owned Account = normale Wallet-Adresse (hat Private Key) &nbsp;·&nbsp;
+          <span class="mono" style="color:var(--accent);">secp256k1</span> die Elliptische Kurve von BTC/ETH/Tron &nbsp;·&nbsp;
+          <span class="mono" style="color:var(--accent);">ed25519</span> Solanas Kurve — Seed&rarr;Skalar ist nonlinear (kein Q+=G-Trick) &nbsp;·&nbsp;
+          <span class="mono" style="color:var(--accent);">EIP-55</span> Gro&szlig;/Kleinschreibung als Checksumme in 0x-Adressen &nbsp;·&nbsp;
+          <span class="mono" style="color:var(--accent);">base58check</span> Tron-Encoding mit sha256d-Checksumme (T&hellip;) &nbsp;·&nbsp;
+          <span class="mono" style="color:var(--accent);">CREATE2</span> deterministische Contract-Adresse: keccak(0xff&Vert;deployer&Vert;salt&Vert;init_code) &nbsp;·&nbsp;
+          <span class="mono" style="color:var(--accent);">transferFrom(x,y,0)</span> der Allowance-Bypass — schreibt Fake-History &nbsp;·&nbsp;
+          <span class="mono" style="color:var(--accent);">Dust</span> Mini-Betr&auml;ge die nur als History-Eintrag dienen
+        </div>
+      </div>
+    </div>
+  
+    </div>
+  </div>
+</div>
+<script>
+// Navigation
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', function() {
+    const page = this.dataset.page;
+    
+    // Update nav
+    document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+    this.classList.add('active');
+    
+    // Update pages
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+  });
+});
+
+// API Integration — in Einstellungen änderbar (localStorage)
+var API_BASE = localStorage.getItem('cfg_api') ||
+  (location.protocol.indexOf('http') === 0 ? location.origin + '/api' : 'http://localhost:5001/api');
+
+async function fetchAPI(endpoint) {
+  try {
+    const response = await fetch(API_BASE + endpoint);
+    return await response.json();
+  } catch (error) {
+    console.error('API Error:', error);
+    return null;
+  }
+}
+
+// Dashboard State
+
+
+async function updateStats() {
+  // API-Aufrufe für Dashboard
+  const stats = await fetchAPI('/stats');
+  if (stats) {
+    document.getElementById("stat-transfers").textContent = stats.transfers.toLocaleString("de-DE");
+    document.getElementById("stat-targets").textContent = stats.targets.toLocaleString("de-DE");
+    document.getElementById("stat-lookalikes").textContent = stats.lookalikes.toLocaleString("de-DE");
+    document.getElementById("stat-alerts").textContent = (stats.sweeps_prevented || 0).toLocaleString("de-DE");
+    if (stats.uptime) {
+      const up = document.getElementById('sidebar-uptime');
+      if (up) up.textContent = stats.uptime;
+    }
+  }
+
+  // Automation: echte Modul-Stati
+  const automation = await fetchAPI('/automation');
+  if (automation) {
+    document.querySelectorAll('#automation-grid .automation-item').forEach(el => {
+      const m = automation[el.dataset.module];
+      if (!m) return;
+      const active = m.status === 'active';
+      const extra = m.rate && m.rate !== 'idle' ? ' (' + m.rate + ')' : (m.gpus ? ' (' + m.gpus + ' GPUs)' : '');
+      el.querySelector('.automation-value').textContent = (active ? 'Aktiv' : 'Standby') + extra;
+      const dot = el.querySelector('.automation-status');
+      dot.textContent = active ? '● Läuft' : '○ Bereit';
+      dot.style.color = active ? 'var(--success)' : 'var(--text-muted)';
+    });
+  }
+  
+  // Feed-Updates
+  // System-Logs (echt vom Backend)
+  const logs = await fetchAPI('/logs');
+  if (logs && logs.length > 0) {
+    const logsEl = document.getElementById("logs-feed");
+    if (logsEl) {
+      logsEl.innerHTML = "";
+      logs.forEach(l => {
+        const item = document.createElement("div");
+        item.className = "feed-item";
+        const lvlColor = l.level === 'error' ? 'var(--accent)' : (l.level === 'warning' ? 'var(--warning, #e6a23c)' : 'var(--text-muted)');
+        item.innerHTML = '<span class="mono" style="color:' + lvlColor + ';">[' + l.timestamp.slice(11,19) + '] ' + l.message + '</span>';
+        logsEl.prepend(item);
+      });
+    }
+  }
+
+  const feed = await fetchAPI('/feed');
+  if (feed && feed.length > 0) {
+    const feedEl = document.getElementById("feed");
+    feedEl.innerHTML = "";
+    feed.forEach(item => {
+      const feedItem = document.createElement("div");
+      feedItem.className = "feed-item";
+      const rawAmt = Number(item.amount || 0);
+      const amtTxt = rawAmt === 0 ? '0' : (rawAmt >= 1e15 ? rawAmt.toExponential(2) : rawAmt.toLocaleString('de-DE'));
+      const tokenTxt = item.token ? item.token.slice(0,7) + '…' : 'Token';
+      const zeroStyle = rawAmt === 0 ? ' style="color:var(--accent);"' : '';
+      feedItem.innerHTML = '<span class="mono">' + item.from.slice(0,7) + '…' + item.from.slice(-4) + '</span><span style="color:var(--text-muted);">→</span><span class="mono">' + item.to.slice(0,7) + '…' + item.to.slice(-4) + '</span><span class="amt"' + zeroStyle + ' title="' + (item.tx_hash || '') + '">' + amtTxt + ' ' + tokenTxt + '</span>';
+      feedEl.prepend(feedItem);
+    });
+  }
+  
+  // Grinder Status (echtes Format vom Vanity-Grinder)
+  const grinder = await fetchAPI('/grinder/status');
+  if (grinder && grinder.state) {
+    const mini = document.getElementById("grind-target");
+    if (grinder.target_address) {
+      mini.textContent = grinder.target_address.slice(0,7) + '…' + grinder.target_address.slice(-4);
+    }
+    document.getElementById("grind-progress").style.width = (grinder.progress || 0) + "%";
+    document.getElementById("grind-keys").textContent = (grinder.attempts || 0).toLocaleString("de-DE");
+    document.getElementById("grind-rate").textContent = (grinder.keys_per_second || 0).toLocaleString("de-DE") + " k/s";
+  }
+  
+  // Sweeper Status
+  const sweeper = await fetchAPI('/sweeper/status');
+  if (sweeper) {
+    document.getElementById("sweeper-total").textContent = sweeper.lookalikes.toLocaleString("de-DE");
+    const sweepsEl = document.getElementById("sweeps");
+    if (sweepsEl) {
+      sweepsEl.innerHTML = sweeper.lookalikes > 0
+        ? '<div class="feed-item"><span class="mono">' + sweeper.lookalikes + ' Lookalikes bereit — Chains: ' + (sweeper.chains || []).join(', ') + ' · geswept: ' + (sweeper.swept || 0) + '</span></div>'
+        : '<div class="feed-item" style="color:var(--text-muted);"><span class="mono">Warte auf Lookalikes — zuerst Grind starten</span></div>';
+    }
+  }
+
+  // ML-Badge ehrlich (Modell persistiert über Reloads)
+  const ml = await fetchAPI('/ml/status');
+  if (ml && ml.trained) {
+    const badge = document.getElementById('ml-badge');
+    if (badge && badge.textContent !== 'Trainiert') {
+      badge.textContent = 'Trainiert';
+      badge.style.background = 'var(--success)';
+    }
+  }
+
+  // Alerts-Feed (echt vom Backend)
+  const alerts = await fetchAPI('/alerts');
+  const alertsEl = document.getElementById("alerts");
+  if (alertsEl && alerts) {
+    if (alerts.length === 0) {
+      alertsEl.innerHTML = '<div class="feed-item" style="color:var(--text-muted);"><span class="mono">Keine Alerts</span></div>';
+    } else {
+      alertsEl.innerHTML = "";
+      const sevColor = {low: 'var(--text-muted)', medium: 'var(--warning)', high: 'var(--accent)', critical: 'var(--accent)'};
+      alerts.slice().reverse().forEach(a => {
+        const item = document.createElement("div");
+        item.className = "feed-item";
+        const col = sevColor[a.severity] || 'var(--text-muted)';
+        item.innerHTML = '<span class="mono" style="color:' + col + ';">[' + (a.timestamp || '').slice(11,19) + '] ' + a.type + '</span>';
+        alertsEl.appendChild(item);
+      });
+    }
+  }
+  
+  // Targets-Queue (echt vom Backend)
+  const targets = await fetchAPI('/targets');
+  if (targets && targets.length > 0) {
+    const tEl = document.getElementById("targets");
+    tEl.innerHTML = "";
+    targets.forEach(t => {
+      const item = document.createElement("div");
+      item.className = "feed-item";
+      item.innerHTML = '<span class="mono">' + t.address.slice(0,10) + '…' + t.address.slice(-4) + '</span><span style="margin-left:auto; color:var(--warning);">' + (t.priority || 'MITTEL') + '</span>';
+      tEl.prepend(item);
+    });
+  }
+}
+
+// ===== Vanity Grinder — echte Live-Berechnung =====
+var grindPollInterval = null;
+
+// Format-Beispiele + Meta: base58-Formate sind nativ case-sensitive
+var GRIND_FORMATS = {
+  evm:     {example: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb9', ph: '0x...',            rate: 250000},
+  tron:    {example: 'TWbNxh3feKxRTFEDVk3fn9z3EznSuWvWMu',        ph: 'T... (base58check)', rate: 300000},
+  solana:  {example: 'BWB4Govhdj1v5bWgjBhRrSQYyJiTAAavErwtGsyvSrGA', ph: 'base58, 32-Byte Pubkey', rate: 100000},
+  create2: {example: '0xdAC17F958D2ee523a2206206994597C13D831ec7', ph: '0x... (Contract-Adresse)', rate: 600000}
+};
+var WALLET_BY_FORMAT = {evm: 'metamask', tron: 'tronlink', solana: 'phantom', create2: 'metamask'};
+
+function onGrindFormatChange() {
+  var fmt = document.getElementById("grind-format").value;
+  var meta = GRIND_FORMATS[fmt];
+  var input = document.getElementById("grind-target-input");
+  input.placeholder = meta.ph;
+  // Beispiel-Adresse nur tauschen wenn das Feld noch ein bekanntes Beispiel enthält
+  var known = Object.keys(GRIND_FORMATS).map(k => GRIND_FORMATS[k].example);
+  if (!input.value || known.indexOf(input.value) >= 0) input.value = meta.example;
+  // EIP-55 gilt für alle 0x-Adressen (EOA + Contract) — base58 ist ohnehin case-sensitive
+  var mode = document.getElementById("grind-mode");
+  var hexFmt = fmt === 'evm' || fmt === 'create2';
+  mode.disabled = !hexFmt;
+  if (!hexFmt) mode.value = 'prefix_suffix';
+  // Wallet-Auswahl zum Format synchronisieren
+  var ws = document.getElementById("grind-wallet");
+  if (WALLET_BY_FORMAT[fmt]) ws.value = WALLET_BY_FORMAT[fmt];
+  // Analyzer ist chain-aware (EVM/Tron/Solana) — CREATE2 braucht kein Wallet-Profil
+  var ab = document.getElementById("grind-advisor-btn");
+  ab.disabled = fmt === 'create2';
+  ab.style.opacity = ab.disabled ? '0.45' : '';
+  ab.title = ab.disabled ? 'Contract-Lookalike: kein Wallet-Truncation-Profil nötig'
+                         : 'Der Analyzer prüft die Zieladresse + Opfer-Wallet und empfiehlt das Pattern';
+  updateGrindEstimate();
+}
+
+async function updateGrindEstimate() {
+  var p = parseInt(document.getElementById("grind-prefix").value);
+  var s = parseInt(document.getElementById("grind-suffix").value);
+  var mode = document.getElementById("grind-mode").value;
+  var fmt = document.getElementById("grind-format").value;
+
+  // Schätzung vom Backend (16^n für 0x-Formate, 58^n base58, EIP-55 präzise)
+  var hexFmt = fmt === 'evm' || fmt === 'create2';
+  var expected = Math.pow(hexFmt ? 16 : 58, p + s) * (mode === 'eip55' ? 2 : 1);
+  var est = await fetch(API_BASE + '/grinder/estimate?prefix=' + p + '&suffix=' + s + '&mode=' + mode + '&format=' + fmt)
+    .then(r => r.ok ? r.json() : null).catch(() => null);
+  if (est && est.expected_attempts) expected = est.expected_attempts;
+
+  document.getElementById("grind-expected").textContent = "~" + expected.toLocaleString("de-DE");
+
+  // ETA mit der gemessenen Format-Rate (evm incremental / tron incremental+b58 / solana ed25519)
+  var rate = (est && est.rate_cpu) || GRIND_FORMATS[fmt].rate;
+  var cpuS = expected / rate, gpuS = expected / 3.8e9;
+  var eta = document.getElementById("grind-eta");
+  var gpuTxt = gpuS < 1 ? gpuS.toFixed(2) + 's' : gpuS < 60 ? gpuS.toFixed(0) + 's' : (gpuS/60).toFixed(1) + ' min';
+  if (cpuS > 86400) {
+    eta.innerHTML = 'CPU: ~' + (cpuS/86400 >= 365 ? (cpuS/86400/365).toFixed(1) + ' Jahre' : (cpuS/86400).toFixed(1) + ' Tage') + ' · GPU: ~' + gpuTxt;
+  } else if (cpuS > 3600) {
+    eta.innerHTML = 'CPU: ~' + (cpuS/3600).toFixed(1) + ' h · GPU: ~' + gpuTxt;
+  } else if (cpuS > 60) {
+    eta.innerHTML = 'CPU: ~' + (cpuS/60).toFixed(0) + ' min · GPU: ~' + gpuTxt;
+  } else {
+    eta.innerHTML = 'CPU: ~' + cpuS.toFixed(0) + 's · GPU: instant';
+  }
+}
+
+var grindAdvisorRec = null;
+
+async function recommendGrind() {
+  var fmt = document.getElementById("grind-format").value;
+  if (fmt === 'create2') {
+    document.getElementById("grind-advisor-output").style.display = "block";
+    document.getElementById("grind-advisor-defense").innerHTML = '';
+    document.getElementById("grind-advisor-reasons").innerHTML =
+      '<span style="color:var(--text-muted);">CREATE2 grindet den Salt, nicht den Key — reine Keccak-Loop (~600k/s), kein Wallet-Profil nötig. Opfer vergleichen Contract-Adressen selten, weshalb dieser Vektor auf Name/Symbol-Täuschung beruht.</span>';
+    return;
+  }
+  var target = document.getElementById("grind-target-input").value.trim();
+  var res = await fetch(API_BASE + '/grinder/recommend', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({target_address: target, victim_balance_usd: 68000000,
+      wallet_type: document.getElementById("grind-wallet").value,
+      budget_seconds: 120, address_format: fmt})
+  }).then(r => r.json()).catch(() => null);
+
+  if (!res || !res.success) {
+    document.getElementById("grind-advisor-output").style.display = "block";
+    document.getElementById("grind-advisor-defense").innerHTML = '';
+    document.getElementById("grind-advisor-reasons").innerHTML =
+      '<span style="color:var(--danger);">' + (res && res.error ? res.error : "API nicht erreichbar") + '</span>';
+    return;
+  }
+
+  var rec = res.recommendation;
+  grindAdvisorRec = rec;
+  // Wallet-Defense-Status (Stand 2026): aktiv = Angriff wird geblockt
+  var defHtml = '';
+  if (rec.wallet_defense) {
+    var d = rec.wallet_defense;
+    var col = d.status === 'active' ? 'var(--danger)' : d.status === 'partial' ? 'var(--warning)' : 'var(--success)';
+    var lbl = d.status === 'active' ? '⛔ DEFENSE AKTIV' : d.status === 'partial' ? '⚠ TEILWEISE' : '✓ KEINE DEFENSE';
+    defHtml = '<span style="color:' + col + '; font-weight:600;">' + lbl +
+      (d.since ? ' seit ' + d.since : '') + '</span> — ' + d.mechanism;
+  }
+  document.getElementById("grind-advisor-defense").innerHTML = defHtml;
+  document.getElementById("grind-advisor-output").style.display = "block";
+  document.getElementById("grind-advisor-reasons").innerHTML =
+    rec.reasoning.map(r => '• ' + r).join('<br>') +
+    '<br><span style="color:var(--accent); font-weight:600;">→ Empfehlung: ' + rec.prefix_len + '+' + rec.suffix_len +
+    ' (' + rec.match_mode + '), ~' + rec.expected_attempts.toLocaleString("de-DE") + ' Versuche — CPU ' +
+    rec.est_seconds_cpu + 's / GPU ' + rec.est_seconds_gpu + 's</span>';
+  document.getElementById("grind-expected").textContent = "~" + rec.expected_attempts.toLocaleString("de-DE");
+  // Empfehlung in die Controls übernehmen — sichtbar was der Analyzer entschieden hat
+  document.getElementById("grind-prefix").value = rec.prefix_len;
+  document.getElementById("grind-suffix").value = rec.suffix_len;
+  document.getElementById("grind-mode").value = rec.match_mode;
+}
+
+async function startGrind() {
+  var target = document.getElementById("grind-target-input").value.trim();
+  var p = parseInt(document.getElementById("grind-prefix").value);
+  var s = parseInt(document.getElementById("grind-suffix").value);
+
+  if (p + s === 0) { alert("Mindestens 1 Zeichen vorne oder hinten wählen"); return; }
+
+  var res = await fetch(API_BASE + '/grinder/start', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      target_address: target,
+      prefix_len: p,
+      suffix_len: s,
+      match_mode: document.getElementById("grind-mode").value,
+      address_format: document.getElementById("grind-format").value,
+      top_n: 5,
+      max_duration_seconds: 300
+    })
+  }).then(r => r.json()).catch(() => null);
+
+  if (!res || !res.success) {
+    alert(res && res.error ? res.error : "API nicht erreichbar — Backend auf :5001 starten");
+    return;
+  }
+
+  document.getElementById("grind-start-btn").style.display = "none";
+  document.getElementById("grind-stop-btn").style.display = "";
+  document.getElementById("grind-state-badge").textContent = "Läuft";
+  document.getElementById("grind-state-badge").style.color = "var(--accent)";
+
+  grindPollInterval = setInterval(pollGrindStatus, 300);
+}
+
+async function stopGrind() {
+  await fetch(API_BASE + '/grinder/stop', {method: 'POST'}).catch(() => {});
+  finishGrindUI("Gestoppt", "var(--warning)");
+}
+
+// ===== Kampagnen-Ökonomie =====
+var selectedChains = ['ethereum', 'bsc'];   // Default: Masse (BSC) + Ertrag (ETH)
+var ECON_CHAINS = ['ethereum', 'bsc', 'polygon', 'arbitrum', 'base', 'tron', 'solana'];
+
+function renderChainChips() {
+  var el = document.getElementById("econ-chain-chips");
+  if (!el) return;
+  el.innerHTML = ECON_CHAINS.map(c => {
+    var on = selectedChains.includes(c);
+    return '<span onclick="toggleChain(\'' + c + '\')" style="cursor:pointer; padding:5px 12px; border-radius:14px; font-size:11px; font-family:var(--mono); ' +
+      'border:1px solid ' + (on ? 'var(--accent)' : 'var(--border)') + '; ' +
+      'background:' + (on ? 'rgba(99,102,241,0.15)' : 'var(--bg)') + '; ' +
+      'color:' + (on ? 'var(--accent)' : 'var(--text-muted)') + '; user-select:none;">' +
+      (on ? '● ' : '○ ') + c + '</span>';
+  }).join('');
+}
+
+function toggleChain(c) {
+  var i = selectedChains.indexOf(c);
+  if (i >= 0) { if (selectedChains.length > 1) selectedChains.splice(i, 1); }
+  else selectedChains.push(c);
+  renderChainChips();
+  loadCampaignEconomics();
+}
+renderChainChips();
+async function loadDefenseMatrix() {
+  var el = document.getElementById('defense-matrix');
+  if (!el) return;
+  var res = await fetch(API_BASE + '/grinder/defenses').then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!res || !res.wallets) {
+    el.innerHTML = '<div style="font-size:11px; color:var(--text-muted);">API nicht erreichbar</div>';
+    return;
+  }
+  var names = {metamask:'MetaMask', trustwallet:'Trust Wallet', coinbase:'Coinbase Wallet',
+               tronlink:'TronLink', phantom:'Phantom', explorer:'Explorer-Check', paranoid:'Manuell'};
+  var lbl = {active:'⛔ aktiv', partial:'◐ teilweise', none:'✓ keine'};
+  var col = {active:'var(--danger)', partial:'var(--warning)', none:'var(--success)'};
+  var rows = Object.keys(res.wallets).map(function(k) {
+    var w = res.wallets[k];
+    var disp = res.displays[k] || ['—','—'];
+    return '<tr>' +
+      '<td style="padding:7px 8px; font-weight:500;">' + (names[k] || k) + '</td>' +
+      '<td class="mono" style="padding:7px 8px; color:var(--text-muted);">' + disp[0] + '+' + disp[1] + '</td>' +
+      '<td style="padding:7px 8px; color:' + col[w.status] + '; font-weight:600; white-space:nowrap;">' + lbl[w.status] + (w.since ? ' ’' + String(w.since).slice(2) : '') + '</td>' +
+      '<td style="padding:7px 8px; color:var(--text-secondary);">' + w.impact + '</td>' +
+    '</tr>';
+  }).join('');
+  el.innerHTML = '<table style="width:100%; border-collapse:collapse; font-size:11px;">' +
+    '<tr style="text-align:left; color:var(--text-muted); border-bottom:1px solid var(--border);">' +
+    '<th style="padding:6px 8px;">Wallet</th><th style="padding:6px 8px;">Zeigt</th>' +
+    '<th style="padding:6px 8px;">Defense</th><th style="padding:6px 8px;">Konsequenz</th></tr>' + rows + '</table>';
+}
+if (document.getElementById('defense-matrix')) loadDefenseMatrix();
+if (document.getElementById("grind-format")) updateGrindEstimate();
+
+async function loadCampaignEconomics() {
+  var entries = parseInt(document.getElementById("econ-entries").value) || 1000000;
+  var victim = parseFloat(document.getElementById("econ-victim").value) || 0;
+  var res = await fetch(API_BASE + '/campaign/economics?chain=all&entries=' + entries + '&victim_value=' + victim)
+    .then(r => r.ok ? r.json() : null).catch(() => null);
+  var tbl = document.getElementById("econ-table");
+  var ins = document.getElementById("econ-insight");
+  if (!res || !res.chains) {
+    tbl.innerHTML = '<div style="font-size:11px; color:var(--danger);">API nicht erreichbar</div>';
+    return;
+  }
+  var fmt$ = v => v >= 1000 ? '$' + v.toLocaleString("de-DE", {maximumFractionDigits: 0})
+                            : '$' + v.toLocaleString("de-DE", {minimumFractionDigits: 2, maximumFractionDigits: 4});
+  var html = '<table style="width:100%; border-collapse:collapse; font-size:11px;">' +
+    '<tr style="color:var(--text-muted); text-align:left;">' +
+    '<th style="padding:6px 8px; border-bottom:1px solid var(--border);">Chain</th>' +
+    '<th style="padding:6px 8px; border-bottom:1px solid var(--border);">$/Eintrag</th>' +
+    '<th style="padding:6px 8px; border-bottom:1px solid var(--border);">Gesamtkosten</th>' +
+    '<th style="padding:6px 8px; border-bottom:1px solid var(--border);">E[Erfolge]</th>' +
+    '<th style="padding:6px 8px; border-bottom:1px solid var(--border);">Kosten bis 1. Erfolg</th>' +
+    '<th style="padding:6px 8px; border-bottom:1px solid var(--border);">ROI</th></tr>';
+  res.chains.forEach(c => {
+    var roiColor = c.roi_percent > 0 ? 'var(--accent)' : 'var(--danger)';
+    var sel = selectedChains.includes(c.chain);
+    html += '<tr title="' + (c.chain_note || '').replace(/"/g, "'") + '" style="' + (sel ? 'background:rgba(99,102,241,0.08);' : '') + '">' +
+      '<td class="mono" style="padding:6px 8px; color:var(--text-primary);">' + (sel ? '● ' : '') + c.chain + '</td>' +
+      '<td class="mono" style="padding:6px 8px;">' + fmt$(c.cost_per_entry_usd) + '</td>' +
+      '<td class="mono" style="padding:6px 8px;">' + fmt$(c.total_cost_usd) + '</td>' +
+      '<td class="mono" style="padding:6px 8px;">' + c.expected_successes.toFixed(1) + '</td>' +
+      '<td class="mono" style="padding:6px 8px;">' + fmt$(c.cost_to_first_success_usd) + '</td>' +
+      '<td class="mono" style="padding:6px 8px; color:' + roiColor + '; font-weight:600;">' +
+        (c.roi_percent > 0 ? '+' : '') + c.roi_percent.toLocaleString("de-DE") + '%</td></tr>';
+  });
+  tbl.innerHTML = html + '</table>';
+
+  var best = res.chains[0];
+  ins.innerHTML =
+    'Erster Erfolg statistisch nach ~' + best.entries_to_first_success.toLocaleString("de-DE") +
+    ' Einträgen (geometrische Erwartung, p = ' + best.p_success_per_entry.toExponential(1) + '). ' +
+    'Erlös pro Erfolg: Mittel <b>' + fmt$(best.revenue_mean_usd) + '</b>, Median ' + fmt$(best.revenue_median_usd) +
+    ' — stark Whale-verzerrt. ' + (victim > 0
+      ? 'Gezieltes Opfer ($' + victim.toLocaleString("de-DE") + '): ein einziger Treffer deckt jede Kampagne — deshalb lohnt sich Targeting, nicht Masse.'
+      : 'Ethereum-Spray ist rechnerisch knapp unter Break-even (Bitquery: "roughly break-even") — deshalb liefen die Massen-Angriffe auf BSC/Polygon/Tron, wo Einträge ~1 Cent oder gratis kosten. Das Geschäft bleibt profitabel solange Wallets kürzen und Menschen aus der History kopieren — ein Usability-Problem, kein patchbarer Bug.') +
+    ' Quelle: ' + best.stats_source;
+
+  // Alle dokumentierten Gas-/Kosten-Tricks der Praxis
+  var gt = document.getElementById("econ-gas-tricks");
+  if (res.gas_tricks && res.gas_tricks.length) {
+    gt.innerHTML = '<div style="font-size:11px; font-weight:600; color:var(--accent); margin-bottom:6px;">Alle Gas-Tricks der Praxis (dokumentiert):</div>' +
+      res.gas_tricks.map(t =>
+        '<div style="font-size:10px; color:var(--text-secondary); line-height:1.6; padding-left:10px; border-left:2px solid var(--border); margin-bottom:4px;">' +
+        t.text + '</div>').join('');
+  }
+}
+loadCampaignEconomics();
+
+function finishGrindUI(label, color) {
+  if (grindPollInterval) { clearInterval(grindPollInterval); grindPollInterval = null; }
+  document.getElementById("grind-start-btn").style.display = "";
+  document.getElementById("grind-stop-btn").style.display = "none";
+  document.getElementById("grind-state-badge").textContent = label;
+  document.getElementById("grind-state-badge").style.color = color;
+}
+
+async function pollGrindStatus() {
+  const s = await fetchAPI('/grinder/status');
+  if (!s || !s.state) return;
+
+  document.getElementById("grind-attempts").textContent = s.attempts.toLocaleString("de-DE");
+  document.getElementById("grind-live-rate").textContent = Math.round(s.keys_per_second).toLocaleString("de-DE") + " k/s";
+  var algoLabels = {
+    'incremental': ' · profanity-Algorithmus (Q += G)',
+    'ed25519-fresh': ' · ed25519 (frische Keys — kein Increment möglich)',
+    'create2-salt': ' · CREATE2 Salt-Grinding (reine Keccak-Loop, keine EC-Mathematik)',
+    'regenerate': ''
+  };
+  document.getElementById("grind-workers").textContent = s.workers ? s.workers + " CPU-Kerne" + (algoLabels[s.algorithm] || '') : "";
+  document.getElementById("grind-elapsed").textContent = s.elapsed_seconds.toFixed(1) + "s";
+  document.getElementById("grind-live-progress").style.width = s.progress + "%";
+
+  if (s.target_address && s.prefix_len) {
+    var isEvm = !s.address_format || s.address_format === 'evm';
+    var hex = isEvm ? s.target_address.slice(2) : s.target_address;
+    var p = hex.slice(0, s.prefix_len), suf = s.suffix_len > 0 ? hex.slice(-s.suffix_len) : "";
+    document.getElementById("grind-pattern").textContent = (isEvm ? "0x" : "") + p + "…" + suf;
+  }
+
+  if (s.best_candidate) {
+    document.getElementById("grind-best").textContent =
+      s.best_candidate + "  (Score: " + s.best_candidate_score + " Zeichen)";
+  }
+
+  if (s.state === 'found' && s.result) {
+    renderGrindResult(s.result, s);
+    finishGrindUI("Gefunden", "var(--success)");
+  } else if (s.state === 'stopped' || s.state === 'idle') {
+    finishGrindUI("Bereit", "");
+  }
+}
+
+function renderGrindResult(r, s) {
+  var isEvm = !s || !s.address_format || s.address_format === 'evm' || s.address_format === 'create2';
+  var strip = function(a) { return a.indexOf('0x') === 0 ? a.slice(2) : a; };
+  var pfx = function(a) { return a.indexOf('0x') === 0 ? '0x' : ''; };
+  var hex = strip(r.lookalike_address);
+  var p = r.prefix_match, suf = r.suffix_match;
+  var addr =
+    pfx(r.lookalike_address) + '<span style="color:var(--success); font-weight:600;">' + hex.slice(0, p) + '</span>' +
+    hex.slice(p, hex.length - suf) +
+    '<span style="color:var(--success); font-weight:600;">' + hex.slice(-suf) + '</span>';
+
+  var thex = strip(r.target_address);
+  var taddr =
+    pfx(r.target_address) + '<span style="color:var(--warning);">' + thex.slice(0, p) + '</span>' +
+    thex.slice(p, thex.length - suf) +
+    '<span style="color:var(--warning);">' + thex.slice(-suf) + '</span>';
+
+  var html =
+    '<div style="margin-bottom:12px;">' +
+      '<div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">Zieladresse</div>' +
+      '<div class="mono" style="font-size:12px; word-break:break-all;">' + taddr + '</div>' +
+    '</div>' +
+    '<div style="margin-bottom:12px;">' +
+      '<div style="font-size:11px; color:var(--text-muted); margin-bottom:2px;">Lookalike (gefundene Adresse)</div>' +
+      '<div class="mono" style="font-size:12px; word-break:break-all;">' + addr + '</div>' +
+    '</div>' +
+    '<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:12px;">' +
+      '<div><div style="font-size:11px; color:var(--text-muted);">Versuche</div><div class="mono" style="font-size:14px;">' + r.attempts.toLocaleString("de-DE") + '</div></div>' +
+      '<div><div style="font-size:11px; color:var(--text-muted);">Dauer</div><div class="mono" style="font-size:14px;">' + r.duration_seconds + 's</div></div>' +
+      '<div><div style="font-size:11px; color:var(--text-muted);">Match</div><div class="mono" style="font-size:14px;">' + p + '+' + suf + ' Zeichen</div></div>' +
+    '</div>' +
+    '<div style="background:var(--bg); border:1px solid var(--danger); border-radius:6px; padding:10px; margin-bottom:12px;">' +
+      '<div style="font-size:11px; color:var(--danger); margin-bottom:4px;">' +
+        (s && s.address_format === 'solana' ? 'ed25519 Keypair — seed‖pubkey, 64 Bytes (nur Demo)'
+         : s && s.address_format === 'create2' ? 'CREATE2 Salt — kein Private Key (keccak(0xff‖deployer‖salt‖init_code))'
+         : 'Private Key (nur Demo — niemals exponieren)') +
+      '</div>' +
+      '<div class="mono" style="font-size:10px; color:var(--text-muted); word-break:break-all;">' + r.private_key + '</div>' +
+    '</div>';
+
+  // Top-N Kandidaten (wie profanity — sammelt beste Treffer)
+  if (r.top_candidates && r.top_candidates.length > 1) {
+    html += '<div style="font-size:11px; color:var(--text-muted); margin-bottom:6px;">Top-' + r.top_candidates.length + ' Kandidaten (Score-basiert, wie profanity)</div>';
+    r.top_candidates.forEach(function(c) {
+      var ch = strip(c.address);
+      var chP = Math.min(p, ch.length);
+      html += '<div class="mono" style="font-size:11px; padding:4px 8px; background:var(--bg); border-radius:4px; margin-bottom:3px; word-break:break-all;">' +
+        pfx(c.address) + '<span style="color:var(--success);">' + ch.slice(0, chP) + '</span>' + ch.slice(chP) +
+        ' <span style="color:var(--text-muted); margin-left:8px;">Score ' + c.score + ' · ' + c.attempts.toLocaleString("de-DE") + ' Versuche' + (c.eip55_match ? ' · EIP-55' : '') + '</span></div>';
+    });
+  }
+
+  document.getElementById("grind-result-body").innerHTML = html;
+  document.getElementById("grind-result-badge").textContent = "Match gefunden";
+  document.getElementById("grind-result-badge").style.color = "var(--success)";
+}
+
+// Logs — echte Einträge kommen über /api/logs in updateStats
+// GPU-Status — echte Werte vom Scaler
+async function updateGPUStatus() {
+  const res = await fetchAPI('/gpu/status');
+  const badge = document.getElementById('gpu-badge');
+  const keys = res && res.statuses ? Object.keys(res.statuses) : [];
+  if (!keys.length) {
+    badge.textContent = 'Nicht konfiguriert';
+    badge.style.background = 'var(--border)';
+    return;
+  }
+  badge.textContent = 'Autoscaler aktiv';
+  badge.style.background = 'var(--success)';
+  let totalGpus = 0, totalCost = 0, queue = 0, maxGpus = 0;
+  keys.forEach(k => {
+    const s = res.statuses[k];
+    totalGpus += s.current_gpus || 0;
+    maxGpus += s.max_gpus || 0;
+    totalCost += s.estimated_cost_per_hour || 0;
+    queue += s.queue_length || 0;
+  });
+  document.getElementById('gpu-current').textContent = totalGpus;
+  document.getElementById('gpu-max').textContent = maxGpus;
+  document.getElementById('gpu-cost').textContent = '$' + totalCost.toFixed(2);
+  document.getElementById('gpu-queue').textContent = queue;
+
+  // Provider dynamisch aus dem konfigurierten Scaler
+  const provEl = document.getElementById('gpu-providers');
+  if (res.providers) {
+    provEl.innerHTML = keys.map(k => {
+      const p = res.providers[k], s = res.statuses[k];
+      const up = s.current_gpus > 0;
+      return '<div style="display:flex; justify-content:space-between; align-items:center;">'
+        + '<div><div style="font-size:13px; color:var(--text-primary); font-weight:500;">' + p.name + '</div>'
+        + '<div style="font-size:11px; color:var(--text-muted);">' + p.gpu_type + ' · $' + p.cost_per_hour_usd.toFixed(2) + '/h · ' + s.current_gpus + '/' + p.max_gpus + ' GPUs</div></div>'
+        + '<div class="card-badge" style="background:' + (up ? 'var(--success)' : 'var(--border)') + ';">' + (up ? 'Skaliert' : 'Scale-to-Zero') + '</div></div>';
+    }).join('');
+  }
+
+  // Job-Pipeline + Scale-Events
+  const jobs = await fetchAPI('/gpu/jobs');
+  if (jobs && jobs.success) {
+    const all = [...(jobs.queued || []), ...(jobs.running || []), ...(jobs.done || []).slice(-8)];
+    const stColor = {queued: 'var(--warning)', running: 'var(--accent)', done: 'var(--success)', failed: 'var(--danger, #ef4444)'};
+    const el = document.getElementById('gpu-jobs');
+    el.innerHTML = all.length ? all.map(j =>
+      '<div class="feed-item"><div style="display:flex; justify-content:space-between; align-items:center;">'
+      + '<div><span class="mono" style="font-size:12px;">' + j.job_id + '</span>'
+      + '<span style="font-size:11px; color:var(--text-muted);"> · ' + j.job_type + ' · ' + (j.keyspace || 0).toLocaleString('de-DE') + ' Keys</span></div>'
+      + '<span class="card-badge" style="background:' + (stColor[j.state] || 'var(--border)') + ';">' + j.state + '</span></div>'
+      + (j.state === 'running' ? '<div style="font-size:11px; color:var(--text-muted); margin-top:4px;">→ ' + (j.assigned_provider || '?') + ' (' + j.assigned_gpus + ' GPU) · ' + j.progress + '%</div>' : '')
+      + (j.result_summary ? '<div style="font-size:11px; color:var(--text-muted); margin-top:4px;">' + j.result_summary + '</div>' : '')
+      + '</div>').join('') : el.innerHTML;
+  }
+  const ev = await fetchAPI('/gpu/events');
+  if (ev && ev.success && ev.events.length) {
+    document.getElementById('gpu-events').innerHTML = ev.events.slice().reverse().map(e =>
+      '<div class="feed-item"><div style="display:flex; justify-content:space-between;">'
+      + '<span style="font-size:12px;"><strong>' + e.action + '</strong> ' + e.provider + ': ' + e.from_gpus + ' → ' + e.to_gpus + ' GPUs</span>'
+      + '<span class="mono" style="font-size:11px; color:var(--text-muted);">' + e.timestamp.slice(11, 19) + '</span></div>'
+      + '<div style="font-size:11px; color:var(--text-muted);">' + e.reason + ' · Δ $' + e.cost_impact_usd.toFixed(2) + '/h</div></div>'
+    ).join('');
+  }
+}
+
+async function submitGPUJob() {
+  const res = await fetch(API_BASE + '/gpu/submit', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({batch: 50000})
+  }).then(r => r.json()).catch(() => null);
+  alert(res && res.success
+    ? 'Job ' + res.job.job_id + ' in Queue — Autoscaler skaliert jetzt hoch und dispatched'
+    : 'Fehlgeschlagen: ' + ((res && res.error) || 'API nicht erreichbar'));
+  updateGPUStatus();
+}
+
+// Chain-Status — live vom konfigurierten RPC
+async function updateChainState() {
+  const res = await fetchAPI('/chain/state');
+  if (!res || !res.success) return;
+  const badge = document.getElementById('chain-status-badge');
+  if (!res.configured || !res.connected) {
+    badge.textContent = res.configured ? 'RPC nicht erreichbar' : 'Nicht konfiguriert';
+    badge.style.background = res.configured ? 'var(--accent)' : 'var(--border)';
+    return;
+  }
+  badge.textContent = 'Verbunden';
+  badge.style.background = 'var(--success)';
+  document.getElementById('chain-name').textContent = 'Chain ' + res.chain_id;
+  document.getElementById('chain-block').textContent = (res.block_number || 0).toLocaleString('de-DE');
+  document.getElementById('chain-gas').textContent = res.gas_price_gwei + ' Gwei';
+  const a = res.address || '';
+  document.getElementById('chain-address').textContent = a ? a.slice(0,8) + '…' + a.slice(-4) : '-';
+}
+
+setInterval(updateStats, 2000);
+setInterval(updateGPUStatus, 5000);
+setInterval(updateChainState, 5000);
+updateStats();
+updateGPUStatus();
+updateChainState();
+renderRpcProviders();
+
+// State-of-the-Art Functions
+async function trainMLModel() {
+  try {
+    // Ohne X/y → Backend generiert regelbasiert gelabelte Profile (USENIX-Opfer-Profil)
+    const response = await fetch(API_BASE + '/ml/train', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({})
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('ml-accuracy').textContent = (data.metadata.accuracy * 100).toFixed(1) + '%';
+      document.getElementById('ml-precision').textContent = (data.metadata.precision * 100).toFixed(1) + '%';
+      document.getElementById('ml-recall').textContent = (data.metadata.recall * 100).toFixed(1) + '%';
+      document.getElementById('ml-f1').textContent = (data.metadata.f1 * 100).toFixed(1) + '%';
+      const badge = document.getElementById('ml-badge');
+      badge.textContent = 'Trainiert';
+      badge.style.background = 'var(--success)';
+      renderFeatureImportance(data.metadata.feature_importance || {});
+      const top = Object.entries(data.metadata.feature_importance || {}).slice(0, 3)
+        .map(([k, v]) => k + ' ' + (v * 100).toFixed(0) + '%').join(', ');
+      alert('Training fertig — ' + data.samples + ' gelabelte Profile (' + (data.data_source || 'custom') + ')' +
+        (data.real_labels ? '\n+ ' + data.real_labels + ' echte Treffer-Labels aus dem Live-Feed' : '') +
+        '\nTop-Features: ' + top);
+    } else {
+      alert('Fehler: ' + (data.error || 'unbekannt'));
+    }
+  } catch (error) {
+    console.error('ML Training Error:', error);
+    alert('Training Failed - API nicht erreichbar');
+  }
+}
+
+async function configureGPU() {
+  const provider = prompt('Provider (lambdax/cloudrun):', 'lambdax');
+  const gpuType = prompt('GPU Type (A100/L4):', 'A100');
+  const maxGpus = prompt('Max GPUs:', '10');
+  
+  try {
+    const response = await fetch(API_BASE + '/gpu/configure', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        provider: provider,
+        gpu_type: gpuType,
+        max_gpus: parseInt(maxGpus)
+      })
+    });
+    const data = await response.json();
+    alert(data.success
+      ? 'Provider konfiguriert — Autoscaler läuft, Jobs können in die Queue'
+      : 'Konfiguration fehlgeschlagen: ' + (data.error || 'unbekannt'));
+    updateGPUStatus();
+  } catch (error) {
+    console.error('GPU Config Error:', error);
+    alert('Konfiguration fehlgeschlagen — API nicht erreichbar');
+  }
+}
+
+async function configureChain() {
+  const rpcUrl = prompt('RPC URL:', 'https://eth.llamarpc.com');
+  const chainId = prompt('Chain ID:', '1');
+  const privateKey = prompt('Private Key:', '');
+  
+  try {
+    const response = await fetch(API_BASE + '/chain/configure', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        rpc_url: rpcUrl,
+        chain_id: parseInt(chainId),
+        private_key: privateKey
+      })
+    });
+    const data = await response.json();
+    if (data.success) {
+      alert(data.demo_key_generated
+        ? 'Chain Configured — Demo-Key generiert: ' + data.demo_address
+        : 'Chain Configured!');
+      updateChainState();
+    } else {
+      alert(data.error || 'Configuration Failed');
+    }
+  } catch (error) {
+    console.error('Chain Config Error:', error);
+    alert('Configuration Failed - Using Demo Mode');
+  }
+}
+
+async function sendTransaction() {
+  const from = document.getElementById('tx-from').value.trim();
+  const to = document.getElementById('tx-to').value.trim();
+  const value = document.getElementById('tx-value').value.trim() || '0x0';
+  const res = document.getElementById('tx-result');
+  if (!from || !to) { res.textContent = 'From/To fehlen'; res.style.color = 'var(--accent)'; return; }
+  res.textContent = 'Sende…';
+  try {
+    const r = await fetch(API_BASE + '/chain/send', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({from_address: from, to_address: to, value})
+    });
+    const d = await r.json();
+    if (d.success || d.tx_hash) {
+      res.textContent = 'TX: ' + (d.tx_hash || JSON.stringify(d)).slice(0, 80);
+      res.style.color = 'var(--success)';
+    } else {
+      res.textContent = 'Fehler: ' + (d.error || 'unbekannt — Chain konfiguriert?');
+      res.style.color = 'var(--accent)';
+    }
+  } catch (e) {
+    res.textContent = 'API nicht erreichbar';
+    res.style.color = 'var(--accent)';
+  }
+}
+
+// Autonomous Agent Functions
+async function startAgent() {
+  try {
+    const response = await fetch(API_BASE + '/agent/start', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'}
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('agent-status-badge').textContent = 'Aktiv';
+      document.getElementById('agent-status-badge').style.background = 'var(--success)';
+      alert('Autonomous Agent started!');
+    }
+  } catch (error) {
+    console.error('Agent Start Error:', error);
+    alert('Start Failed - Using Demo Mode');
+  }
+}
+
+async function stopAgent() {
+  try {
+    const response = await fetch(API_BASE + '/agent/stop', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'}
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('agent-status-badge').textContent = 'Inaktiv';
+      document.getElementById('agent-status-badge').style.background = 'var(--border)';
+      alert('Autonomous Agent stopped!');
+    }
+  } catch (error) {
+    console.error('Agent Stop Error:', error);
+    alert('Stop Failed - Using Demo Mode');
+  }
+}
+
+async function updateAgentState() {
+  try {
+    const response = await fetch(API_BASE + '/agent/state');
+    const data = await response.json();
+    if (data.success) {
+      const state = data.state;
+      document.getElementById('agent-success-rate').textContent = (state.success_rate * 100).toFixed(1) + '%';
+      document.getElementById('agent-learning-rate').textContent = state.learning_rate.toFixed(4);
+      document.getElementById('agent-exploration').textContent = state.exploration_rate.toFixed(4);
+      document.getElementById('agent-attempts').textContent = state.total_attempts;
+      document.getElementById('agent-target').textContent = state.current_target ? state.current_target.substring(0, 10) + '...' + state.current_target.substring(38) : '-';
+      document.getElementById('agent-target-score').textContent = state.current_target ? state.target_score.toFixed(1) : '-';
+      document.getElementById('agent-timing').textContent = state.current_target ? state.timing_interval + 's' : '-';
+    }
+  } catch (error) {
+    console.error('Agent State Error:', error);
+  }
+
+  // Exchange-DB live rendern
+  const ex = await fetchAPI('/agent/exchanges');
+  const exEl = document.getElementById('exchange-list');
+  if (exEl && ex && ex.exchanges) {
+    const names = Object.keys(ex.exchanges);
+    exEl.innerHTML = names.length === 0
+      ? '<div style="font-size:12px; color:var(--text-muted);">Keine Exchange-Listen geladen</div>'
+      : names.map(n => {
+          const e = ex.exchanges[n];
+          return '<div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:13px; color:var(--text-primary); font-weight:500;">' + n + '</div><div style="font-size:11px; color:var(--text-muted);">' + (e.addresses || []).length + ' addresses</div></div><div class="card-badge" style="background:var(--warning);">Excluded</div></div>';
+        }).join('');
+  }
+}
+
+// Agent State Update Loop
+setInterval(updateAgentState, 5000);
+
+// Targeting Process Functions
+async function startTargetingProcess(presetAddress) {
+  const victimAddress = presetAddress || prompt('Victim Address:', '0x1234567890123456789012345678901234567890');
+  if (!victimAddress) return;
+  
+  try {
+    const response = await fetch(API_BASE + '/targeting/start', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        victim_address: victimAddress,
+        chains: selectedChains
+      })
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('process-status-badge').textContent = 'Aktiv';
+      document.getElementById('process-status-badge').style.background = 'var(--success)';
+      alert('Targeting Process started — Chains: ' + (data.chains || []).join(', '));
+      updateProcessStatus();
+    } else {
+      alert(data.error || 'Start fehlgeschlagen');
+    }
+  } catch (error) {
+    console.error('Process Start Error:', error);
+    alert('Start Failed - Using Demo Mode');
+  }
+}
+
+async function updateProcessStatus() {
+  try {
+    const response = await fetch(API_BASE + '/targeting/status');
+    const data = await response.json();
+    if (data.success) {
+      const process = data.process;
+      
+      // Update Steps
+      const steps = process.steps;
+      for (let i = 0; i < steps.length; i++) {
+        const stepElement = document.querySelectorAll('#process-steps .step-indicator')[i];
+        const statusElement = document.querySelectorAll('#process-steps .card-badge')[i];
+        
+        if (steps[i].status === 'completed') {
+          stepElement.style.background = 'var(--success)';
+          statusElement.style.background = 'var(--success)';
+          statusElement.textContent = 'Done';
+        } else if (steps[i].status === 'failed') {
+          stepElement.style.background = 'var(--danger)';
+          statusElement.style.background = 'var(--danger)';
+          statusElement.textContent = 'Failed';
+        } else if (steps[i].status === 'in_progress') {
+          stepElement.style.background = 'var(--warning)';
+          statusElement.style.background = 'var(--warning)';
+          statusElement.textContent = 'Running';
+        }
+      }
+      
+      // Update SHAP Explanation
+      if (process.shap_explanation) {
+        const shapDiv = document.getElementById('shap-explanation');
+        shapDiv.innerHTML = `
+          <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">SHAP Explanation:</div>
+          <div style="font-size:11px; color:var(--text-muted);">Prediction: ${process.shap_explanation.prediction.toFixed(2)}</div>
+          <div style="font-size:11px; color:var(--text-muted);">Confidence: ${process.shap_explanation.confidence.toFixed(2)}</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:8px;">Top Features:</div>
+          ${process.shap_explanation.top_features.map(f => `
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+              <div style="color:var(--text-secondary);">${f.name}</div>
+              <div class="mono" style="color:var(--text-primary);">${f.value.toFixed(2)}</div>
+            </div>
+          `).join('')}
+        `;
+      }
+
+      // Chain-Artefakte: Lookalikes + TX-Deskriptoren pro Chain
+      var artDiv = document.getElementById('chain-artifacts');
+      if (artDiv && process.lookalikes && Object.keys(process.lookalikes).length) {
+        var ah = '';
+        Object.keys(process.lookalikes).forEach(function(c) {
+          var lk = process.lookalikes[c];
+          if (lk.skipped) {
+            ah += '<div style="padding:8px 10px; background:var(--bg); border-left:2px solid var(--warning); border-radius:4px; font-size:11px;">' +
+              '<b style="color:var(--warning);">' + c + '</b> <span style="color:var(--text-muted);">— ' + lk.reason + '</span></div>';
+          } else {
+            ah += '<div style="padding:8px 10px; background:var(--bg); border-left:2px solid var(--accent); border-radius:4px; font-size:11px;">' +
+              '<b style="color:var(--accent);">' + c + '</b> <span class="mono" style="color:var(--text-primary); word-break:break-all;">' + lk.address + '</span><br>' +
+              '<span style="color:var(--text-muted);">' + lk.algorithm + (lk.shared_key ? ' · gemeinsamer Key' : ' · eigener Key') + '</span></div>';
+          }
+        });
+        if (process.transactions && process.transactions.length) {
+          ah += '<div style="font-size:11px; font-weight:600; color:var(--text-secondary); margin-top:8px;">Simulierte TX-Deskriptoren:</div>';
+          process.transactions.forEach(function(tx) {
+            ah += '<div class="mono" style="font-size:10px; padding:6px 8px; background:var(--bg); border-radius:4px; color:var(--text-muted); word-break:break-all;">' +
+              '<b style="color:var(--text-primary);">' + tx.chain + '</b> ' +
+              (tx.skipped ? '⚠ ' + tx.reason : (tx.function_selector || tx.instruction || tx.type) + ' → ' + (tx.contract_address || tx.program_id || '')) + '</div>';
+          });
+        }
+        artDiv.innerHTML = ah;
+      }
+    }
+  } catch (error) {
+    console.error('Process Status Error:', error);
+  }
+}
+
+// RPC Connector Functions — Provider-Liste wird über das Formular gepflegt
+var rpcProviders = [
+  {name: 'LlamaNodes', url: 'https://sepolia.llamarpc.com', chain_id: 11155111, priority: 1},
+  {name: 'Public Node', url: 'https://sepolia.public.blastapi.io', chain_id: 11155111, priority: 2}
+];
+
+function addRpcProvider() {
+  const name = document.getElementById('rpc-in-name').value.trim();
+  const url = document.getElementById('rpc-in-url').value.trim();
+  const ws = document.getElementById('rpc-in-ws').value.trim();
+  const chainId = parseInt(document.getElementById('rpc-in-chain').value, 10);
+  const tokens = document.getElementById('rpc-in-tokens').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (!name || !url || !chainId) { alert('Name, HTTP-URL und Chain-ID sind Pflicht'); return; }
+  const p = {name, url, chain_id: chainId, priority: rpcProviders.length + 1};
+  if (ws) p.ws_url = ws;
+  if (tokens.length) p.stablecoins = tokens;
+  rpcProviders.push(p);
+  renderRpcProviders();
+  configureRPC();
+}
+
+function renderRpcProviders() {
+  document.getElementById('provider-list').innerHTML = rpcProviders.map(p => `
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="font-size:13px; color:var(--text-primary); font-weight:500;">${p.name}</div>
+        <div style="font-size:11px; color:var(--text-muted);">${p.url.replace(/^https?:\/\//, '')}${p.ws_url ? ' · +WS' : ''}</div>
+      </div>
+      <div class="card-badge" style="background:${p.ws_url ? 'var(--success)' : 'var(--border)'};">${p.ws_url ? 'Live' : 'HTTP'}</div>
+    </div>`).join('');
+}
+
+async function configureRPC() {
+  try {
+    const response = await fetch(API_BASE + '/rpc/configure', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({providers: rpcProviders})
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('rpc-status-badge').textContent = 'Verbunden';
+      document.getElementById('rpc-status-badge').style.background = 'var(--success)';
+      const live = data.live_feed_chains > 0;
+      const badge = document.getElementById('rpc-live-badge');
+      badge.textContent = live ? `Live-Feed: ${data.live_feed_chains} Chain(s)` : 'Live-Feed: aus';
+      badge.style.background = live ? 'var(--success)' : 'var(--border)';
+      updateRPCStatus();
+    } else {
+      alert('RPC-Fehler: ' + (data.error || 'unbekannt'));
+    }
+  } catch (error) {
+    console.error('RPC Config Error:', error);
+    alert('Configuration Failed - Using Demo Mode');
+  }
+}
+
+async function updateRPCStatus() {
+  try {
+    const response = await fetch(API_BASE + '/rpc/status');
+    const data = await response.json();
+    if (data.success && data.statuses) {
+      const status = data.statuses[11155111]; // Sepolia
+      if (status) {
+        document.getElementById('rpc-provider').textContent = status.provider_name;
+        document.getElementById('rpc-block').textContent = status.block_number || '-';
+        document.getElementById('rpc-gas').textContent = status.gas_price ? (status.gas_price / 1e9).toFixed(2) + ' Gwei' : '-';
+        document.getElementById('rpc-latency').textContent = status.latency_ms ? status.latency_ms.toFixed(0) + 'ms' : '-';
+      }
+      const badge = document.getElementById('rpc-live-badge');
+      if (badge) {
+        badge.textContent = data.live_feed ? 'Live-Feed: aktiv' : 'Live-Feed: aus';
+        badge.style.background = data.live_feed ? 'var(--success)' : 'var(--border)';
+      }
+    }
+  } catch (error) {
+    console.error('RPC Status Error:', error);
+  }
+}
+
+// Multi-Agent Functions
+async function configureAgents() {
+  const nodeId = prompt('Node ID:', 'node_001');
+  
+  try {
+    const response = await fetch(API_BASE + '/agents/configure', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({node_id: nodeId})
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('agents-status-badge').textContent = 'Verbunden';
+      document.getElementById('agents-status-badge').style.background = 'var(--success)';
+      alert('Multi-Agent Coordinator configured!');
+      updateAgentsStatus();
+    }
+  } catch (error) {
+    console.error('Agents Config Error:', error);
+    alert('Configuration Failed - Using Demo Mode');
+  }
+}
+
+async function updateAgentsStatus() {
+  try {
+    const response = await fetch(API_BASE + '/agents/status');
+    const data = await response.json();
+    if (data.success) {
+      // Update Agent Nodes
+      const nodes = data.nodes;
+      const leader = data.leader;
+      
+      const nodesDiv = document.getElementById('agent-nodes');
+      if (nodes && Object.keys(nodes).length > 0) {
+        nodesDiv.innerHTML = Object.values(nodes).map(node => `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; color:var(--text-primary); font-weight:500;">${node.node_id}</div>
+              <div style="font-size:11px; color:var(--text-muted);">${node.status} | Performance: ${node.performance_score.toFixed(2)}</div>
+            </div>
+            <div class="card-badge" style="background:${node.status === 'active' ? 'var(--success)' : 'var(--border)'}">${node.status}</div>
+          </div>
+        `).join('');
+      }
+      
+      // Update Leader
+      if (leader) {
+        document.getElementById('consensus-decisions').innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:13px; color:var(--text-primary); font-weight:500;">Leader</div>
+              <div style="font-size:11px; color:var(--text-muted);">${leader.node_id} | Performance: ${leader.performance_score.toFixed(2)}</div>
+            </div>
+            <div class="card-badge" style="background:var(--primary);">Leader</div>
+          </div>
+        `;
+      }
+    }
+  } catch (error) {
+    console.error('Agents Status Error:', error);
+  }
+}
+
+// Policy Attestation Functions
+async function configurePolicy() {
+  const verifierAddress = prompt('Verifier Address:', '0x1234567890123456789012345678901234567890');
+  const privateKey = prompt('Private Key:', '0x' + '0'.repeat(63) + '1');
+  
+  try {
+    const response = await fetch(API_BASE + '/policy/configure', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        verifier_address: verifierAddress,
+        private_key: privateKey
+      })
+    });
+    const data = await response.json();
+    if (data.success) {
+      document.getElementById('policy-status-badge').textContent = 'Konfiguriert';
+      document.getElementById('policy-status-badge').style.background = 'var(--success)';
+      alert('Policy Attestation configured!');
+      updatePolicyStatus();
+    }
+  } catch (error) {
+    console.error('Policy Config Error:', error);
+    alert('Configuration Failed - Using Demo Mode');
+  }
+}
+
+async function updatePolicyStatus() {
+  try {
+    const response = await fetch(API_BASE + '/policy/status');
+    const data = await response.json();
+    if (data.success) {
+      // Update Policy Stats
+      const policies = data.policies || {};
+      document.getElementById('policy-count').textContent = Object.keys(policies).length;
+      document.getElementById('policy-verified').textContent = Object.keys(data.pdr_registry || {}).length;
+      document.getElementById('policy-violations').textContent = data.violations || 0;
+      const listEl = document.getElementById('policy-list');
+      if (listEl) {
+        const ids = Object.keys(policies);
+        listEl.innerHTML = ids.length === 0
+          ? '<div style="font-size:12px; color:var(--text-muted);">Keine Policies definiert — über „Policy definieren" anlegen</div>'
+          : ids.map(pid => {
+              const p = policies[pid] || {};
+              return '<div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="font-size:13px; color:var(--text-primary); font-weight:500;">' + (p.policy_type || pid) + '</div><div style="font-size:11px; color:var(--text-muted);">' + pid + '</div></div><div class="card-badge" style="background:var(--success);">Aktiv</div></div>';
+            }).join('');
+      }
+    }
+  } catch (error) {
+    console.error('Policy Status Error:', error);
+  }
+}
+
+// --- Komplett-Demo: Analyzer → Grind → Poison-TX in einem Lauf ---
+function setDemoPhase(n, state) {
+  var el = document.getElementById('demo-ph' + n);
+  el.style.background = state === 'run' ? 'var(--warning)' : state === 'ok' ? 'var(--success)' : 'var(--border)';
+}
+var demoLines = [];
+function demoStatus(txt, append) {
+  var el = document.getElementById('demo-status');
+  el.style.display = 'block';
+  if (append) demoLines.push(txt); else demoLines = [txt];
+  el.innerHTML = demoLines.join('<br>');
+}
+
+async function runFullDemo() {
+  var fmt = document.getElementById("grind-format").value;
+  var target = document.getElementById("grind-target-input").value.trim();
+  var btn = document.getElementById('demo-run-btn');
+  btn.disabled = true;
+  [1,2,3].forEach(n => setDemoPhase(n, 'idle'));
+
+  try {
+    // Phase 1: Analyzer — entscheidet Pattern + zeigt Wallet-Defense
+    setDemoPhase(1, 'run');
+    demoStatus('Phase 1: Analyzer prüft Zieladresse + Opfer-Wallet…');
+    if (fmt !== 'create2') {
+      var rec = await fetch(API_BASE + '/grinder/recommend', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({target_address: target, victim_balance_usd: 68000000,
+          wallet_type: document.getElementById("grind-wallet").value,
+          budget_seconds: 120, address_format: fmt})
+      }).then(r => r.json()).catch(() => null);
+      if (rec && rec.success) {
+        var r = rec.recommendation;
+        document.getElementById("grind-prefix").value = r.prefix_len;
+        document.getElementById("grind-suffix").value = r.suffix_len;
+        document.getElementById("grind-mode").value = r.match_mode;
+        demoStatus('Phase 1 ✓ — Empfehlung: ' + r.prefix_len + '+' + r.suffix_len +
+          ' (' + r.match_mode + ')' + (r.wallet_defense ? ' | Defense: ' + r.wallet_defense.status : ''));
+      }
+    } else {
+      demoStatus('Phase 1 ✓ — CREATE2: Salt-Grinding, kein Wallet-Profil nötig');
+    }
+    setDemoPhase(1, 'ok');
+
+    // Phase 2: Grind — echter Worker bis Match gefunden
+    setDemoPhase(2, 'run');
+    demoStatus('Phase 2: Grinder läuft (siehe Live-Berechnung)…', true);
+    await startGrind();
+    var found = null;
+    for (var i = 0; i < 600; i++) {
+      await new Promise(function(res){ setTimeout(res, 1000); });
+      var s = await fetchAPI('/grinder/status');
+      if (!s) break;
+      if (s.state === 'found') { found = s.result; break; }
+      if (s.state === 'stopped' || s.state === 'idle') break;
+      demoStatus('Phase 2 läuft: ' + s.attempts.toLocaleString("de-DE") + ' Versuche · ' +
+        Math.round(s.keys_per_second).toLocaleString("de-DE") + ' k/s · Score ' + s.best_candidate_score);
+    }
+    if (!found) {
+      demoStatus('Phase 2 ✗ — kein Match im Zeitfenster (Pattern reduzieren oder länger laufen lassen)');
+      setDemoPhase(2, 'idle'); btn.disabled = false; return;
+    }
+    setDemoPhase(2, 'ok');
+
+    // Phase 3: Targeting-Workflow — Poison-TX-Deskriptoren auf gewählten Chains
+    setDemoPhase(3, 'run');
+    demoStatus('Phase 3: Targeting-Prozess baut Poison-TX auf [' + selectedChains.join(', ') + ']…');
+    await startTargetingProcess(target);
+    showPage('targeting');  // zur Beobachtung wechseln — Steps laufen dort live
+    setDemoPhase(3, 'ok');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// --- UI-Helfer: Navigation, Export, Filter, Settings ---
+
+function showPage(page) {
+  document.querySelectorAll('.nav-item').forEach(function(n) {
+    n.classList.toggle('active', n.dataset.page === page);
+  });
+  document.querySelectorAll('.page').forEach(function(p) {
+    p.classList.toggle('active', p.id === 'page-' + page);
+  });
+}
+
+async function exportJSON(endpoint, name) {
+  const data = await fetchAPI(endpoint);
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name + '-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function filterCards(pageId) {
+  const q = prompt('Filter (Text in Adresse/Titel):', '');
+  if (q === null) return;
+  const needle = q.toLowerCase();
+  document.querySelectorAll('#' + pageId + ' .card, #' + pageId + ' .feed-item, #' + pageId + ' table tr').forEach(function(el) {
+    el.style.display = (!needle || el.textContent.toLowerCase().indexOf(needle) >= 0) ? '' : 'none';
+  });
+}
+
+// --- Settings (localStorage-persistiert) ---
+function loadSettings() {
+  document.getElementById('cfg-api').value = localStorage.getItem('cfg_api') || API_BASE;
+  document.getElementById('cfg-poll').value = localStorage.getItem('cfg_poll') || '3000';
+  document.getElementById('cfg-workers').value = localStorage.getItem('cfg_workers') || '9';
+  document.getElementById('cfg-saved').style.display = 'none';
+}
+function saveSettings() {
+  localStorage.setItem('cfg_api', document.getElementById('cfg-api').value);
+  localStorage.setItem('cfg_poll', document.getElementById('cfg-poll').value);
+  localStorage.setItem('cfg_workers', document.getElementById('cfg-workers').value);
+  API_BASE = document.getElementById('cfg-api').value;
+  document.getElementById('cfg-saved').style.display = 'block';
+}
+if (document.getElementById('cfg-api')) loadSettings();
+
+// --- Neue Handler für Sekundär-Seiten ---
+
+function renderFeatureImportance(fi) {
+  const el = document.getElementById('feature-importance');
+  if (!el) return;
+  const entries = Object.entries(fi).slice(0, 8);
+  if (!entries.length) return;
+  const max = entries[0][1] || 1;
+  el.innerHTML = entries.map(([name, v]) => `
+    <div style="display:flex; align-items:center; gap:8px;">
+      <div style="width:150px; font-size:12px; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis;" title="${name}">${name}</div>
+      <div style="flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden;">
+        <div style="width:${(v / max * 100).toFixed(0)}%; height:100%; background:var(--primary);"></div>
+      </div>
+      <div class="mono" style="font-size:11px; color:var(--text-primary);">${(v * 100).toFixed(1)}%</div>
+    </div>`).join('');
+}
+
+async function predictAddress() {
+  const addr = prompt('Adresse bewerten (0x…):', '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb9');
+  if (!addr) return;
+  const res = await fetch(API_BASE + '/ml/predict', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({address: addr})
+  }).then(r => r.json()).catch(() => null);
+  if (res && res.success) {
+    const score = (res.prediction * 100).toFixed(0);
+    const verdict = res.prediction > 0.5 ? 'LOHNT als Opfer' : 'kein attraktives Opfer';
+    alert(addr.slice(0, 10) + '…\nTarget-Score: ' + score + '% → ' + verdict +
+      '\nModell-Confidence: ' + (res.confidence * 100).toFixed(0) + '% | Quelle: ' + res.data_source);
+  } else {
+    alert((res && res.error) || 'ML-Model nicht trainiert — zuerst "Model Trainieren"');
+  }
+}
+
+async function scaleGPU() {
+  const n = prompt('Ziel-GPU-Anzahl:', '4');
+  if (n === null) return;
+  const res = await fetch(API_BASE + '/gpu/scale', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({target_gpus: parseInt(n)})
+  }).then(r => r.json()).catch(() => null);
+  alert(res && res.success
+    ? 'GPU-Scaling: ' + (res.from_gpus || 0) + ' → ' + res.to_gpus + ' GPUs'
+    : 'Scale fehlgeschlagen: ' + ((res && res.error) || 'API nicht erreichbar'));
+}
+
+async function testRPCConnection() {
+  const res = await fetchAPI('/rpc/status');
+  if (res && res.statuses) {
+    const lines = Object.keys(res.statuses).map(k => k + ': ' + (res.statuses[k].connected ? '✓ verbunden' : '✗ nicht verbunden'));
+    alert('RPC-Status:\n' + (lines.join('\n') || 'Keine Provider konfiguriert'));
+  } else {
+    alert('RPC nicht erreichbar — zuerst Provider konfigurieren');
+  }
+}
+
+async function addAgentNode() {
+  const res = await fetch(API_BASE + '/agents/configure', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({})
+  }).then(r => r.json()).catch(() => null);
+  alert(res && res.success ? 'Node hinzugefügt: ' + (res.node_id || 'ok') : 'Fehler: ' + ((res && res.error) || 'API nicht erreichbar'));
+  updateAgentsStatus();
+}
+
+async function definePolicy() {
+  if (!policyConfigured()) { alert('Zuerst "Policy Konfigurieren" ausführen'); return; }
+  const type = prompt('Policy-Typ (target_selection | timing_optimization | transaction_limits | exchange_exclusion | risk_threshold):', 'risk_threshold');
+  if (!type) return;
+  const res = await fetch(API_BASE + '/policy/define', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({policy_id: 'policy_' + Date.now(), policy_type: type, rules: {}})
+  }).then(r => r.json()).catch(() => null);
+  alert(res && res.success ? 'Policy definiert: ' + res.policy_id : 'Fehler: ' + ((res && res.error) || 'API nicht erreichbar'));
+  updatePolicyStatus();
+}
+function policyConfigured() {
+  const b = document.getElementById('policy-status-badge');
+  return b && b.textContent.indexOf('Nicht') === -1;
+}
+
+function resetTargetingProcess() {
+  document.querySelectorAll('#process-steps .step-indicator').forEach(function(el) {
+    el.style.background = 'var(--border)';
+  });
+  document.querySelectorAll('#process-steps .card-badge').forEach(function(el) {
+    el.style.background = 'var(--border)';
+    el.textContent = 'Pending';
+  });
+  document.getElementById('process-status-badge').textContent = 'Inaktiv';
+  document.getElementById('process-status-badge').style.background = 'var(--border)';
+  const art = document.getElementById('chain-artifacts');
+  if (art) art.innerHTML = '';
+}
+
+// Update Loops
+setInterval(updateProcessStatus, 2000);
+setInterval(updateRPCStatus, 5000);
+setInterval(updateAgentsStatus, 5000);
+setInterval(updatePolicyStatus, 5000);
+</script>
+</body>
+</html>

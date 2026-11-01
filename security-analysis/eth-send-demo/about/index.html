@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About & Methodology — ChainScanner</title>
+<meta name="description" content="How ChainScanner works: read-only multi-chain address intelligence, data sources, coverage and methodology.">
+<meta name="theme-color" content="#4f46e5">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://chainscaner.com/about">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: Inter, -apple-system, sans-serif; background: #f4f6fb; color: #0f172a;
+         margin: 0; padding: 32px 16px 64px; }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+  h2 { font-size: 15px; font-weight: 800; margin-top: 30px; }
+  p, li { font-size: 13.5px; color: #475569; line-height: 1.65; }
+  a { color: #4f46e5; text-decoration: none; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+          padding: 18px 20px; margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 8px; }
+  td, th { text-align: left; padding: 7px 8px; border-bottom: 1px solid #e2e8f0; }
+  th { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .back { font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="back"><a href="/">← ChainScanner</a></p>
+  <h1>About &amp; Methodology</h1>
+  <p>ChainScanner is a read-only address intelligence service. Given any wallet address, it produces a cross-network report of balances, token holdings, active approval exposure and reputation flags — the same data a block explorer shows, aggregated across chains in a single pass.</p>
+
+  <h2>What a scan does</h2>
+  <div class="card">
+    <p><b>EVM addresses (0x…)</b> are queried in parallel across Ethereum, Base, Polygon, Arbitrum, Optimism and BNB Chain:</p>
+    <ul>
+      <li>Native balance via public JSON-RPC nodes</li>
+      <li>Full ERC-20 holdings via public indexer data, including dust and spam-token detection</li>
+      <li>Active token allowances toward known spender contracts (DEX routers, Permit2) verified on-chain</li>
+      <li>USD valuation via public market pricing</li>
+    </ul>
+    <p><b>TRON addresses (T…)</b> return account status, TRX balance, energy allocation, TRC-20 holdings and USDT allowance data from network nodes.</p>
+    <p>Every address, held token contract and spender is matched against the ChainScanner flag database — a curated list of reported scam, drainer and phishing entities.</p>
+  </div>
+
+  <h2>Network coverage</h2>
+  <div class="card">
+    <table>
+      <tr><th>Network</th><th>Balances</th><th>Token discovery</th><th>Approvals</th></tr>
+      <tr><td>Ethereum</td><td>✓</td><td>Full</td><td>✓</td></tr>
+      <tr><td>Base</td><td>✓</td><td>Full</td><td>✓</td></tr>
+      <tr><td>Polygon</td><td>✓</td><td>Full</td><td>✓</td></tr>
+      <tr><td>Arbitrum</td><td>✓</td><td>Full</td><td>✓</td></tr>
+      <tr><td>Optimism</td><td>✓</td><td>Full</td><td>✓</td></tr>
+      <tr><td>BNB Chain</td><td>✓</td><td>Major tokens</td><td>✓</td></tr>
+      <tr><td>TRON</td><td>✓</td><td>TRC-20 + energy</td><td>USDT allowance</td></tr>
+    </table>
+  </div>
+
+  <h2>Data sources</h2>
+  <div class="card">
+    <ul>
+      <li>Public blockchain RPC nodes (balances, allowances, contract reads)</li>
+      <li>Public indexer data (token holdings, metadata, token reputation)</li>
+      <li>Public market pricing for USD valuation</li>
+      <li>ChainScanner flag database (operator-reviewed reports)</li>
+    </ul>
+    <p>All sources are public ledger data. Results are cached for 5 minutes.</p>
+  </div>
+
+  <h2>Limitations</h2>
+  <p>Approval checks cover known major spender contracts; a complete historical allowance audit requires archival indexers and is on the roadmap. Dust marking applies to positions under $0.01. A "clean" result is not a guarantee — always verify counterparties independently.</p>
+
+  <p style="margin-top:28px;font-size:12px;"><a href="/">Scanner</a> · <a href="/verify">Wallet Screening</a> · <a href="/docs">API Docs</a> · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
+</div>
+</body>
+</html>
